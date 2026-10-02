@@ -11,6 +11,7 @@ import com.swp391.beswp.repository.RoleRepository;
 import com.swp391.beswp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Locale;
 import java.util.Optional;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -43,6 +46,7 @@ public class AuthService {
             "070", "076", "077", "078", "079", "089", "090", "093",
             "081", "082", "083", "084", "085", "088", "091", "094"
     );
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -120,6 +124,94 @@ public class AuthService {
                 memberRole.getRoleName(),
                 savedUser.getStatus()
         ));
+    }
+
+    @Transactional
+    public LoginResponse loginWithGoogle(String rawEmail, String googleName, String avatarUrl) {
+        String email = normalizeEmail(rawEmail);
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseGet(() -> createGoogleMemberSafely(email, googleName, avatarUrl));
+
+        Role role = user.getRole();
+        if (!isActive(user) || role == null || !StringUtils.hasText(role.getRoleName())) {
+            throw loginNotAllowed();
+        }
+
+        String accessToken = jwtService.generateToken(user);
+        UserResponse userResponse = new UserResponse(
+                user.getId(),
+                user.getFullName(),
+                user.getUsername(),
+                user.getEmail(),
+                role.getRoleName(),
+                user.getStatus()
+        );
+        return LoginResponse.success(accessToken, jwtService.getExpirationSeconds(), userResponse);
+    }
+
+    private User createGoogleMemberSafely(String email, String googleName, String avatarUrl) {
+        try {
+            return createGoogleMember(email, googleName, avatarUrl);
+        } catch (DataIntegrityViolationException ex) {
+            return userRepository.findByEmailIgnoreCase(email).orElseThrow(() -> ex);
+        }
+    }
+
+    private User createGoogleMember(String email, String googleName, String avatarUrl) {
+        Role memberRole = roleRepository.findByRoleNameIgnoreCase("Member")
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Member role is not configured"
+                ));
+
+        User user = new User();
+        user.setUsername(generateGoogleUsername(email));
+        user.setFullName(normalizeGoogleFullName(googleName, email));
+        user.setEmail(email);
+        user.setAvatarUrl(StringUtils.hasText(avatarUrl) ? avatarUrl : null);
+        user.setPassword(passwordEncoder.encode(randomPassword()));
+        user.setRole(memberRole);
+        user.setStatus("Active");
+
+        return userRepository.saveAndFlush(user);
+    }
+
+    private String generateGoogleUsername(String email) {
+        String localPart = email.substring(0, email.indexOf('@')).toLowerCase(Locale.ROOT);
+        String base = localPart.replaceAll("[^a-z0-9._]", ".")
+                .replaceAll("\\.{2,}", ".")
+                .replaceAll("^\\.|\\.$", "");
+        if (!StringUtils.hasText(base)) {
+            base = "google.user";
+        }
+        base = base.substring(0, Math.min(base.length(), 40));
+
+        String candidate = base;
+        while (userRepository.existsByUsernameIgnoreCase(candidate)) {
+            candidate = base + "." + randomSuffix();
+        }
+        return candidate;
+    }
+
+    private String normalizeGoogleFullName(String googleName, String email) {
+        if (StringUtils.hasText(googleName) && googleName.trim().length() <= 100) {
+            return googleName.trim();
+        }
+        return email.substring(0, email.indexOf('@'));
+    }
+
+    private String randomPassword() {
+        byte[] bytes = new byte[32];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes) + "Aa1!";
+    }
+
+    private String randomSuffix() {
+        byte[] bytes = new byte[5];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]", "a");
     }
 
     private String normalizeIdentifier(String rawIdentifier) {

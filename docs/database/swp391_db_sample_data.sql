@@ -5,14 +5,14 @@
    TÀI KHOẢN ĐĂNG NHẬP (đăng nhập bằng Username/Email, mật khẩu chung: 12345@)
    ---------------------------------------------------------------
    Role           Username       Email                    Mật khẩu
-   Admin          admin          admin@gym.com            12345@
+   Center Manager  admin          admin@gym.com            12345@
    Receptionist   receptionist   receptionist@gym.com     12345@
    Coach          coach          coach@gym.com            12345@
    Member         member         member@gym.com           12345@
 
    LƯU Ý:
    - Cột Password lưu BCrypt hash của mật khẩu 12345@ để khớp BE login.
-   - 4 vai trò (Admin, Receptionist, Coach, Member) là giả định, nhóm
+   - 4 vai trò (Center Manager, Receptionist, Coach, Member) là giả định, nhóm
      chỉnh lại nếu khác.
    - Payment.Amount được hiểu là số tiền THỰC TRẢ sau khi trừ
      Discount_Amount.
@@ -49,7 +49,7 @@ GO
    --------------------------------------------------------------------- */
 SET IDENTITY_INSERT Role ON;
 INSERT INTO Role (Role_ID, Role_Name, Description) VALUES
-(1, N'Admin',        N'Quản trị hệ thống'),
+(1, N'Center Manager', N'Quản trị trung tâm'),
 (2, N'Receptionist', N'Lễ tân: đăng ký gói, thu tiền, hỗ trợ hội viên'),
 (3, N'Coach',        N'Huấn luyện viên: dạy lớp, lập kế hoạch và đánh giá kết quả tập'),
 (4, N'Member',       N'Hội viên phòng tập');
@@ -236,7 +236,7 @@ GO
    --------------------------------------------------------------------- */
 SET IDENTITY_INSERT Activity_Log ON;
 INSERT INTO Activity_Log (Log_ID, User_ID, Action_Type, Target_Entity, Description, Created_At) VALUES
-(1, 1, N'CREATE_CLASS',     N'Class',            N'Admin tạo lớp "Yoga buổi sáng"',                         '2026-09-20 09:00:00.000'),
+(1, 1, N'CREATE_CLASS',     N'Class',            N'Center Manager tạo lớp "Yoga buổi sáng"',                         '2026-09-20 09:00:00.000'),
 (2, 2, N'CREATE_PAYMENT',   N'Payment',          N'Lễ tân ghi nhận thanh toán gói Standard 3 tháng',         '2026-09-01 10:00:00.000'),
 (3, 3, N'CREATE_PLAN',      N'Training_Plan',    N'Huấn luyện viên tạo kế hoạch "Giảm 5kg trong 3 tháng"',   '2026-09-01 14:30:00.000'),
 (4, 4, N'LOGIN',            N'User',             N'Hội viên đăng nhập hệ thống',                             '2026-09-25 08:55:00.000'),

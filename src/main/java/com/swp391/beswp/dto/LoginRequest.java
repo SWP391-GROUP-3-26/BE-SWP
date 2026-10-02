@@ -1,7 +1,7 @@
 package com.swp391.beswp.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,10 +9,11 @@ import lombok.Setter;
 @Setter
 public class LoginRequest {
 
-    @NotBlank
-    @Email
-    private String email;
+    @NotBlank(message = "Identifier is required")
+    @Size(max = 255, message = "Identifier must not exceed 255 characters")
+    private String identifier;
 
-    @NotBlank
+    @NotBlank(message = "Password is required")
+    @Size(max = 72, message = "Password must not exceed 72 characters")
     private String password;
 }

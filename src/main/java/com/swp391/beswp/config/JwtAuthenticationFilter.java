@@ -45,14 +45,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             Map<String, Object> claims = jwtService.validateToken(token);
-            String email = String.valueOf(claims.get("sub"));
-            Object roleId = claims.get("roleId");
-            List<SimpleGrantedAuthority> authorities = roleId == null
+            String principal = String.valueOf(claims.get("sub"));
+            Object role = claims.get("role");
+            List<SimpleGrantedAuthority> authorities = role == null
                     ? List.of()
-                    : List.of(new SimpleGrantedAuthority("ROLE_" + roleId));
+                    : List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(email, null, authorities);
+                    new UsernamePasswordAuthenticationToken(principal, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (RuntimeException ignored) {
             SecurityContextHolder.clearContext();

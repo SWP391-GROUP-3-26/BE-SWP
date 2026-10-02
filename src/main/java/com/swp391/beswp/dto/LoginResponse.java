@@ -7,7 +7,25 @@ import lombok.Getter;
 @AllArgsConstructor
 public class LoginResponse {
 
-    private String accessToken;
-    private Integer userId;
-    private Integer roleId;
+    private boolean success;
+    private String message;
+    private LoginData data;
+
+    public static LoginResponse success(String accessToken, long expiresIn, UserResponse user) {
+        return new LoginResponse(
+                true,
+                "Dang nhap thanh cong",
+                new LoginData(accessToken, "Bearer", expiresIn, user)
+        );
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class LoginData {
+
+        private String accessToken;
+        private String tokenType;
+        private long expiresIn;
+        private UserResponse user;
+    }
 }

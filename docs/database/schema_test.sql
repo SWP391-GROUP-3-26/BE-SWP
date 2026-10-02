@@ -30,7 +30,7 @@ A8. All datatypes, lengths, precision, scale and time granularity below are
     Text uses Unicode NVARCHAR; Password stores a caller-provided hash string.
     The following inventory specifies the temporary datatype for EVERY column:
     Role: Role_id INT, Role_Name NVARCHAR(255), Description NVARCHAR(MAX)
-    User: User_ID INT, Role_ID INT, FullName NVARCHAR(255), Phone NVARCHAR(32), Email NVARCHAR(255), DOB DATE, Gender NVARCHAR(50), Address NVARCHAR(500), Avatar_URL NVARCHAR(2048), Password NVARCHAR(255), Status NVARCHAR(50)
+    User: User_ID INT, Role_ID INT, FullName NVARCHAR(255), Username NVARCHAR(50), Phone NVARCHAR(32), Email NVARCHAR(255), DOB DATE, Gender NVARCHAR(50), Address NVARCHAR(500), Avatar_URL NVARCHAR(2048), Password NVARCHAR(255), Status NVARCHAR(50)
     Membership_Package: Package_ID INT, Name NVARCHAR(255), Description NVARCHAR(MAX), Price DECIMAL(18,2), Duration INT, Included_classes INT, Benefits NVARCHAR(MAX), Term_conditions NVARCHAR(MAX), Status NVARCHAR(50)
     Member_Subscription: Subscription_ID INT, User_ID INT, Package_ID INT, Start_Date DATE, End_Date DATE, Status NVARCHAR(50)
     Subject: Subject_ID INT, Name NVARCHAR(255), Description NVARCHAR(MAX)
@@ -108,6 +108,7 @@ CREATE TABLE [dbo].[User] (
     [User_ID] INT NOT NULL,
     [Role_ID] INT NULL,
     [FullName] NVARCHAR(255) NULL,
+    [Username] NVARCHAR(50) NULL,
     [Phone] NVARCHAR(32) NULL,
     [Email] NVARCHAR(255) NULL,
     [DOB] DATE NULL,

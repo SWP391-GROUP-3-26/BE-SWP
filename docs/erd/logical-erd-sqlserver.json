@@ -30,6 +30,12 @@
           "html": "<span style=\"font-weight: 400;\">Role_ID</span>"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-4",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-2",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-5",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-1"
@@ -46,6 +52,12 @@
           "label": "Role_Name"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-7",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-5",
+          "label": "NVARCHAR(50)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-8",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-1"
@@ -60,6 +72,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-8",
           "label": "Description"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-10",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-8",
+          "label": "NVARCHAR(255)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-11",
@@ -85,6 +103,12 @@
           "label": "User_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-14",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-12",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-15",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-11"
@@ -100,6 +124,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-15",
           "label": "Role_ID"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-17",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-15",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-18",
@@ -118,6 +148,12 @@
           "label": "FullName"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-20",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-18",
+          "label": "NVARCHAR(100)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-21",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-11"
@@ -132,6 +168,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-21",
           "label": "Phone"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-23",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-21",
+          "label": "VARCHAR(15)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-24",
@@ -150,6 +192,34 @@
           "label": "Email"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-26",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-24",
+          "label": "VARCHAR(100)"
+        },
+        {
+          "id": "VzublhPKhdgByAhPXy4h-username-row",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-11"
+        },
+        {
+          "id": "VzublhPKhdgByAhPXy4h-username-row-key",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-username-row"
+        },
+        {
+          "id": "VzublhPKhdgByAhPXy4h-username-row-name",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-username-row",
+          "label": "Username"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-username-row-name",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-username-row",
+          "label": "VARCHAR(50)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-27",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-11"
@@ -164,6 +234,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-27",
           "label": "DOB"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-29",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-27",
+          "label": "DATE"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-30",
@@ -182,6 +258,12 @@
           "label": "Gender"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-32",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-30",
+          "label": "NVARCHAR(10)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-33",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-11"
@@ -196,6 +278,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-33",
           "label": "Address"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-35",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-33",
+          "label": "NVARCHAR(255)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-36",
@@ -214,6 +302,12 @@
           "label": "Avatar_URL"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-38",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-36",
+          "label": "VARCHAR(255)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-39",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-11"
@@ -230,6 +324,12 @@
           "label": "\nPassword\n\n"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-41",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-39",
+          "label": "VARCHAR(255)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-42",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-11"
@@ -244,6 +344,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-42",
           "label": "\nStatus\n\n"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-44",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-42",
+          "label": "NVARCHAR(20)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-45",
@@ -269,6 +375,12 @@
           "label": "Package_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-48",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-46",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-49",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-45"
@@ -283,6 +395,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-49",
           "label": "Name"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-51",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-49",
+          "label": "NVARCHAR(100)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-52",
@@ -301,6 +419,12 @@
           "label": "Description"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-54",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-52",
+          "label": "NVARCHAR(MAX)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-55",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-45"
@@ -315,6 +439,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-55",
           "label": "Price"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-57",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-55",
+          "label": "DECIMAL(12,2)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-58",
@@ -333,6 +463,12 @@
           "label": "Duration"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-60",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-58",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-61",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-45"
@@ -347,6 +483,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-61",
           "label": "Included_Classes"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-63",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-61",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-64",
@@ -365,6 +507,12 @@
           "label": "Benefits"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-66",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-64",
+          "label": "NVARCHAR(MAX)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-67",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-45"
@@ -381,6 +529,12 @@
           "label": "Term_Conditions"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-69",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-67",
+          "label": "NVARCHAR(MAX)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-70",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-45"
@@ -395,6 +549,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-70",
           "label": "Status"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-72",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-70",
+          "label": "NVARCHAR(20)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-73",
@@ -420,6 +580,12 @@
           "label": "Subscription_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-76",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-74",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-77",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-73"
@@ -435,6 +601,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-77",
           "label": "User_ID"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-79",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-77",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-80",
@@ -454,6 +626,12 @@
           "label": "Package_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-82",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-80",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-83",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-73"
@@ -468,6 +646,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-83",
           "label": "Start_Date"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-85",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-83",
+          "label": "DATE"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-86",
@@ -486,6 +670,12 @@
           "label": "End_Date"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-88",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-86",
+          "label": "DATE"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-89",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-73"
@@ -500,6 +690,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-89",
           "label": "\nStatus\n\n"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-91",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-89",
+          "label": "NVARCHAR(20)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-92",
@@ -525,6 +721,12 @@
           "label": "Subject_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-95",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-93",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-96",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-92"
@@ -541,6 +743,12 @@
           "label": "Name"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-98",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-96",
+          "label": "NVARCHAR(100)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-99",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-92"
@@ -555,6 +763,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-99",
           "label": "Description"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-101",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-99",
+          "label": "NVARCHAR(MAX)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-102",
@@ -580,6 +794,12 @@
           "label": "Room_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-105",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-103",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-106",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-102"
@@ -596,6 +816,12 @@
           "label": "Name"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-108",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-106",
+          "label": "NVARCHAR(50)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-109",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-102"
@@ -610,6 +836,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-109",
           "label": "Max_Capacity"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-111",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-109",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-112",
@@ -635,6 +867,12 @@
           "label": "Class_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-115",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-113",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-116",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-112"
@@ -650,6 +888,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-116",
           "label": "Subject_ID"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-118",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-116",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-119",
@@ -669,6 +913,12 @@
           "label": "Coach_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-121",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-119",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-122",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-112"
@@ -684,6 +934,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-122",
           "label": "Room_ID"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-124",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-122",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-125",
@@ -702,6 +958,12 @@
           "label": "Name"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-127",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-125",
+          "label": "NVARCHAR(100)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-128",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-112"
@@ -716,6 +978,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-128",
           "label": "Max_Capacity"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-130",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-128",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-131",
@@ -734,6 +1002,12 @@
           "label": "Status"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-133",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-131",
+          "label": "NVARCHAR(20)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-134",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-112"
@@ -750,6 +1024,12 @@
           "label": "Date"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-136",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-134",
+          "label": "DATE"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-137",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-112"
@@ -764,6 +1044,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-137",
           "label": "Time"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-139",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-137",
+          "label": "TIME"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-140",
@@ -789,6 +1075,12 @@
           "label": "Session_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-143",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-141",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-144",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-140"
@@ -807,6 +1099,12 @@
           "label": "Class_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-146",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-144",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-147",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-140"
@@ -821,6 +1119,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-147",
           "label": "Date"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-149",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-147",
+          "label": "DATE"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-150",
@@ -839,6 +1143,12 @@
           "label": "Start_Time"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-152",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-150",
+          "label": "TIME"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-153",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-140"
@@ -855,6 +1165,12 @@
           "label": "End_Time"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-155",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-153",
+          "label": "TIME"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-156",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-140"
@@ -869,6 +1185,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-156",
           "label": "Status"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-158",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-156",
+          "label": "NVARCHAR(20)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-159",
@@ -894,6 +1216,12 @@
           "label": "Booking_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-162",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-160",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-163",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-159"
@@ -910,6 +1238,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-163",
           "label": "User_ID "
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-165",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-163",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-166",
@@ -929,6 +1263,12 @@
           "label": "Session_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-168",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-166",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-169",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-159"
@@ -945,6 +1285,12 @@
           "label": "Booking_Datetime"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-171",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-169",
+          "label": "DATETIME2"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-172",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-159"
@@ -959,6 +1305,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-172",
           "label": "Status"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-174",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-172",
+          "label": "NVARCHAR(20)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-175",
@@ -984,6 +1336,12 @@
           "label": "Payment_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-178",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-176",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-179",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-175"
@@ -999,6 +1357,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-179",
           "label": "Subscription_ID "
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-181",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-179",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-182",
@@ -1018,6 +1382,12 @@
           "label": "Receptionist_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-184",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-182",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-185",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-175"
@@ -1033,6 +1403,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-185",
           "label": "Voucher_ID"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-187",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-185",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-188",
@@ -1053,6 +1429,12 @@
           "html": "<b>Booking_ID</b>"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-190",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-188",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-191",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-175"
@@ -1067,6 +1449,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-191",
           "label": "Payment_Type"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-193",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-191",
+          "label": "NVARCHAR(30)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-194",
@@ -1085,6 +1473,12 @@
           "label": "Amount"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-196",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-194",
+          "label": "DECIMAL(12,2)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-197",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-175"
@@ -1099,6 +1493,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-197",
           "label": "Method"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-199",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-197",
+          "label": "NVARCHAR(30)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-200",
@@ -1117,6 +1517,12 @@
           "label": "Payment_Date"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-202",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-200",
+          "label": "DATETIME2"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-203",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-175"
@@ -1133,6 +1539,12 @@
           "label": "Status"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-205",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-203",
+          "label": "NVARCHAR(20)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-206",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-175"
@@ -1147,6 +1559,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-206",
           "label": "Discount_Amount"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-208",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-206",
+          "label": "DECIMAL(12,2)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-209",
@@ -1172,6 +1590,12 @@
           "label": "Plan_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-212",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-210",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-213",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-209"
@@ -1187,6 +1611,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-213",
           "label": "Coach_ID "
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-215",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-213",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-216",
@@ -1206,6 +1636,12 @@
           "label": "Member_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-218",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-216",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-219",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-209"
@@ -1220,6 +1656,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-219",
           "label": "Goal"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-221",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-219",
+          "label": "NVARCHAR(255)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-222",
@@ -1238,6 +1680,12 @@
           "label": "Description"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-224",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-222",
+          "label": "NVARCHAR(MAX)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-225",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-209"
@@ -1254,6 +1702,12 @@
           "label": "Start_Date"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-227",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-225",
+          "label": "DATE"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-228",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-209"
@@ -1268,6 +1722,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-228",
           "label": "End_Date"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-230",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-228",
+          "label": "DATE"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-231",
@@ -1293,6 +1753,12 @@
           "label": "Attendance_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-234",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-232",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-235",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-231"
@@ -1308,6 +1774,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-235",
           "label": "Session_ID "
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-237",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-235",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-238",
@@ -1327,6 +1799,12 @@
           "label": "User_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-240",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-238",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-241",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-231"
@@ -1343,6 +1821,12 @@
           "label": "Status "
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-243",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-241",
+          "label": "NVARCHAR(20)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-244",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-231"
@@ -1357,6 +1841,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-244",
           "label": "Note"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-246",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-244",
+          "label": "NVARCHAR(255)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-247",
@@ -1382,6 +1872,12 @@
           "label": "Result_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-250",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-248",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-251",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-247"
@@ -1397,6 +1893,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-251",
           "label": "Session_ID "
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-253",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-251",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-254",
@@ -1416,6 +1918,12 @@
           "label": "User_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-256",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-254",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-257",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-247"
@@ -1431,6 +1939,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-257",
           "label": "Coach_ID "
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-259",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-257",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-260",
@@ -1449,6 +1963,12 @@
           "label": "Metric"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-262",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-260",
+          "label": "NVARCHAR(255)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-263",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-247"
@@ -1465,6 +1985,12 @@
           "label": "Coach_Feedback"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-265",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-263",
+          "label": "NVARCHAR(MAX)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-266",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-247"
@@ -1479,6 +2005,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-266",
           "label": "Date"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-268",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-266",
+          "label": "DATE"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-269",
@@ -1616,6 +2148,12 @@
           "label": "Voucher_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-288",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-286",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-289",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-285"
@@ -1630,6 +2168,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-289",
           "label": "Code"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-291",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-289",
+          "label": "VARCHAR(50)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-292",
@@ -1648,6 +2192,12 @@
           "label": "Discount_Type"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-294",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-292",
+          "label": "NVARCHAR(20)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-295",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-285"
@@ -1662,6 +2212,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-295",
           "label": "Discount_Value"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-297",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-295",
+          "label": "DECIMAL(12,2)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-298",
@@ -1680,6 +2236,12 @@
           "label": "Start_Date"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-300",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-298",
+          "label": "DATE"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-301",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-285"
@@ -1694,6 +2256,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-301",
           "label": "End_Date"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-303",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-301",
+          "label": "DATE"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-304",
@@ -1726,6 +2294,12 @@
           "label": "Log_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-308",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-306",
+          "label": "BIGINT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-309",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-305"
@@ -1743,6 +2317,12 @@
           "label": "User_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-311",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-309",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-312",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-305"
@@ -1757,6 +2337,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-312",
           "label": "Action_Type"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-314",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-312",
+          "label": "NVARCHAR(50)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-315",
@@ -1776,6 +2362,12 @@
           "html": "Target_Entity<span style=\"white-space: pre;\">\t</span>"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-317",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-315",
+          "label": "NVARCHAR(100)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-318",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-305"
@@ -1792,6 +2384,12 @@
           "label": "Description"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-320",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-318",
+          "label": "NVARCHAR(MAX)"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-321",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-305"
@@ -1806,6 +2404,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-321",
           "label": "Created_At"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-323",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-321",
+          "label": "DATETIME2"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-324",
@@ -1852,6 +2456,12 @@
           "label": "Schedule_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-330",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-328",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-331",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-327"
@@ -1867,6 +2477,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-331",
           "label": "Subject_ID"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-333",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-331",
+          "label": "INT"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-355",
@@ -1886,6 +2502,12 @@
           "label": "Coach_ID"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-357",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-355",
+          "label": "INT"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-334",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-327"
@@ -1900,6 +2522,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-334",
           "label": "Schedule_Date"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-336",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-334",
+          "label": "DATE"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-337",
@@ -1918,6 +2546,12 @@
           "label": "Start_Time"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-339",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-337",
+          "label": "TIME"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-340",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-327"
@@ -1934,6 +2568,12 @@
           "label": "End_Time"
         },
         {
+          "id": "dt-VzublhPKhdgByAhPXy4h-342",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-340",
+          "label": "TIME"
+        },
+        {
           "id": "VzublhPKhdgByAhPXy4h-343",
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-327"
@@ -1948,6 +2588,12 @@
           "type": "node",
           "parent": "VzublhPKhdgByAhPXy4h-343",
           "label": "Status"
+        },
+        {
+          "id": "dt-VzublhPKhdgByAhPXy4h-345",
+          "type": "node",
+          "parent": "VzublhPKhdgByAhPXy4h-343",
+          "label": "NVARCHAR(20)"
         },
         {
           "id": "VzublhPKhdgByAhPXy4h-358",

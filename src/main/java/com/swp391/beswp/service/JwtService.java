@@ -38,9 +38,11 @@ public class JwtService {
         header.put("typ", "JWT");
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("sub", user.getEmail());
+        payload.put("sub", user.getId());
         payload.put("userId", user.getId());
-        payload.put("roleId", user.getRole() == null ? null : user.getRole().getId());
+        payload.put("username", user.getUsername());
+        payload.put("email", user.getEmail());
+        payload.put("role", user.getRole() == null ? null : user.getRole().getRoleName());
         payload.put("iat", now.getEpochSecond());
         payload.put("exp", now.plusSeconds(expirationSeconds).getEpochSecond());
 
@@ -71,6 +73,10 @@ public class JwtService {
         }
 
         return claims;
+    }
+
+    public long getExpirationSeconds() {
+        return expirationSeconds;
     }
 
     private String encodeJson(Map<String, Object> value) {

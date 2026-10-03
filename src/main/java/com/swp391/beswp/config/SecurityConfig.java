@@ -35,11 +35,24 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Auth APIs
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/google/exchange").permitAll()
+
+                        // Google OAuth2
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
+                        // Swagger / OpenAPI
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+
                         .requestMatchers("/error").permitAll()
+
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

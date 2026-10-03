@@ -35,14 +35,30 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Auth APIs
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/google/exchange").permitAll()
+
+                        // Google OAuth2
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
+                        // Swagger / OpenAPI
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+
                         .requestMatchers("/error").permitAll()
+<<<<<<< HEAD
                         .requestMatchers(HttpMethod.POST, "/api/subjects/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.DELETE, "/api/subjects/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.GET, "/api/subjects/**").authenticated()
+=======
+
+>>>>>>> f5b3616 (swagger update)
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

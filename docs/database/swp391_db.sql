@@ -1,4 +1,4 @@
-﻿/* =====================================================================
+/* =====================================================================
    swp391_db  -  SQL Server DDL
    Nguồn: logical-erd-sqlserver.json (16 bảng, 104 cột, 23 quan hệ FK)
    Ghi chú:
@@ -139,6 +139,7 @@ CREATE TABLE Subject (
     Subject_ID  INT IDENTITY(1,1) NOT NULL,
     Name        NVARCHAR(100)     NOT NULL,
     Description NVARCHAR(MAX)     NULL,
+    Category    NVARCHAR(50)      NULL,
     CONSTRAINT PK_Subject PRIMARY KEY (Subject_ID),
     CONSTRAINT UQ_Subject_Name UNIQUE (Name)
 );

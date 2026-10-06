@@ -1,5 +1,7 @@
 package com.swp391.beswp.config;
 
+import com.swp391.beswp.dto.ErrorResponse;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -26,17 +29,31 @@ public class SecurityConfig {
     private final GoogleOAuth2FailureHandler googleOAuth2FailureHandler;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
+        RequestMatcher memberCreation = request -> "POST".equals(request.getMethod())
+                && "/api/receptionist/members".equals(request.getServletPath());
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(errors -> errors
+                        .defaultAuthenticationEntryPointFor((request, response, exception) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/json");
+                            objectMapper.writeValue(response.getWriter(), ErrorResponse.fail("Unauthorized"));
+                        }, memberCreation)
+                        .defaultAccessDeniedHandlerFor((request, response, exception) -> {
+                            response.setStatus(403);
+                            response.setContentType("application/json");
+                            objectMapper.writeValue(response.getWriter(), ErrorResponse.fail("Forbidden"));
+                        }, memberCreation))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/receptionist/members").hasAuthority("ROLE_Receptionist")
                         .requestMatchers(HttpMethod.GET, "/api/auth/google/exchange").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/error").permitAll()

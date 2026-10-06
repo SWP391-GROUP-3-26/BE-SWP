@@ -52,13 +52,10 @@ public class SecurityConfig {
                         ).permitAll()
 
                         .requestMatchers("/error").permitAll()
-<<<<<<< HEAD
                         .requestMatchers(HttpMethod.POST, "/api/subjects/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.DELETE, "/api/subjects/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.GET, "/api/subjects/**").authenticated()
-=======
 
->>>>>>> f5b3616 (swagger update)
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -22,6 +23,11 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .orElse("Request khong hop le");
         return ResponseEntity.badRequest().body(ErrorResponse.fail(message));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableRequest() {
+        return ResponseEntity.badRequest().body(ErrorResponse.fail("Request không hợp lệ"));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

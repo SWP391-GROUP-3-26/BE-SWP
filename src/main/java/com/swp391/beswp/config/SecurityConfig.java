@@ -2,6 +2,7 @@ package com.swp391.beswp.config;
 
 import com.swp391.beswp.dto.ErrorResponse;
 import tools.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.ObjectProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -29,10 +31,14 @@ public class SecurityConfig {
     private final GoogleOAuth2FailureHandler googleOAuth2FailureHandler;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            ObjectMapper objectMapper,
+            ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositories
+    ) throws Exception {
         RequestMatcher memberCreation = request -> "POST".equals(request.getMethod())
                 && "/api/receptionist/members".equals(request.getServletPath());
-        return http
+        HttpSecurity security = http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -62,11 +68,16 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/subjects/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.GET, "/api/subjects/**").authenticated()
                         .anyRequest().authenticated()
-                )
-                .oauth2Login(oauth2 -> oauth2
+                );
+
+        if (clientRegistrationRepositories.getIfAvailable() != null) {
+            security.oauth2Login(oauth2 -> oauth2
                         .successHandler(googleOAuth2SuccessHandler)
                         .failureHandler(googleOAuth2FailureHandler)
-                )
+            );
+        }
+
+        return security
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

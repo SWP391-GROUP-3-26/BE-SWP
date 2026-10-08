@@ -70,6 +70,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/subjects/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.DELETE, "/api/subjects/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.GET, "/api/subjects/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/classes/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
+                        .requestMatchers(HttpMethod.DELETE, "/api/classes/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
+                        .requestMatchers(HttpMethod.GET, "/api/classes/**").authenticated()
                         .anyRequest().authenticated()
                 );
 

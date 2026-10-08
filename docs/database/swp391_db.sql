@@ -166,9 +166,13 @@ CREATE TABLE Class (
     Room_ID      INT               NOT NULL,
     Name         NVARCHAR(100)     NOT NULL,
     Max_Capacity INT               NOT NULL,
-    Status       NVARCHAR(20)      NOT NULL CONSTRAINT DF_Class_Status DEFAULT N'Open',
+    Status       NVARCHAR(20)      NOT NULL CONSTRAINT DF_Class_Status DEFAULT N'Active',
     Date         DATE              NULL,
     Time         TIME(0)           NULL,
+    Price        DECIMAL(12,2)     NULL CONSTRAINT DF_Class_Price DEFAULT 0,
+    Days_Of_Week NVARCHAR(100)     NULL,
+    Start_Time   TIME(0)           NULL,
+    End_Time     TIME(0)           NULL,
     CONSTRAINT PK_Class PRIMARY KEY (Class_ID),
     CONSTRAINT FK_Class_Subject FOREIGN KEY (Subject_ID)
         REFERENCES Subject (Subject_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
@@ -177,7 +181,7 @@ CREATE TABLE Class (
     CONSTRAINT FK_Class_Room FOREIGN KEY (Room_ID)
         REFERENCES Room (Room_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
     CONSTRAINT CK_Class_Capacity CHECK (Max_Capacity > 0),
-    CONSTRAINT CK_Class_Status   CHECK (Status IN (N'Open', N'Closed', N'Cancelled'))
+    CONSTRAINT CK_Class_Status   CHECK (Status IN (N'Open', N'Closed', N'Cancelled', N'Active', N'Complete', N'Cancel'))
 );
 GO
 

@@ -33,9 +33,15 @@ class SwaggerIntegrationTest {
         assertTrue(document.path("openapi").asText().startsWith("3."));
         var paths = document.path("paths");
         for (String path : new String[]{"/api/auth/login", "/api/auth/register",
-                "/api/auth/google/exchange", "/api/receptionist/members", "/api/subjects", "/api/subjects/{id}"}) {
+                "/api/auth/google/exchange", "/api/receptionist/members", "/api/receptionist/members/{id}", "/api/subjects", "/api/subjects/{id}"}) {
             assertTrue(paths.has(path), "Missing documented endpoint: " + path);
         }
+        var search = paths.path("/api/receptionist/members").path("get");
+        assertTrue(search.path("responses").has("200"));
+        assertEquals(3, search.path("parameters").size());
+        assertTrue(search.path("security").get(0).has("bearerAuth"));
+        assertTrue(paths.path("/api/receptionist/members/{id}").path("get").path("responses").has("404"));
+        assertEquals("http", document.path("components").path("securitySchemes").path("bearerAuth").path("type").asText());
         var config = get("/v3/api-docs/swagger-config");
         assertEquals(200, config.statusCode());
         assertEquals("/v3/api-docs", mapper.readTree(config.body()).path("url").asText());

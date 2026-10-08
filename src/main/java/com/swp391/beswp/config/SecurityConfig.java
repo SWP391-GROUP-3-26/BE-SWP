@@ -30,8 +30,10 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
-        RequestMatcher memberCreation = request -> "POST".equals(request.getMethod())
-                && "/api/receptionist/members".equals(request.getServletPath());
+        RequestMatcher memberEndpoints = request ->
+                ("POST".equals(request.getMethod()) && "/api/receptionist/members".equals(request.getServletPath()))
+                || ("GET".equals(request.getMethod()) && ("/api/receptionist/members".equals(request.getServletPath())
+                || request.getServletPath().startsWith("/api/receptionist/members/")));
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -43,17 +45,18 @@ public class SecurityConfig {
                             response.setStatus(401);
                             response.setContentType("application/json");
                             objectMapper.writeValue(response.getWriter(), ErrorResponse.fail("Unauthorized"));
-                        }, memberCreation)
+                        }, memberEndpoints)
                         .defaultAccessDeniedHandlerFor((request, response, exception) -> {
                             response.setStatus(403);
                             response.setContentType("application/json");
                             objectMapper.writeValue(response.getWriter(), ErrorResponse.fail("Forbidden"));
-                        }, memberCreation))
+                        }, memberEndpoints))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/receptionist/members").hasAuthority("ROLE_Receptionist")
+                        .requestMatchers(HttpMethod.GET, "/api/receptionist/members", "/api/receptionist/members/**").hasAuthority("ROLE_Receptionist")
                         .requestMatchers(HttpMethod.GET, "/api/auth/google/exchange").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()

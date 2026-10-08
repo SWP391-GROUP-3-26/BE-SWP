@@ -28,10 +28,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import java.util.List;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest({AuthController.class, ReceptionistMemberController.class})
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class, AuthService.class})
+@Import({SecurityConfig.class, JwtAuthenticationFilter.class, AuthService.class, MemberService.class})
 class ReceptionistMemberControllerTest {
     private static final String URL = "/api/receptionist/members";
     @Autowired MockMvc mvc;
@@ -145,6 +149,96 @@ class ReceptionistMemberControllerTest {
         }
         assertSameErrorForBothEndpoints(409);
         verify(users, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    void blankSearchReturnsEmptyWithoutDatabaseQuery(String keyword) throws Exception {
+        mvc.perform(get(URL).param("keyword", keyword).with(user("staff").roles("Receptionist")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.total").value(0)).andExpect(jsonPath("$.size").value(20));
+        verifyNoInteractions(users);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void searchTrimsOuterSpacesPreservesInnerSpacesAndMapsSafeProfiles(int count) throws Exception {
+        User member = member();
+        List<User> matches = java.util.stream.IntStream.range(0, count).mapToObj(i -> member).toList();
+        when(users.searchMembers(eq("Nguyen  An"), any(Pageable.class))).thenAnswer(invocation -> {
+            Pageable page = invocation.getArgument(1);
+            assertEquals(0, page.getPageNumber());
+            assertEquals(20, page.getPageSize());
+            assertTrue(page.getSort().getOrderFor("id").isAscending());
+            return new PageImpl<>(matches, page, count);
+        });
+        var response = mvc.perform(get(URL).param("keyword", "  Nguyen  An  ")
+                        .with(user("staff").roles("Receptionist")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(count))
+                .andExpect(jsonPath("$.data.length()").value(count));
+        if (count > 0) response.andExpect(jsonPath("$.data[0].userId").value(42))
+                .andExpect(jsonPath("$.data[0].phone").value("0900000000"))
+                .andExpect(jsonPath("$.data[0].password").doesNotExist())
+                .andExpect(jsonPath("$.data[0].accessToken").doesNotExist());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"?page=-1", "?size=0", "?size=101", "?page=abc", "?size=2147483648", "/abc", "/2147483648"})
+    void invalidSearchAndDetailParametersReturn400(String suffix) throws Exception {
+        mvc.perform(get(URL + suffix).with(user("staff").roles("Receptionist")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.success").value(false));
+        verifyNoInteractions(users);
+    }
+
+    @Test
+    void detailMapsProfileWithoutAuthenticationDataAndMissingMemberReturns404() throws Exception {
+        when(users.findByIdAndRoleRoleNameIgnoreCase(42, "Member")).thenReturn(Optional.of(member()));
+        mvc.perform(get(URL + "/42").with(user("staff").roles("Receptionist")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.userId").value(42))
+                .andExpect(jsonPath("$.data.role").value("Member"))
+                .andExpect(jsonPath("$.data.dob").value("2000-01-02"))
+                .andExpect(jsonPath("$.data.password").doesNotExist())
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+        mvc.perform(get(URL + "/99").with(user("staff").roles("Receptionist")))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.message").value("Member not found"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Receptionist", "Member", "Admin", "Coach", "Center Manager", "User"})
+    void getEndpointsUseExistingJwtRolePolicy(String role) throws Exception {
+        when(jwt.validateToken("valid-token")).thenReturn(Map.of("sub", "staff", "role", role));
+        when(users.findByIdAndRoleRoleNameIgnoreCase(42, "Member")).thenReturn(Optional.of(member()));
+        for (String path : new String[]{URL, URL + "/42"}) {
+            mvc.perform(get(path).header("Authorization", "Bearer valid-token"))
+                    .andExpect(status().is(role.equals("Receptionist") ? 200 : 403));
+        }
+        if (!role.equals("Receptionist")) verifyNoInteractions(users);
+    }
+
+    @Test
+    void anonymousAndInvalidJwtCannotReadMembers() throws Exception {
+        when(jwt.validateToken("invalid")).thenThrow(new IllegalArgumentException());
+        for (String path : new String[]{URL, URL + "/42"}) {
+            for (String token : new String[]{"", "Bearer invalid"}) {
+                mvc.perform(get(path).header("Authorization", token))
+                        .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("Unauthorized"));
+            }
+        }
+        verifyNoInteractions(users);
+    }
+
+    private User member() {
+        Role role = new Role();
+        role.setRoleName("Member");
+        User member = new User();
+        member.setId(42);
+        member.setRole(role);
+        member.setFullName("Nguyen  An");
+        member.setPhone("0900000000");
+        member.setDob(java.time.LocalDate.of(2000, 1, 2));
+        member.setPassword("must-never-be-serialized");
+        return member;
     }
 
     private void assertSameErrorForBothEndpoints(int statusCode) throws Exception {

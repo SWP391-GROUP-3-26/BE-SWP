@@ -42,4 +42,40 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Integer> {
            "WHERE c.coach.id = :coachId " +
            "AND LOWER(c.status) NOT IN ('cancelled', 'cancel')")
     List<ClassEntity> findActiveClassesByCoachId(@Param("coachId") Integer coachId);
+
+    @Query("SELECT c FROM ClassEntity c " +
+           "JOIN FETCH c.subject s " +
+           "JOIN FETCH c.coach u " +
+           "JOIN FETCH c.room r " +
+           "WHERE c.coach.id = :coachId " +
+           "AND (:status IS NULL OR LOWER(c.status) = LOWER(:status)) " +
+           "AND (:keyword IS NULL OR " +
+           "     LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "     LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "     LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "     (:parsedId IS NOT NULL AND c.id = :parsedId)) " +
+           "ORDER BY c.id DESC")
+    List<ClassEntity> findClassesByCoach(
+            @Param("coachId") Integer coachId,
+            @Param("status") String status,
+            @Param("keyword") String keyword,
+            @Param("parsedId") Integer parsedId
+    );
+
+    long countByCoach_Id(Integer coachId);
+
+    @Query("SELECT COUNT(c) FROM ClassEntity c " +
+           "WHERE c.coach.id = :coachId " +
+           "AND LOWER(c.status) IN ('active', 'open')")
+    long countActiveClassesByCoachId(@Param("coachId") Integer coachId);
+
+    @Query("SELECT COUNT(c) FROM ClassEntity c " +
+           "WHERE c.coach.id = :coachId " +
+           "AND LOWER(c.status) IN ('complete', 'completed')")
+    long countCompletedClassesByCoachId(@Param("coachId") Integer coachId);
+
+    @Query("SELECT COUNT(c) FROM ClassEntity c " +
+           "WHERE c.coach.id = :coachId " +
+           "AND LOWER(c.status) IN ('cancel', 'cancelled')")
+    long countCancelledClassesByCoachId(@Param("coachId") Integer coachId);
 }

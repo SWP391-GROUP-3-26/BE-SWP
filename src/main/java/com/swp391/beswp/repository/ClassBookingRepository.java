@@ -69,4 +69,16 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
     );
 
     Optional<ClassBooking> findByIdAndUser_Id(Integer bookingId, Integer userId);
+
+    @Query("SELECT b FROM ClassBooking b " +
+           "JOIN FETCH b.user u " +
+           "WHERE b.session.classEntity.id = :classId " +
+           "AND LOWER(b.status) IN ('booked', 'completed') " +
+           "ORDER BY b.bookingDatetime ASC")
+    List<ClassBooking> findEnrolledStudentsByClassId(@Param("classId") Integer classId);
+
+    @Query("SELECT COUNT(DISTINCT b.user.id) FROM ClassBooking b " +
+           "WHERE b.session.classEntity.coach.id = :coachId " +
+           "AND LOWER(b.status) = 'booked'")
+    long countTotalActiveStudentsByCoachId(@Param("coachId") Integer coachId);
 }

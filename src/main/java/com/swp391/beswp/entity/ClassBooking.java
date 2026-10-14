@@ -45,4 +45,13 @@ public class ClassBooking {
     @Column(name = "Status", nullable = false, length = 20)
     @Builder.Default
     private String status = "Booked";
+
+    @Column(name = "Payment_Expires_At")
+    private LocalDateTime paymentExpiresAt;
+
+    @Column(name = "Payment_Method", length = 20)
+    private String paymentMethod;
+
+    @Column(name = "Registration_Code", length = 36)
+    private String registrationCode;
 }

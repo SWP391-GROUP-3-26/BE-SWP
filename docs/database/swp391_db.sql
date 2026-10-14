@@ -1,6 +1,7 @@
 /* =====================================================================
    swp391_db  -  SQL Server DDL
-   Nguồn: logical-erd-sqlserver.json (16 bảng, 104 cột, 23 quan hệ FK)
+   Nguồn: logical-erd-sqlserver.json và các migrations đến 20261014.
+   Chạy file này, sau đó swp391_db_sample_data.sql; không cần chạy migrations.
    Ghi chú:
    - Tên bảng/cột giữ nguyên theo ERD. [User] là từ khoá của SQL Server
      nên luôn viết trong ngoặc vuông (hoặc đổi tên thành Users).
@@ -13,7 +14,8 @@
    [A2] NULL / NOT NULL cho từng cột.
    [A3] UNIQUE: Username, Email, Phone (cho phép trống), Role_Name, Package.Name,
         Subject.Name, Room.Name, Voucher.Code,
-        (User_ID, Session_ID) ở Class_Booking và Attendance.
+        (Registration_Code, Session_ID) ở Class_Booking khi có mã đăng ký,
+        (User_ID, Session_ID) ở Attendance.
    [A4] CHECK danh sách giá trị: Status, Gender, Discount_Type,
         Payment_Type, Method.
    [A5] DEFAULT cho Status và các cột ngày/giờ.
@@ -22,6 +24,16 @@
    [A8] Kiểm tra vai trò Coach/Member/Receptionist: chưa enforce trong DB.
    [A9] Nguồn lịch học chính: chưa chốt (Class / Class_Session / Schedule).
    ===================================================================== */
+
+-- Các SET options bắt buộc cho filtered indexes, kể cả khi chạy bằng sqlcmd.
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
+GO
 
 IF DB_ID(N'swp391_db') IS NULL
     CREATE DATABASE swp391_db;
@@ -168,6 +180,8 @@ CREATE TABLE Class (
     Max_Capacity INT               NOT NULL,
     Status       NVARCHAR(20)      NOT NULL CONSTRAINT DF_Class_Status DEFAULT N'Active',
     Date         DATE              NULL,
+    Duration_Weeks INT             NULL,
+    End_Date     DATE              NULL,
     Time         TIME(0)           NULL,
     Price        DECIMAL(12,2)     NULL CONSTRAINT DF_Class_Price DEFAULT 0,
     Days_Of_Week NVARCHAR(100)     NULL,
@@ -181,7 +195,14 @@ CREATE TABLE Class (
     CONSTRAINT FK_Class_Room FOREIGN KEY (Room_ID)
         REFERENCES Room (Room_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
     CONSTRAINT CK_Class_Capacity CHECK (Max_Capacity > 0),
-    CONSTRAINT CK_Class_Status   CHECK (Status IN (N'Open', N'Closed', N'Cancelled', N'Active', N'Complete', N'Cancel'))
+    CONSTRAINT CK_Class_Status   CHECK (Status IN (N'Open', N'Closed', N'Cancelled', N'Active', N'Completed', N'Cancel')),
+    CONSTRAINT CK_Class_Term CHECK (
+        (Duration_Weeks IS NULL AND End_Date IS NULL)
+        OR (Duration_Weeks IS NOT NULL AND Duration_Weeks > 0 AND [Date] IS NOT NULL AND End_Date IS NOT NULL
+            AND End_Date = DATEADD(DAY,
+                6 - ((DATEDIFF(DAY, CONVERT(DATE, '19000101', 112), [Date]) % 7 + 7) % 7)
+                    + 7 * (Duration_Weeks - 1), [Date]))
+    )
 );
 GO
 
@@ -209,13 +230,17 @@ CREATE TABLE Class_Booking (
     Session_ID       INT               NOT NULL,
     Booking_Datetime DATETIME2(0)      NOT NULL CONSTRAINT DF_Booking_Datetime DEFAULT SYSDATETIME(),
     Status           NVARCHAR(20)      NOT NULL CONSTRAINT DF_Booking_Status DEFAULT N'Booked',
+    Payment_Expires_At DATETIME2(0)     NULL,
+    Payment_Method   NVARCHAR(20)      NULL,
+    Registration_Code VARCHAR(36)      NULL,
     CONSTRAINT PK_Class_Booking PRIMARY KEY (Booking_ID),
     CONSTRAINT FK_Booking_User FOREIGN KEY (User_ID)
         REFERENCES [User] (User_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
     CONSTRAINT FK_Booking_Session FOREIGN KEY (Session_ID)
         REFERENCES Class_Session (Session_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT UQ_Booking_User_Session UNIQUE (User_ID, Session_ID),   -- 1 người chỉ đặt 1 lần cho mỗi buổi
-    CONSTRAINT CK_Booking_Status CHECK (Status IN (N'Booked', N'Cancelled', N'Completed'))
+    CONSTRAINT CK_Booking_Status CHECK (Status IN (N'Pending', N'Booked', N'Cancelled', N'Completed')),
+    CONSTRAINT CK_Booking_Payment_Method
+        CHECK (Payment_Method IS NULL OR Payment_Method IN (N'PACKAGE', N'DIRECT'))
 );
 GO
 
@@ -253,6 +278,12 @@ CREATE TABLE Payment (
     Payment_Date    DATETIME2(0)      NOT NULL CONSTRAINT DF_Payment_Date DEFAULT SYSDATETIME(),
     Status          NVARCHAR(20)      NOT NULL CONSTRAINT DF_Payment_Status DEFAULT N'Pending',
     Discount_Amount DECIMAL(12,2)     NOT NULL CONSTRAINT DF_Payment_Discount DEFAULT 0,
+    Expires_At      DATETIME2(0)      NULL,
+    Vnp_Transaction_No NVARCHAR(15)   NULL,
+    Vnp_Response_Code NVARCHAR(2)     NULL,
+    Vnp_Transaction_Status NVARCHAR(2) NULL,
+    Vnp_Pay_Date    NVARCHAR(14)      NULL,
+    Requires_Review BIT              NOT NULL CONSTRAINT DF_Payment_Requires_Review DEFAULT 0,
     CONSTRAINT PK_Payment PRIMARY KEY (Payment_ID),
     CONSTRAINT FK_Payment_Subscription FOREIGN KEY (Subscription_ID)
         REFERENCES Member_Subscription (Subscription_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
@@ -372,7 +403,12 @@ CREATE INDEX IX_Subscription_Package   ON Member_Subscription (Package_ID);
 CREATE INDEX IX_Class_Subject          ON Class (Subject_ID);
 CREATE INDEX IX_Class_Coach            ON Class (Coach_ID);
 CREATE INDEX IX_Class_Room             ON Class (Room_ID);
+CREATE INDEX IX_Class_End_Date_Status  ON Class (End_Date, Status);
 CREATE INDEX IX_Booking_Session        ON Class_Booking (Session_ID);
+CREATE INDEX IX_Booking_Pending_Expiry ON Class_Booking (Status, Payment_Expires_At) INCLUDE (Session_ID);
+-- Giữ lịch sử huỷ và cho phép đăng ký lại cùng buổi bằng mã đăng ký mới.
+CREATE UNIQUE INDEX UQ_Booking_Registration_Session
+    ON Class_Booking (Registration_Code, Session_ID) WHERE Registration_Code IS NOT NULL;
 CREATE INDEX IX_Payment_Subscription   ON Payment (Subscription_ID);
 CREATE INDEX IX_Payment_Receptionist   ON Payment (Receptionist_ID);
 CREATE INDEX IX_Payment_Voucher        ON Payment (Voucher_ID);

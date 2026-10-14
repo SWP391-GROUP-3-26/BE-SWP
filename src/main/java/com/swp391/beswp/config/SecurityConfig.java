@@ -39,7 +39,8 @@ public class SecurityConfig {
         RequestMatcher memberEndpoints = request ->
                 ("POST".equals(request.getMethod()) && "/api/receptionist/members".equals(request.getServletPath()))
                 || ("GET".equals(request.getMethod()) && ("/api/receptionist/members".equals(request.getServletPath())
-                || request.getServletPath().startsWith("/api/receptionist/members/")));
+                || request.getServletPath().startsWith("/api/receptionist/members/")))
+                || request.getServletPath().startsWith("/api/member/payments/");
         HttpSecurity security = http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -64,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/receptionist/members").hasAuthority("ROLE_Receptionist")
                         .requestMatchers(HttpMethod.GET, "/api/receptionist/members", "/api/receptionist/members/**").hasAuthority("ROLE_Receptionist")
                         .requestMatchers(HttpMethod.GET, "/api/auth/google/exchange").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/payments/vnpay/ipn", "/api/payments/vnpay/return").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/member/payments/**").hasAuthority("ROLE_Member")
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/error").permitAll()

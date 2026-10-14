@@ -14,6 +14,16 @@ import java.time.LocalTime;
 @Builder
 public class AvailableClassCardResponse {
 
+    private java.time.LocalDate startDate;
+    private Integer durationWeeks;
+    private java.time.LocalDate endDate;
+    private Integer sessionId;
+    private java.time.LocalDate sessionDate;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "HH:mm")
+    private java.time.LocalTime sessionStartTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "HH:mm")
+    private java.time.LocalTime sessionEndTime;
+
     private Integer classId;
     private String classCode;
     private String name;

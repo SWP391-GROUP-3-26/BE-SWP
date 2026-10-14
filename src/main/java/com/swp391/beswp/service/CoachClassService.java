@@ -29,6 +29,7 @@ public class CoachClassService {
     private final ClassRepository classRepository;
     private final ClassBookingRepository classBookingRepository;
     private final UserRepository userRepository;
+    private final java.time.Clock paymentClock;
 
     /**
      * Lấy danh sách các lớp học hiện tại đang phụ trách/dạy của Huấn luyện viên (Coach).
@@ -43,17 +44,22 @@ public class CoachClassService {
 
         List<ClassEntity> classes = classRepository.findClassesByCoach(
                 coach.getId(),
-                resolvedStatus,
-                StringUtils.hasText(keyword) ? keyword.toLowerCase(Locale.ROOT) : null,
-                parsedId
+                null,
+                null,
+                null
         );
 
         List<CoachClassItemResponse> items = new ArrayList<>();
         for (ClassEntity c : classes) {
+            String effectiveStatus = ClassSchedule.effectiveStatus(c, java.time.LocalDate.now(paymentClock));
+            if (resolvedStatus != null && !resolvedStatus.equalsIgnoreCase(effectiveStatus)) continue;
+            if (StringUtils.hasText(keyword) && !matchesSearch(c, keyword, parsedId)) continue;
             long enrolledCount = classBookingRepository.countActiveMembersByClassId(c.getId());
-            int availableSlots = Math.max(0, c.getMaxCapacity() - (int) enrolledCount);
+            long reservedCount = classBookingRepository.countReservedMembersByClassId(c.getId(), java.time.LocalDateTime.now(paymentClock));
+            int availableSlots = ClassSchedule.expired(c, java.time.LocalDate.now(paymentClock)) ? 0
+                    : Math.max(0, c.getMaxCapacity() - (int) reservedCount);
             String schedule = formatScheduleWithDays(c.getStartTime(), c.getEndTime(), c.getDaysOfWeek());
-            String displayStatus = mapClassDisplayStatus(c.getStatus());
+            String displayStatus = mapClassDisplayStatus(effectiveStatus);
 
             items.add(CoachClassItemResponse.builder()
                     .classId(c.getId())
@@ -69,21 +75,22 @@ public class CoachClassService {
                     .enrolledStudentsCount((int) enrolledCount)
                     .availableSlots(availableSlots)
                     .schedule(schedule)
-                    .daysOfWeek(c.getDaysOfWeek())
+                    .daysOfWeek(String.join(", ", ClassSchedule.normalizeDays(c.getDaysOfWeek())))
                     .startTime(c.getStartTime())
                     .endTime(c.getEndTime())
                     .startDate(c.getDate())
+                    .durationWeeks(c.getDurationWeeks()).endDate(c.getEndDate())
                     .price(c.getPrice())
-                    .status(c.getStatus())
+                    .status(effectiveStatus)
                     .statusDisplay(displayStatus)
                     .build());
         }
 
-        long totalClasses = classRepository.countByCoach_Id(coach.getId());
-        long activeClasses = classRepository.countActiveClassesByCoachId(coach.getId());
-        long completedClasses = classRepository.countCompletedClassesByCoachId(coach.getId());
-        long cancelledClasses = classRepository.countCancelledClassesByCoachId(coach.getId());
-        long totalStudents = classBookingRepository.countTotalActiveStudentsByCoachId(coach.getId());
+        long totalClasses = classes.size();
+        long activeClasses = classes.stream().filter(c -> List.of("Active", "Open").contains(ClassSchedule.effectiveStatus(c, java.time.LocalDate.now(paymentClock)))).count();
+        long completedClasses = classes.stream().filter(c -> "Completed".equalsIgnoreCase(ClassSchedule.effectiveStatus(c, java.time.LocalDate.now(paymentClock)))).count();
+        long cancelledClasses = classes.stream().filter(c -> "Cancel".equalsIgnoreCase(c.getStatus()) || "Cancelled".equalsIgnoreCase(c.getStatus())).count();
+        long totalStudents = classBookingRepository.countTotalActiveStudentsByCoachId(coach.getId(), java.time.LocalDate.now(paymentClock));
 
         return CoachClassListResponse.builder()
                 .success(true)
@@ -120,9 +127,12 @@ public class CoachClassService {
         }
 
         List<ClassBooking> bookings = classBookingRepository.findEnrolledStudentsByClassId(classEntity.getId());
-        List<CoachClassStudentResponse> students = bookings.stream().map(b -> {
+        var studentsByUser = new java.util.LinkedHashMap<Integer, ClassBooking>();
+        bookings.forEach(b -> studentsByUser.merge(b.getUser().getId(), b,
+                (previous, next) -> "Booked".equalsIgnoreCase(next.getStatus()) ? next : previous));
+        List<CoachClassStudentResponse> students = studentsByUser.values().stream().map(b -> {
             User u = b.getUser();
-            String rawStatus = b.getStatus();
+            String rawStatus = ClassSchedule.bookingStatus(b, java.time.LocalDate.now(paymentClock));
             String displayStatus = "Completed".equalsIgnoreCase(rawStatus) ? "Đã hoàn thành" : "Đang theo học";
 
             return CoachClassStudentResponse.builder()
@@ -140,7 +150,9 @@ public class CoachClassService {
         }).toList();
 
         int enrolledCount = students.size();
-        int availableSlots = Math.max(0, classEntity.getMaxCapacity() - enrolledCount);
+        long reservedCount = classBookingRepository.countReservedMembersByClassId(classId, java.time.LocalDateTime.now(paymentClock));
+        int availableSlots = ClassSchedule.expired(classEntity, java.time.LocalDate.now(paymentClock)) ? 0
+                : Math.max(0, classEntity.getMaxCapacity() - (int) reservedCount);
         String schedule = formatScheduleWithDays(classEntity.getStartTime(), classEntity.getEndTime(), classEntity.getDaysOfWeek());
 
         return CoachClassDetailResponse.builder()
@@ -160,13 +172,14 @@ public class CoachClassService {
                 .enrolledStudentsCount(enrolledCount)
                 .availableSlots(availableSlots)
                 .schedule(schedule)
-                .daysOfWeek(classEntity.getDaysOfWeek())
+                .daysOfWeek(String.join(", ", ClassSchedule.normalizeDays(classEntity.getDaysOfWeek())))
                 .startTime(classEntity.getStartTime())
                 .endTime(classEntity.getEndTime())
                 .startDate(classEntity.getDate())
+                .durationWeeks(classEntity.getDurationWeeks()).endDate(classEntity.getEndDate())
                 .price(classEntity.getPrice())
-                .status(classEntity.getStatus())
-                .statusDisplay(mapClassDisplayStatus(classEntity.getStatus()))
+                .status(ClassSchedule.effectiveStatus(classEntity, java.time.LocalDate.now(paymentClock)))
+                .statusDisplay(mapClassDisplayStatus(ClassSchedule.effectiveStatus(classEntity, java.time.LocalDate.now(paymentClock))))
                 .students(students)
                 .build();
     }
@@ -208,7 +221,7 @@ public class CoachClassService {
             return "Active";
         }
         if (s.contains("complete") || s.contains("hoàn thành") || s.contains("hoan thanh")) {
-            return "Complete";
+            return "Completed";
         }
         if (s.contains("cancel") || s.contains("hủy") || s.contains("huy")) {
             return "Cancelled";
@@ -231,7 +244,7 @@ public class CoachClassService {
     private String formatScheduleWithDays(LocalTime start, LocalTime end, String days) {
         String range = formatTimeRange(start, end);
         if (StringUtils.hasText(days)) {
-            return String.format("%s (%s)", range, days.trim());
+            return String.format("%s (%s)", range, String.join(", ", ClassSchedule.normalizeDays(days)));
         }
         return range;
     }
@@ -241,6 +254,14 @@ public class CoachClassService {
             return String.format("%02d:%02d - %02d:%02d", start.getHour(), start.getMinute(), end.getHour(), end.getMinute());
         }
         return "Linh hoạt";
+    }
+
+    private boolean matchesSearch(ClassEntity c, String keyword, Integer parsedId) {
+        String lower = keyword.toLowerCase(Locale.ROOT);
+        return c.getId().equals(parsedId)
+                || (c.getName() != null && c.getName().toLowerCase(Locale.ROOT).contains(lower))
+                || (c.getSubject() != null && c.getSubject().getName() != null && c.getSubject().getName().toLowerCase(Locale.ROOT).contains(lower))
+                || (c.getRoom() != null && c.getRoom().getName() != null && c.getRoom().getName().toLowerCase(Locale.ROOT).contains(lower));
     }
 
     private String normalizeText(String input) {

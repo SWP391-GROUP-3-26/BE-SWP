@@ -42,10 +42,12 @@ class ClassControllerTest {
                 .coachId(3)
                 .roomId(1)
                 .daysOfWeek(List.of("T2", "T4", "T6"))
+                .slotId(1)
                 .startTime(LocalTime.of(7, 0))
                 .endTime(LocalTime.of(8, 30))
                 .maxCapacity(15)
                 .price(new BigDecimal("1500000"))
+                .startDate(java.time.LocalDate.of(2026, 10, 12)).durationWeeks(2)
                 .build();
     }
 

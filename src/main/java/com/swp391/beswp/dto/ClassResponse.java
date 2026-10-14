@@ -2,6 +2,7 @@ package com.swp391.beswp.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.swp391.beswp.entity.ClassEntity;
+import com.swp391.beswp.service.ClassSchedule;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,7 +12,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -27,6 +27,10 @@ public class ClassResponse {
 
     public static ClassResponse success(String message, ClassEntity classEntity) {
         return new ClassResponse(true, message, ClassData.fromEntity(classEntity));
+    }
+
+    public static ClassResponse success(String message, ClassEntity entity, LocalDate today) {
+        return new ClassResponse(true, message, ClassData.fromEntity(entity, today));
     }
 
     @Getter
@@ -58,7 +62,14 @@ public class ClassResponse {
         @JsonFormat(pattern = "yyyy-MM-dd")
         private LocalDate startDate;
 
+        private Integer durationWeeks;
+        private LocalDate endDate;
+
         public static ClassData fromEntity(ClassEntity entity) {
+            return fromEntity(entity, LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")));
+        }
+
+        public static ClassData fromEntity(ClassEntity entity, LocalDate today) {
             if (entity == null) {
                 return null;
             }
@@ -71,10 +82,7 @@ public class ClassResponse {
 
             List<String> daysList = Collections.emptyList();
             if (entity.getDaysOfWeek() != null && !entity.getDaysOfWeek().isBlank()) {
-                daysList = Arrays.stream(entity.getDaysOfWeek().split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .toList();
+                daysList = ClassSchedule.normalizeDays(entity.getDaysOfWeek());
             }
 
             return ClassData.builder()
@@ -104,8 +112,10 @@ public class ClassResponse {
                     .timeSlot(timeSlot)
                     .maxCapacity(entity.getMaxCapacity())
                     .price(entity.getPrice())
-                    .status(entity.getStatus())
+                    .status(ClassSchedule.effectiveStatus(entity, today))
                     .startDate(entity.getDate())
+                    .durationWeeks(entity.getDurationWeeks())
+                    .endDate(entity.getEndDate())
                     .build();
         }
     }

@@ -59,9 +59,28 @@ public class Payment {
 
     @Column(name = "Status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "Paid";
+    private String status = "Pending";
 
     @Column(name = "Discount_Amount", nullable = false, precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "Expires_At")
+    private LocalDateTime expiresAt;
+
+    @Column(name = "Vnp_Transaction_No", length = 15)
+    private String vnpTransactionNo;
+
+    @Column(name = "Vnp_Response_Code", length = 2)
+    private String vnpResponseCode;
+
+    @Column(name = "Vnp_Transaction_Status", length = 2)
+    private String vnpTransactionStatus;
+
+    @Column(name = "Vnp_Pay_Date", length = 14)
+    private String vnpPayDate;
+
+    @Column(name = "Requires_Review", nullable = false)
+    @Builder.Default
+    private boolean requiresReview = false;
 }

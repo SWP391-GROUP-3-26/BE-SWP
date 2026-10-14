@@ -11,6 +11,13 @@ import java.util.List;
 @Repository
 public interface ClassRepository extends JpaRepository<ClassEntity, Integer> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM ClassEntity c WHERE c.id = :id")
+    java.util.Optional<ClassEntity> findByIdForUpdate(@Param("id") Integer id);
+
+    @Query("SELECT c.id FROM ClassEntity c WHERE c.endDate < :today AND LOWER(c.status) IN ('active', 'open') ORDER BY c.id")
+    List<Integer> findExpiredClassIds(@Param("today") java.time.LocalDate today);
+
     boolean existsByNameIgnoreCase(String name);
 
     boolean existsByNameIgnoreCaseAndIdNot(String name, Integer id);
@@ -35,12 +42,12 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Integer> {
 
     @Query("SELECT c FROM ClassEntity c " +
            "WHERE c.room.id = :roomId " +
-           "AND LOWER(c.status) NOT IN ('cancelled', 'cancel')")
+           "AND LOWER(c.status) NOT IN ('cancelled', 'cancel', 'complete', 'completed')")
     List<ClassEntity> findActiveClassesByRoomId(@Param("roomId") Integer roomId);
 
     @Query("SELECT c FROM ClassEntity c " +
            "WHERE c.coach.id = :coachId " +
-           "AND LOWER(c.status) NOT IN ('cancelled', 'cancel')")
+           "AND LOWER(c.status) NOT IN ('cancelled', 'cancel', 'complete', 'completed')")
     List<ClassEntity> findActiveClassesByCoachId(@Param("coachId") Integer coachId);
 
     @Query("SELECT c FROM ClassEntity c " +

@@ -1,6 +1,7 @@
 ﻿/* =====================================================================
    swp391_db  -  DỮ LIỆU MẪU
    Chạy SAU khi đã chạy swp391_db.sql (đã tạo xong bảng).
+   Schema đã bao gồm các migrations đến 20261014; không cần chạy migrations.
 
    TÀI KHOẢN ĐĂNG NHẬP (đăng nhập bằng Username/Email, mật khẩu chung: 12345@)
    ---------------------------------------------------------------
@@ -21,6 +22,16 @@
    ===================================================================== */
 
 USE swp391_db;
+GO
+
+-- Các SET options bắt buộc khi ghi vào bảng có filtered indexes.
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
 GO
 
 /* ---------------------------------------------------------------------
@@ -123,13 +134,15 @@ GO
 /* ---------------------------------------------------------------------
    7. Class  (Coach_ID = 3; Max_Capacity không vượt sức chứa phòng)
       Date/Time = buổi học đầu tiên của lớp
+      Lớp mẫu cũ giữ Duration_Weeks / End_Date = NULL như khi migrate.
    --------------------------------------------------------------------- */
 SET IDENTITY_INSERT Class ON;
-INSERT INTO Class (Class_ID, Subject_ID, Coach_ID, Room_ID, Name, Max_Capacity, Status, Date, Time) VALUES
-(1, 1, 3, 1, N'Yoga buổi sáng',    15, N'Open', '2026-09-28', '07:00:00'),
-(2, 2, 3, 2, N'Boxing cơ bản',     12, N'Open', '2026-09-29', '18:00:00'),
-(3, 3, 3, 3, N'Zumba buổi tối',    25, N'Open', '2026-10-01', '19:00:00'),
-(4, 4, 3, 3, N'HIIT giảm mỡ',      20, N'Open', '2026-10-08', '17:30:00');
+INSERT INTO Class (Class_ID, Subject_ID, Coach_ID, Room_ID, Name, Max_Capacity, Status, Date, Time,
+                   Price, Days_Of_Week, Start_Time, End_Time, Duration_Weeks, End_Date) VALUES
+(1, 1, 3, 1, N'Yoga buổi sáng',    15, N'Open', '2026-09-28', '07:00:00', 80000.00, N'T2,T4', '07:00:00', '08:00:00', NULL, NULL),
+(2, 2, 3, 2, N'Boxing cơ bản',     12, N'Open', '2026-09-29', '18:00:00', 80000.00, N'T3',    '18:00:00', '19:00:00', NULL, NULL),
+(3, 3, 3, 3, N'Zumba buổi tối',    25, N'Open', '2026-10-01', '19:00:00', 80000.00, N'T4,T5', '19:00:00', '20:00:00', NULL, NULL),
+(4, 4, 3, 3, N'HIIT giảm mỡ',      20, N'Open', '2026-10-08', '17:30:00', 80000.00, N'T5',    '17:30:00', '18:30:00', NULL, NULL);
 SET IDENTITY_INSERT Class OFF;
 GO
 
@@ -151,16 +164,18 @@ GO
 
 /* ---------------------------------------------------------------------
    9. Class_Booking  (hội viên User_ID = 4)
+      Booking mẫu cũ giữ Registration_Code = NULL, mỗi booking là một buổi.
    --------------------------------------------------------------------- */
 SET IDENTITY_INSERT Class_Booking ON;
-INSERT INTO Class_Booking (Booking_ID, User_ID, Session_ID, Booking_Datetime, Status) VALUES
-(1, 4, 1, '2026-09-25 09:00:00', N'Completed'),
-(2, 4, 2, '2026-09-26 10:30:00', N'Completed'),
-(3, 4, 3, '2026-09-27 08:15:00', N'Completed'),
-(4, 4, 4, '2026-09-28 20:00:00', N'Completed'),
-(5, 4, 5, '2026-10-01 21:00:00', N'Booked'),
-(6, 4, 6, '2026-10-02 08:00:00', N'Booked'),
-(7, 4, 7, '2026-10-02 08:05:00', N'Cancelled');
+INSERT INTO Class_Booking (Booking_ID, User_ID, Session_ID, Booking_Datetime, Status,
+                           Payment_Method, Payment_Expires_At, Registration_Code) VALUES
+(1, 4, 1, '2026-09-25 09:00:00', N'Completed', N'PACKAGE', NULL, NULL),
+(2, 4, 2, '2026-09-26 10:30:00', N'Completed', N'PACKAGE', NULL, NULL),
+(3, 4, 3, '2026-09-27 08:15:00', N'Completed', N'PACKAGE', NULL, NULL),
+(4, 4, 4, '2026-09-28 20:00:00', N'Completed', N'DIRECT',  NULL, NULL),
+(5, 4, 5, '2026-10-01 21:00:00', N'Booked',    N'PACKAGE', NULL, NULL),
+(6, 4, 6, '2026-10-02 08:00:00', N'Pending',   N'DIRECT',  '2026-10-02 08:15:00', NULL),
+(7, 4, 7, '2026-10-02 08:05:00', N'Cancelled', N'PACKAGE', NULL, NULL);
 SET IDENTITY_INSERT Class_Booking OFF;
 GO
 
@@ -181,13 +196,13 @@ GO
        Amount = số tiền thực trả (đã trừ Discount_Amount).
    --------------------------------------------------------------------- */
 SET IDENTITY_INSERT Payment ON;
-INSERT INTO Payment (Payment_ID, Subscription_ID, Receptionist_ID, Voucher_ID, Booking_ID, Payment_Type, Amount, Method, Payment_Date, Status, Discount_Amount) VALUES
+INSERT INTO Payment (Payment_ID, Subscription_ID, Receptionist_ID, Voucher_ID, Booking_ID, Payment_Type, Amount, Method, Payment_Date, Status, Discount_Amount, Expires_At, Requires_Review) VALUES
 -- Thanh toán gói hội viên (tại quầy)
-(1, 1, 2, NULL, NULL, N'Subscription',  500000.00, N'Cash',          '2026-06-01 09:00:00', N'Paid',    0.00),
-(2, 2, 2, 1,    NULL, N'Subscription', 1170000.00, N'Bank_Transfer', '2026-09-01 10:00:00', N'Paid',    130000.00),
+(1, 1, 2, NULL, NULL, N'Subscription',  500000.00, N'Cash',          '2026-06-01 09:00:00', N'Paid',    0.00,      NULL, 0),
+(2, 2, 2, 1,    NULL, N'Subscription', 1170000.00, N'Bank_Transfer', '2026-09-01 10:00:00', N'Paid',    130000.00, NULL, 0),
 -- Thanh toán lẻ cho buổi đặt lớp (online)
-(3, NULL, NULL, NULL, 4, N'Class_Booking', 80000.00, N'E_Wallet',     '2026-09-28 20:05:00', N'Paid',    0.00),
-(4, NULL, NULL, NULL, 6, N'Class_Booking', 80000.00, N'Card',         '2026-10-02 08:02:00', N'Pending', 0.00);
+(3, NULL, NULL, NULL, 4, N'Class_Booking', 80000.00, N'E_Wallet',     '2026-09-28 20:05:00', N'Paid',    0.00, NULL, 0),
+(4, NULL, NULL, NULL, 6, N'Class_Booking', 80000.00, N'Card',         '2026-10-02 08:02:00', N'Pending', 0.00, '2026-10-02 08:15:00', 0);
 SET IDENTITY_INSERT Payment OFF;
 GO
 

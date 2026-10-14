@@ -10,6 +10,7 @@ import com.swp391.beswp.service.MemberClassBookingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -87,10 +88,11 @@ public class MemberClassBookingController {
     @PostMapping("/{classId}/register")
     public ResponseEntity<MemberClassBookingResponse> registerClassWithPathVariable(
             Authentication authentication,
+            HttpServletRequest servletRequest,
             @PathVariable Integer classId,
             @Valid @RequestBody MemberClassBookingRequest request
     ) {
-        MemberClassBookingResponse response = bookingService.registerClass(authentication.getName(), classId, request);
+        MemberClassBookingResponse response = bookingService.registerClass(authentication.getName(), classId, request, servletRequest.getRemoteAddr());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -101,9 +103,10 @@ public class MemberClassBookingController {
     @PostMapping("/register")
     public ResponseEntity<MemberClassBookingResponse> registerClass(
             Authentication authentication,
+            HttpServletRequest servletRequest,
             @Valid @RequestBody MemberClassBookingRequest request
     ) {
-        MemberClassBookingResponse response = bookingService.registerClass(authentication.getName(), request.getClassId(), request);
+        MemberClassBookingResponse response = bookingService.registerClass(authentication.getName(), request.getClassId(), request, servletRequest.getRemoteAddr());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

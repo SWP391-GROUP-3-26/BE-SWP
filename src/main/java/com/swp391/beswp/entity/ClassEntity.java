@@ -57,6 +57,12 @@ public class ClassEntity {
     @Column(name = "Date")
     private LocalDate date;
 
+    @Column(name = "Duration_Weeks")
+    private Integer durationWeeks;
+
+    @Column(name = "End_Date")
+    private LocalDate endDate;
+
     @Column(name = "Time")
     private LocalTime time;
 

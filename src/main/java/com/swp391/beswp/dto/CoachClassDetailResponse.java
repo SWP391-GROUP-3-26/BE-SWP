@@ -37,6 +37,8 @@ public class CoachClassDetailResponse {
     private LocalTime startTime;
     private LocalTime endTime;
     private LocalDate startDate;
+    private Integer durationWeeks;
+    private LocalDate endDate;
     private BigDecimal price;
     private String status;
     private String statusDisplay;

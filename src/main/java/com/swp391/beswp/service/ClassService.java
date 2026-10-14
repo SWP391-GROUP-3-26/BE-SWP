@@ -5,10 +5,12 @@ import com.swp391.beswp.dto.ClassListResponse;
 import com.swp391.beswp.dto.ClassResponse;
 import com.swp391.beswp.dto.CreateClassRequest;
 import com.swp391.beswp.entity.ClassEntity;
+import com.swp391.beswp.entity.ClassSession;
 import com.swp391.beswp.entity.Room;
 import com.swp391.beswp.entity.Subject;
 import com.swp391.beswp.entity.User;
 import com.swp391.beswp.repository.ClassRepository;
+import com.swp391.beswp.repository.ClassSessionRepository;
 import com.swp391.beswp.repository.RoomRepository;
 import com.swp391.beswp.repository.SubjectRepository;
 import com.swp391.beswp.repository.UserRepository;
@@ -20,21 +22,27 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
+import java.time.LocalDate;
+import java.time.Clock;
 import java.util.List;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class ClassService {
 
+    private static final List<ClassFormOptionsResponse.TimeSlotOption> TIME_SLOTS = List.of(
+            new ClassFormOptionsResponse.TimeSlotOption(1, "07:00", "09:15"),
+            new ClassFormOptionsResponse.TimeSlotOption(2, "09:30", "11:45"),
+            new ClassFormOptionsResponse.TimeSlotOption(3, "12:30", "14:45"),
+            new ClassFormOptionsResponse.TimeSlotOption(4, "15:00", "17:15")
+    );
+
     private final ClassRepository classRepository;
     private final SubjectRepository subjectRepository;
     private final UserRepository userRepository;
     private final RoomRepository roomRepository;
+    private final ClassSessionRepository classSessionRepository;
+    private final Clock paymentClock;
 
     @Transactional
     public ClassResponse createClass(CreateClassRequest request) {
@@ -53,7 +61,8 @@ public class ClassService {
                         "Môn học với ID " + request.getSubjectId() + " không tồn tại"
                 ));
 
-        User coach = userRepository.findById(request.getCoachId())
+        // Resource locks serialize concurrent creations that share a coach or room.
+        User coach = userRepository.findByIdForUpdate(request.getCoachId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Huấn luyện viên với ID " + request.getCoachId() + " không tồn tại"
@@ -66,7 +75,7 @@ public class ClassService {
             );
         }
 
-        Room room = roomRepository.findById(request.getRoomId())
+        Room room = roomRepository.findByIdForUpdate(request.getRoomId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Phòng tập với ID " + request.getRoomId() + " không tồn tại"
@@ -92,21 +101,26 @@ public class ClassService {
             );
         }
 
-        List<String> rawDays = request.getDaysOfWeek() != null ? request.getDaysOfWeek() : Collections.emptyList();
-        List<String> cleanedDays = rawDays.stream()
-                .map(this::normalizeText)
-                .filter(StringUtils::hasText)
-                .distinct()
-                .toList();
-
-        if (cleanedDays.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn ít nhất một ngày học trong tuần");
+        var slot = TIME_SLOTS.stream()
+                .filter(option -> option.id().equals(request.getSlotId()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn slot học hợp lệ"));
+        if (startTime.isBefore(LocalTime.parse(slot.startTime()))
+                || endTime.isAfter(LocalTime.parse(slot.endTime()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Giờ học phải nằm trong slot " + slot.id() + " (" + slot.startTime() + " - " + slot.endTime() + ")");
         }
 
-        validateScheduleConflicts(room.getId(), coach.getId(), startTime, endTime, cleanedDays, null);
+        List<String> cleanedDays = ClassSchedule.normalizeDays(request.getDaysOfWeek());
+        LocalDate endDate = ClassSchedule.endDate(request.getStartDate(), request.getDurationWeeks());
+        List<LocalDate> sessionDates = ClassSchedule.sessionDates(request.getStartDate(), endDate, cleanedDays);
 
         String daysOfWeekStr = String.join(", ", cleanedDays);
-        String status = StringUtils.hasText(request.getStatus()) ? request.getStatus().trim() : "Active";
+        String requestedStatus = StringUtils.hasText(request.getStatus()) ? request.getStatus().trim() : "Active";
+        String status = List.of("Active", "Open", "Closed", "Cancelled", "Completed", "Cancel").stream()
+                .filter(s -> s.equalsIgnoreCase(requestedStatus)
+                        || (s.equals("Completed") && "Complete".equalsIgnoreCase(requestedStatus)))
+                .findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái lớp không hợp lệ"));
 
         ClassEntity newClass = ClassEntity.builder()
                 .name(name)
@@ -120,10 +134,21 @@ public class ClassService {
                 .endTime(endTime)
                 .status(status)
                 .date(request.getStartDate())
+                .durationWeeks(request.getDurationWeeks())
+                .endDate(endDate)
                 .build();
+        newClass.setStatus(ClassSchedule.effectiveStatus(newClass, LocalDate.now(paymentClock)));
+        if (!List.of("Completed", "Cancelled", "Cancel").contains(newClass.getStatus())) {
+            validateScheduleConflicts(room.getId(), coach.getId(), startTime, endTime, sessionDates);
+        }
 
         ClassEntity saved = classRepository.save(newClass);
-        return ClassResponse.success("Tạo mới lớp học thành công", saved);
+        classSessionRepository.saveAll(sessionDates.stream().map(date -> ClassSession.builder()
+                .classEntity(saved).date(date).startTime(startTime).endTime(endTime)
+                .status("Cancel".equalsIgnoreCase(saved.getStatus()) || "Cancelled".equalsIgnoreCase(saved.getStatus())
+                        ? "Cancelled" : "Completed".equalsIgnoreCase(saved.getStatus()) ? "Completed" : "Scheduled")
+                .build()).toList());
+        return ClassResponse.success("Tạo mới lớp học thành công", saved, LocalDate.now(paymentClock));
     }
 
     @Transactional(readOnly = true)
@@ -140,10 +165,13 @@ public class ClassService {
         List<ClassEntity> classes = classRepository.searchClasses(
                 StringUtils.hasText(keyword) ? keyword : null,
                 parsedId,
-                StringUtils.hasText(st) ? st : null
+                null
         );
-
-        return ClassListResponse.success(classes);
+        LocalDate today = LocalDate.now(paymentClock);
+        String requestedStatus = "Complete".equalsIgnoreCase(st) ? "Completed" : st;
+        classes = classes.stream().filter(c -> !StringUtils.hasText(requestedStatus)
+                || requestedStatus.equalsIgnoreCase(ClassSchedule.effectiveStatus(c, today))).toList();
+        return ClassListResponse.success(classes, today);
     }
 
     @Transactional(readOnly = true)
@@ -153,7 +181,7 @@ public class ClassService {
                         HttpStatus.NOT_FOUND,
                         "Không tìm thấy lớp học với mã ID: " + id
                 ));
-        return ClassResponse.success("Lấy thông tin lớp học thành công", classEntity);
+        return ClassResponse.success("Lấy thông tin lớp học thành công", classEntity, LocalDate.now(paymentClock));
     }
 
     @Transactional(readOnly = true)
@@ -201,6 +229,7 @@ public class ClassService {
                         .subjects(subjectOptions)
                         .coaches(coachOptions)
                         .rooms(roomOptions)
+                        .timeSlots(TIME_SLOTS)
                         .build())
                 .build();
     }
@@ -220,50 +249,50 @@ public class ClassService {
             Integer coachId,
             LocalTime newStart,
             LocalTime newEnd,
-            List<String> newDays,
-            Integer excludeClassId
+            List<LocalDate> dates
     ) {
         List<ClassEntity> roomClasses = classRepository.findActiveClassesByRoomId(roomId);
         for (ClassEntity existing : roomClasses) {
-            if (excludeClassId != null && existing.getId().equals(excludeClassId)) {
-                continue;
-            }
-            if (isTimeOverlap(newStart, newEnd, existing.getStartTime(), existing.getEndTime())) {
-                String overlapDay = findCommonDay(newDays, existing.getDaysOfWeek());
-                if (overlapDay != null) {
+            ClassSession overlap = conflictingSession(existing, dates, newStart, newEnd);
+            if (overlap != null) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
                             String.format("Xung đột phòng tập: Phòng '%s' đã có lớp '%s' học vào %s (%s - %s)",
                                     existing.getRoom().getName(),
                                     existing.getName(),
-                                    overlapDay,
-                                    existing.getStartTime(),
-                                    existing.getEndTime())
+                                    overlap.getDate(),
+                                    overlap.getStartTime(),
+                                    overlap.getEndTime())
                     );
-                }
             }
         }
 
         List<ClassEntity> coachClasses = classRepository.findActiveClassesByCoachId(coachId);
         for (ClassEntity existing : coachClasses) {
-            if (excludeClassId != null && existing.getId().equals(excludeClassId)) {
-                continue;
-            }
-            if (isTimeOverlap(newStart, newEnd, existing.getStartTime(), existing.getEndTime())) {
-                String overlapDay = findCommonDay(newDays, existing.getDaysOfWeek());
-                if (overlapDay != null) {
+            ClassSession overlap = conflictingSession(existing, dates, newStart, newEnd);
+            if (overlap != null) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
                             String.format("Xung đột HLV: Huấn luyện viên '%s' đã có lịch dạy lớp '%s' vào %s (%s - %s)",
                                     existing.getCoach().getFullName(),
                                     existing.getName(),
-                                    overlapDay,
-                                    existing.getStartTime(),
-                                    existing.getEndTime())
+                                    overlap.getDate(),
+                                    overlap.getStartTime(),
+                                    overlap.getEndTime())
                     );
-                }
             }
         }
+    }
+
+    private ClassSession conflictingSession(ClassEntity existing, List<LocalDate> dates, LocalTime start, LocalTime end) {
+        String status = ClassSchedule.effectiveStatus(existing, LocalDate.now(paymentClock));
+        if (ClassSchedule.expired(existing, LocalDate.now(paymentClock)) || "Completed".equalsIgnoreCase(status)
+                || "Cancelled".equalsIgnoreCase(status) || "Cancel".equalsIgnoreCase(status)) return null;
+        return classSessionRepository.findActiveSessionsByClassId(existing.getId()).stream()
+                .filter(s -> "Scheduled".equalsIgnoreCase(s.getStatus()) && dates.contains(s.getDate())
+                        && ClassSchedule.withinTerm(existing, s.getDate())
+                        && isTimeOverlap(start, end, s.getStartTime(), s.getEndTime()))
+                .findFirst().orElse(null);
     }
 
     private boolean isTimeOverlap(LocalTime start1, LocalTime end1, LocalTime start2, LocalTime end2) {
@@ -271,25 +300,6 @@ public class ClassService {
             return false;
         }
         return start1.isBefore(end2) && end1.isAfter(start2);
-    }
-
-    private String findCommonDay(List<String> daysA, String daysBStr) {
-        if (daysA == null || daysA.isEmpty() || daysBStr == null || daysBStr.isBlank()) {
-            return null;
-        }
-        Set<String> setA = new HashSet<>();
-        for (String d : daysA) {
-            setA.add(d.trim().toUpperCase());
-        }
-
-        String[] parts = daysBStr.split(",");
-        for (String p : parts) {
-            String trimmed = p.trim().toUpperCase();
-            if (setA.contains(trimmed)) {
-                return p.trim();
-            }
-        }
-        return null;
     }
 
     private String normalizeText(String input) {

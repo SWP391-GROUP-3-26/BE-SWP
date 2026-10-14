@@ -13,6 +13,20 @@ import java.math.BigDecimal;
 @Builder
 public class ClassConfirmationDetailResponse {
 
+    private Integer sessionCount;
+    private BigDecimal totalAmount;
+    private java.util.List<MemberClassSessionData> sessions;
+
+    private java.time.LocalDate startDate;
+    private Integer durationWeeks;
+    private java.time.LocalDate endDate;
+    private Integer sessionId;
+    private java.time.LocalDate sessionDate;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "HH:mm")
+    private java.time.LocalTime sessionStartTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "HH:mm")
+    private java.time.LocalTime sessionEndTime;
+
     private boolean success;
     private String message;
 
@@ -38,6 +52,7 @@ public class ClassConfirmationDetailResponse {
         private String title;
         private String subtitle;
         private Integer remainingSessions;
+        private Integer requiredSessions;
         private String packageName;
         private String note;
     }

@@ -9,7 +9,12 @@ import java.util.Optional;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Integer> {
 
-    Optional<Payment> findByBooking_Id(Integer bookingId);
+    java.util.List<Payment> findByBooking_Session_ClassEntity_IdAndStatus(Integer classId, String status);
+
+    java.util.List<Payment> findAllByBooking_IdOrderByIdDesc(Integer bookingId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT p.booking.session.classEntity.id FROM Payment p WHERE p.id = :id AND p.expiresAt IS NOT NULL AND p.method = 'Card' AND p.paymentType = 'Class_Booking'")
+    Optional<Integer> findVnpayClassId(@org.springframework.data.repository.query.Param("id") Integer id);
 
     boolean existsByBooking_IdAndStatusIgnoreCase(Integer bookingId, String status);
 }

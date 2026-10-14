@@ -25,7 +25,10 @@ public class ClassFormOptionsResponse {
         private List<SubjectOption> subjects;
         private List<CoachOption> coaches;
         private List<RoomOption> rooms;
+        private List<TimeSlotOption> timeSlots;
     }
+
+    public record TimeSlotOption(Integer id, String startTime, String endTime) {}
 
     @Getter
     @AllArgsConstructor

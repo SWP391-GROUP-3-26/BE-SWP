@@ -14,6 +14,8 @@ import java.util.Optional;
 @Repository
 public interface ClassSessionRepository extends JpaRepository<ClassSession, Integer> {
 
+    List<ClassSession> findByClassEntity_Id(Integer classId);
+
     Optional<ClassSession> findByClassEntity_IdAndDateAndStartTime(Integer classId, LocalDate date, LocalTime startTime);
 
     @Query("SELECT s FROM ClassSession s " +

@@ -41,6 +41,9 @@ public class CreateClassRequest {
     @NotEmpty(message = "Vui lòng chọn ít nhất một ngày học trong tuần")
     private List<String> daysOfWeek;
 
+    @NotNull(message = "Vui lòng chọn slot học")
+    private Integer slotId;
+
     @NotNull(message = "Giờ bắt đầu buổi học không được để trống")
     @JsonFormat(pattern = "HH:mm")
     private LocalTime startTime;
@@ -59,6 +62,11 @@ public class CreateClassRequest {
 
     private String status;
 
+    @NotNull(message = "Ngày học đầu tiên không được để trống")
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate startDate;
+
+    @NotNull(message = "Số tuần học không được để trống")
+    @Min(value = 1, message = "Số tuần học phải là số nguyên dương")
+    private Integer durationWeeks;
 }

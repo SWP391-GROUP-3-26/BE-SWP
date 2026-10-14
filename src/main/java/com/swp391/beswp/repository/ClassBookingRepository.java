@@ -13,6 +13,14 @@ import java.util.Optional;
 @Repository
 public interface ClassBookingRepository extends JpaRepository<ClassBooking, Integer> {
 
+    List<ClassBooking> findBySession_ClassEntity_Id(Integer classId);
+
+    List<ClassBooking> findByRegistrationCodeOrderByIdAsc(String registrationCode);
+
+    @Query("SELECT COUNT(DISTINCT b.user.id) FROM ClassBooking b WHERE b.session.id = :sessionId " +
+           "AND (LOWER(b.status) = 'booked' OR (LOWER(b.status) = 'pending' AND b.paymentExpiresAt > :now))")
+    long countReservedMembersBySessionId(@Param("sessionId") Integer sessionId, @Param("now") LocalDateTime now);
+
     @Query("SELECT b FROM ClassBooking b " +
            "JOIN FETCH b.session s " +
            "JOIN FETCH s.classEntity c " +
@@ -35,16 +43,30 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
     @Query("SELECT CASE WHEN COUNT(b) > 0 THEN TRUE ELSE FALSE END FROM ClassBooking b " +
            "WHERE b.user.id = :userId " +
            "AND b.session.classEntity.id = :classId " +
-           "AND LOWER(b.status) = 'booked'")
+           "AND (b.session.date > CAST(:now AS date) OR (b.session.date = CAST(:now AS date) AND b.session.startTime > CAST(:now AS time))) " +
+           "AND (LOWER(b.status) = 'booked' OR (LOWER(b.status) = 'pending' AND b.paymentExpiresAt > :now))")
     boolean existsActiveBookingByUserIdAndClassId(
             @Param("userId") Integer userId,
-            @Param("classId") Integer classId
+            @Param("classId") Integer classId,
+            @Param("now") LocalDateTime now
     );
 
     @Query("SELECT COUNT(DISTINCT b.user.id) FROM ClassBooking b " +
            "WHERE b.session.classEntity.id = :classId " +
            "AND LOWER(b.status) = 'booked'")
     long countActiveMembersByClassId(@Param("classId") Integer classId);
+
+    @Query("SELECT COUNT(DISTINCT b.user.id) FROM ClassBooking b WHERE b.session.classEntity.id = :classId " +
+           "AND (LOWER(b.status) = 'booked' OR (LOWER(b.status) = 'pending' AND b.paymentExpiresAt > :now))")
+    long countReservedMembersByClassId(@Param("classId") Integer classId, @Param("now") LocalDateTime now);
+
+    Optional<ClassBooking> findByUser_IdAndSession_Id(Integer userId, Integer sessionId);
+
+    @Query("SELECT b FROM ClassBooking b WHERE b.session.classEntity.id = :classId AND b.status = 'Pending' AND b.paymentExpiresAt <= :now")
+    List<ClassBooking> findExpiredByClassId(@Param("classId") Integer classId, @Param("now") LocalDateTime now);
+
+    @Query("SELECT b.session.classEntity.id FROM ClassBooking b WHERE b.id = :id AND b.user.id = :userId")
+    Optional<Integer> findOwnedClassId(@Param("id") Integer id, @Param("userId") Integer userId);
 
     @Query("SELECT COUNT(b) FROM ClassBooking b " +
            "WHERE b.user.id = :userId " +
@@ -54,14 +76,16 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
             @Param("status") String status
     );
 
-    long countByUser_Id(Integer userId);
+    @Query("SELECT COUNT(b) FROM ClassBooking b WHERE b.user.id = :userId AND LOWER(b.status) <> 'pending'")
+    long countByUser_Id(@Param("userId") Integer userId);
 
     @Query("SELECT COUNT(b) FROM ClassBooking b " +
            "WHERE b.user.id = :userId " +
            "AND LOWER(b.status) IN ('booked', 'completed') " +
            "AND b.bookingDatetime >= :start " +
            "AND b.bookingDatetime <= :end " +
-           "AND b.id NOT IN (SELECT p.booking.id FROM Payment p WHERE p.booking IS NOT NULL AND LOWER(p.status) = 'paid')")
+           "AND (b.paymentMethod = 'PACKAGE' OR (b.paymentMethod IS NULL AND " +
+           "b.id NOT IN (SELECT p.booking.id FROM Payment p WHERE p.booking IS NOT NULL AND LOWER(p.status) = 'paid')))")
     long countUsedPackageSessions(
             @Param("userId") Integer userId,
             @Param("start") LocalDateTime start,
@@ -79,6 +103,8 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
 
     @Query("SELECT COUNT(DISTINCT b.user.id) FROM ClassBooking b " +
            "WHERE b.session.classEntity.coach.id = :coachId " +
-           "AND LOWER(b.status) = 'booked'")
-    long countTotalActiveStudentsByCoachId(@Param("coachId") Integer coachId);
+           "AND LOWER(b.status) = 'booked' " +
+           "AND LOWER(b.session.classEntity.status) IN ('active', 'open') " +
+           "AND (b.session.classEntity.endDate IS NULL OR b.session.classEntity.endDate >= :today)")
+    long countTotalActiveStudentsByCoachId(@Param("coachId") Integer coachId, @Param("today") java.time.LocalDate today);
 }

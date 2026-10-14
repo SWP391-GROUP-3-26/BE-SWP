@@ -20,8 +20,12 @@ public class ClassListResponse {
     private List<ClassResponse.ClassData> data;
 
     public static ClassListResponse success(List<ClassEntity> classes) {
+        return success(classes, java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")));
+    }
+
+    public static ClassListResponse success(List<ClassEntity> classes, java.time.LocalDate today) {
         List<ClassResponse.ClassData> list = classes.stream()
-                .map(ClassResponse.ClassData::fromEntity)
+                .map(c -> ClassResponse.ClassData.fromEntity(c, today))
                 .toList();
         return new ClassListResponse(true, "Lấy danh sách lớp học thành công", list.size(), list);
     }

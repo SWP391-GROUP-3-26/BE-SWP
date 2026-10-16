@@ -283,6 +283,7 @@ CREATE TABLE Payment (
     Vnp_Response_Code NVARCHAR(2)     NULL,
     Vnp_Transaction_Status NVARCHAR(2) NULL,
     Vnp_Pay_Date    NVARCHAR(14)      NULL,
+    Sepay_Transaction_ID BIGINT       NULL,
     Requires_Review BIT              NOT NULL CONSTRAINT DF_Payment_Requires_Review DEFAULT 0,
     CONSTRAINT PK_Payment PRIMARY KEY (Payment_ID),
     CONSTRAINT FK_Payment_Subscription FOREIGN KEY (Subscription_ID)
@@ -303,6 +304,10 @@ CREATE TABLE Payment (
     CONSTRAINT CK_Payment_Status   CHECK (Status IN (N'Pending', N'Paid', N'Failed', N'Refunded')),
     CONSTRAINT CK_Payment_Discount CHECK (Discount_Amount >= 0)
 );
+GO
+
+CREATE UNIQUE INDEX UX_Payment_Sepay_Transaction ON dbo.Payment (Sepay_Transaction_ID)
+    WHERE Sepay_Transaction_ID IS NOT NULL;
 GO
 
 /* ---------- Training_Plan ---------- */

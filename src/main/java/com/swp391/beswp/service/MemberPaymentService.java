@@ -29,12 +29,13 @@ public class MemberPaymentService {
     private final ClassReservationService reservations;
     private final MemberClassBookingService memberBookings;
     private final VnpayService vnpay;
+    private final SepayService sepay;
     private final Clock paymentClock;
 
     @Transactional
     public MemberPaymentResponse getPayment(String principal, Integer paymentId) {
         User user = memberBookings.findMemberUser(principal);
-        Integer classId = payments.findVnpayClassId(paymentId).orElseThrow(this::notFound);
+        Integer classId = payments.findOnlineClassId(paymentId).orElseThrow(this::notFound);
         classes.findByIdForUpdate(classId).orElseThrow(this::notFound);
         Payment payment = payments.findById(paymentId).orElseThrow(this::notFound);
         if (!Objects.equals(payment.getBooking().getUser().getId(), user.getId())) throw notFound();
@@ -47,7 +48,7 @@ public class MemberPaymentService {
                 .paymentId(payment.getId()).bookingId(payment.getBooking().getId())
                 .paymentStatus(payment.getStatus()).bookingStatus(displayStatus(ClassSchedule.bookingStatus(payment.getBooking(), now().toLocalDate())))
                 .paymentAmount(payment.getAmount()).expiresAt(payment.getExpiresAt().atOffset(VnpayService.OFFSET))
-                .requiresReview(payment.isRequiresReview()).build();
+                .requiresReview(payment.isRequiresReview()).qrPayment(sepay.qrPayment(payment)).build();
     }
 
     @Transactional(readOnly = true)

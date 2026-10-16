@@ -20,7 +20,7 @@ class MemberPaymentServiceTest {
     private final VnpayService vnpay = VnpayServiceTest.configured();
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-13T01:00:00Z"), VnpayService.OFFSET);
     private final ClassReservationService reservations = new ClassReservationService(bookings, payments);
-    private final MemberPaymentService service = new MemberPaymentService(payments, classes, bookings, reservations, memberBookings, vnpay, clock);
+    private final MemberPaymentService service = new MemberPaymentService(payments, classes, bookings, reservations, memberBookings, vnpay, mock(SepayService.class), clock);
     private ClassEntity classEntity;
     private ClassBooking booking;
     private Payment payment;
@@ -37,6 +37,7 @@ class MemberPaymentServiceTest {
         payment = Payment.builder().id(105).booking(booking).method("Card").paymentType("Class_Booking")
                 .amount(new BigDecimal("100000.00")).status("Pending").expiresAt(booking.getPaymentExpiresAt()).build();
         when(payments.findVnpayClassId(105)).thenReturn(Optional.of(10));
+        when(payments.findOnlineClassId(105)).thenReturn(Optional.of(10));
         when(classes.findByIdForUpdate(10)).thenReturn(Optional.of(classEntity));
         when(payments.findById(105)).thenReturn(Optional.of(payment));
         when(payments.findAllByBooking_IdOrderByIdDesc(42)).thenReturn(List.of(payment));

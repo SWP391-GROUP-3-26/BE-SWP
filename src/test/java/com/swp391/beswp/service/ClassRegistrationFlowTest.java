@@ -78,14 +78,16 @@ class ClassRegistrationFlowTest {
                 .filter(p -> p.getBooking().getId().equals(i.getArgument(0))).sorted(Comparator.comparing(Payment::getId).reversed()).toList());
         when(payments.findVnpayClassId(anyInt())).thenAnswer(i -> paymentRows.stream()
                 .filter(p -> p.getId().equals(i.getArgument(0))).findFirst().map(p -> 10));
+        when(payments.findOnlineClassId(anyInt())).thenAnswer(i -> paymentRows.stream()
+                .filter(p -> p.getId().equals(i.getArgument(0))).findFirst().map(p -> 10));
         when(payments.findById(anyInt())).thenAnswer(i -> paymentRows.stream().filter(p -> p.getId().equals(i.getArgument(0))).findFirst());
         when(bookings.findOwnedClassId(anyInt(), eq(1))).thenReturn(Optional.of(10));
         when(bookings.findByIdAndUser_Id(anyInt(), eq(1))).thenAnswer(i -> bookingRows.stream()
                 .filter(b -> b.getId().equals(i.getArgument(0))).findFirst());
         ClassReservationService reservations = new ClassReservationService(bookings, payments);
         service = new MemberClassBookingService(classes, sessions, bookings, subscriptions, payments, mock(ActivityLogRepository.class),
-                users, subjects, vnpay, reservations, clock);
-        paymentService = new MemberPaymentService(payments, classes, bookings, reservations, service, vnpay, clock);
+                users, subjects, vnpay, mock(SepayService.class), reservations, clock);
+        paymentService = new MemberPaymentService(payments, classes, bookings, reservations, service, vnpay, mock(SepayService.class), clock);
     }
 
     MemberClassBookingResponse register(String method, String channel) {

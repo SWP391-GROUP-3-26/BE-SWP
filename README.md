@@ -9,6 +9,8 @@ Project được tách thành 2 repository:
 - `BE-SWP`: Backend Spring Boot + SQL Server
 - `FE-SWP`: Frontend React + Vite
 
+Hướng dẫn cấu hình và quét QR thử nghiệm cho Ví điện tử Member: [SePay QR Test Mode](docs/SEPAY_QR_TEST_SETUP.md).
+
 ## 2. Công nghệ sử dụng
 
 ### Backend

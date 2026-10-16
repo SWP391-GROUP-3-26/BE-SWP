@@ -16,4 +16,5 @@ public class MemberPaymentResponse {
     private BigDecimal paymentAmount;
     private OffsetDateTime expiresAt;
     private boolean requiresReview;
+    private SepayQrPayment qrPayment;
 }

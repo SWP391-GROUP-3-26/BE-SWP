@@ -81,7 +81,7 @@ class MemberClassBookingServiceTest {
 
     private MemberClassBookingService newService(VnpayService vnpay) {
         return new MemberClassBookingService(classes, sessions, bookings, subscriptions, payments, logs, users, subjects,
-                vnpay, new ClassReservationService(bookings, payments), clock);
+                vnpay, mock(SepayService.class), new ClassReservationService(bookings, payments), clock);
     }
     private User member(int id) {
         Role role = new Role(); role.setRoleName("Member");
@@ -109,6 +109,28 @@ class MemberClassBookingServiceTest {
         order.verify(bookings).existsActiveBookingByUserIdAndClassId(eq(1), eq(10), any());
         order.verify(bookings).countReservedMembersBySessionId(eq(20), any());
         order.verify(bookings).save(any());
+    }
+
+    @Test
+    void walletCreatesPendingPaymentAndReservesSeatUntilWebhook() {
+        var response = service.registerClass("1", 10, MemberClassBookingRequest.builder()
+                .paymentMethod("DIRECT").paymentChannel("E_Wallet").build(), "127.0.0.1");
+        assertEquals("Pending", response.getPaymentStatus()); assertEquals("Chờ thanh toán", response.getBookingStatus());
+        assertNull(response.getPaymentUrl()); assertNotNull(response.getExpiresAt());
+        assertEquals("Pending", bookingRows.getFirst().getStatus());
+        assertEquals("E_Wallet", paymentRows.getFirst().getMethod());
+        assertThrows(ResponseStatusException.class, () -> service.registerClass("1", 10, card, "127.0.0.1"));
+    }
+
+    @Test
+    void unconfiguredWalletDoesNotCreateBookingOrPayment() {
+        var sepay = new SepayService(new com.swp391.beswp.config.SepayConfig(), payments, classes, bookings,
+                new ClassReservationService(bookings, payments), clock);
+        var unconfigured = new MemberClassBookingService(classes, sessions, bookings, subscriptions, payments, logs, users,
+                subjects, VnpayServiceTest.configured(), sepay, new ClassReservationService(bookings, payments), clock);
+        var error = assertThrows(ResponseStatusException.class, () -> unconfigured.registerClass("1", 10,
+                MemberClassBookingRequest.builder().paymentMethod("DIRECT").paymentChannel("E_Wallet").build(), "127.0.0.1"));
+        assertEquals(503, error.getStatusCode().value()); assertTrue(bookingRows.isEmpty()); assertTrue(paymentRows.isEmpty());
     }
 
     @Test

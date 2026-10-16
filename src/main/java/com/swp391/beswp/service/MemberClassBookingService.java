@@ -61,6 +61,7 @@ public class MemberClassBookingService {
     private final UserRepository userRepository;
     private final SubjectRepository subjectRepository;
     private final VnpayService vnpayService;
+    private final SepayService sepayService;
     private final ClassReservationService reservationService;
     private final java.time.Clock paymentClock;
 
@@ -425,16 +426,19 @@ public class MemberClassBookingService {
 
         String channel = isDirect ? normalizePaymentChannel(request.getPaymentChannel()) : null;
         boolean isCard = isDirect && "Card".equals(channel);
+        boolean isQr = isDirect && "E_Wallet".equals(channel);
+        boolean isOnline = isCard || isQr;
         BigDecimal unitPrice = classEntity.getPrice() == null ? BigDecimal.ZERO : classEntity.getPrice();
         BigDecimal paymentAmount = isDirect ? unitPrice.multiply(BigDecimal.valueOf(courseSessions.size())) : null;
         if (paymentAmount != null && (paymentAmount.signum() < 0 || paymentAmount.precision() - paymentAmount.scale() > 10)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tổng học phí không hợp lệ hoặc vượt giới hạn thanh toán");
         }
-        if (isCard) {
-            vnpayService.requireConfigured();
+        if (isOnline) {
+            if (isCard) vnpayService.requireConfigured();
+            else sepayService.requireConfigured();
             if (paymentAmount == null || paymentAmount.signum() <= 0
                     || paymentAmount.stripTrailingZeros().scale() > 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá lớp phải là số VND nguyên dương để thanh toán VNPay");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá lớp phải là số VND nguyên dương để thanh toán trực tuyến");
             }
         }
 
@@ -465,15 +469,15 @@ public class MemberClassBookingService {
         if (!ClassSchedule.bookable(classEntity, session, now)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buổi học không còn mở đăng ký");
         }
-        LocalDateTime expiresAt = isCard ? now.plusMinutes(VnpayService.PAYMENT_TIMEOUT_MINUTES) : null;
-        if (isCard && expiresAt.isAfter(session.getDate().atTime(session.getStartTime()))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buổi học phải bắt đầu sau ít nhất 15 phút để thanh toán VNPay");
+        LocalDateTime expiresAt = isOnline ? now.plusMinutes(VnpayService.PAYMENT_TIMEOUT_MINUTES) : null;
+        if (isOnline && expiresAt.isAfter(session.getDate().atTime(session.getStartTime()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buổi học phải bắt đầu sau ít nhất 15 phút để thanh toán trực tuyến");
         }
         String registrationCode = UUID.randomUUID().toString();
         List<ClassBooking> registration = new ArrayList<>();
         for (ClassSession selected : courseSessions) {
             registration.add(classBookingRepository.save(ClassBooking.builder().user(user).session(selected)
-                    .registrationCode(registrationCode).bookingDatetime(now).status(isCard ? "Pending" : "Booked")
+                    .registrationCode(registrationCode).bookingDatetime(now).status(isOnline ? "Pending" : "Booked")
                     .paymentMethod(isPackage ? "PACKAGE" : "DIRECT").paymentExpiresAt(expiresAt).build()));
         }
         ClassBooking savedBooking = registration.getFirst();
@@ -488,7 +492,7 @@ public class MemberClassBookingService {
                     .method(channel)
                     .paymentDate(now)
                     .expiresAt(expiresAt)
-                    .status(isCard ? "Pending" : "Paid")
+                    .status(isOnline ? "Pending" : "Paid")
                     .discountAmount(BigDecimal.ZERO)
                     .build();
             savedPayment = paymentRepository.save(payment);
@@ -510,9 +514,9 @@ public class MemberClassBookingService {
 
         return MemberClassBookingResponse.builder()
                 .registrationId(savedBooking.getId()).sessionCount(courseSessions.size())
-                .sessions(courseSessions.stream().map(s -> sessionData(s, isCard ? "Pending" : "Booked")).toList())
+                .sessions(courseSessions.stream().map(s -> sessionData(s, isOnline ? "Pending" : "Booked")).toList())
                 .success(true)
-                .message(isCard ? "Đã tạo yêu cầu thanh toán VNPay" : "Đăng ký lớp học thành công! Chúc bạn có buổi tập vui vẻ và hiệu quả.")
+                .message(isOnline ? (isQr ? "Đã tạo yêu cầu thanh toán QR SePay" : "Đã tạo yêu cầu thanh toán VNPay") : "Đăng ký lớp học thành công! Chúc bạn có buổi tập vui vẻ và hiệu quả.")
                 .bookingId(savedBooking.getId())
                 .startDate(classEntity.getDate()).durationWeeks(classEntity.getDurationWeeks()).endDate(classEntity.getEndDate())
                 .sessionId(session.getId()).sessionDate(session.getDate())
@@ -526,7 +530,7 @@ public class MemberClassBookingService {
                 .paymentMethod(paymentMethodDisplay)
                 .remainingPackageSessions(remainingSessionsAfter)
                 .paymentAmount(paymentAmount)
-                .bookingStatus(isCard ? "Chờ thanh toán" : "Đang diễn ra")
+                .bookingStatus(isOnline ? "Chờ thanh toán" : "Đang diễn ra")
                 .paymentId(savedPayment != null ? savedPayment.getId() : null)
                 .paymentStatus(savedPayment != null ? savedPayment.getStatus() : null)
                 .paymentUrl(paymentUrl)

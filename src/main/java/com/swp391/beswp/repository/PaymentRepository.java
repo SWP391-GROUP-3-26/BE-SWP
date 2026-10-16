@@ -16,5 +16,13 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
     @org.springframework.data.jpa.repository.Query("SELECT p.booking.session.classEntity.id FROM Payment p WHERE p.id = :id AND p.expiresAt IS NOT NULL AND p.method = 'Card' AND p.paymentType = 'Class_Booking'")
     Optional<Integer> findVnpayClassId(@org.springframework.data.repository.query.Param("id") Integer id);
 
+    @org.springframework.data.jpa.repository.Query("SELECT p.booking.session.classEntity.id FROM Payment p WHERE p.id = :id AND p.expiresAt IS NOT NULL AND p.method IN ('Card', 'E_Wallet') AND p.paymentType = 'Class_Booking'")
+    Optional<Integer> findOnlineClassId(@org.springframework.data.repository.query.Param("id") Integer id);
+
+    @org.springframework.data.jpa.repository.Query("SELECT p.booking.session.classEntity.id FROM Payment p WHERE p.id = :id AND p.expiresAt IS NOT NULL AND p.method = 'E_Wallet' AND p.paymentType = 'Class_Booking'")
+    Optional<Integer> findSepayClassId(@org.springframework.data.repository.query.Param("id") Integer id);
+
+    boolean existsBySepayTransactionId(Long transactionId);
+
     boolean existsByBooking_IdAndStatusIgnoreCase(Integer bookingId, String status);
 }

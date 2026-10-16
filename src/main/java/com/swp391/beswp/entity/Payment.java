@@ -80,6 +80,9 @@ public class Payment {
     @Column(name = "Vnp_Pay_Date", length = 14)
     private String vnpPayDate;
 
+    @Column(name = "Sepay_Transaction_ID")
+    private Long sepayTransactionId;
+
     @Column(name = "Requires_Review", nullable = false)
     @Builder.Default
     private boolean requiresReview = false;

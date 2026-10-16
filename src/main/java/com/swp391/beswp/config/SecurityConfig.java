@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/sepay/webhook").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/receptionist/members").hasAuthority("ROLE_Receptionist")
                         .requestMatchers(HttpMethod.GET, "/api/receptionist/members", "/api/receptionist/members/**").hasAuthority("ROLE_Receptionist")
                         .requestMatchers(HttpMethod.GET, "/api/auth/google/exchange").permitAll()

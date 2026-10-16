@@ -25,6 +25,7 @@ public class MemberClassBookingRequest {
     /**
      * Kênh thanh toán trực tiếp (nếu paymentMethod là DIRECT):
      * "Bank_Transfer", "Cash", "Card", "E_Wallet"
+     * Card: VNPay; E_Wallet: SePay QR (Pending until authenticated webhook).
      */
     private String paymentChannel;
 }

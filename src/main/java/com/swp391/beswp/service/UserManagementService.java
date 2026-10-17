@@ -55,6 +55,7 @@ public class UserManagementService {
     private final UserManagementRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     public UserManagementListResponse searchUsers(String search, String role, String status, int page, int size) {
         if (page < 0 || size < 1 || size > 100) {
@@ -113,6 +114,13 @@ public class UserManagementService {
         user.setStatus("Active");
 
         User saved = userRepository.saveAndFlush(user);
+        auditLogService.recordLog(
+                null,
+                "CREATE_USER",
+                "User",
+                String.format("Tạo tài khoản %s #%d (%s - %s)",
+                        role.getRoleName(), saved.getId(), saved.getUsername(), saved.getFullName())
+        );
         return UserManagementResponse.success("Tạo tài khoản thành công", UserManagementUserData.fromEntity(saved));
     }
 
@@ -137,26 +145,54 @@ public class UserManagementService {
         user.setAddress(normalizeOptionalText(request.getAddress()));
 
         User saved = userRepository.saveAndFlush(user);
+        auditLogService.recordLog(
+                null,
+                "UPDATE_USER",
+                "User",
+                String.format("Cập nhật thông tin người dùng #%d (%s - %s)",
+                        saved.getId(), saved.getUsername(), saved.getFullName())
+        );
         return UserManagementResponse.success("Cập nhật người dùng thành công", UserManagementUserData.fromEntity(saved));
     }
 
     @Transactional
     public UserManagementResponse updateRole(Integer id, String requestedRole) {
         User user = findManagedUser(id);
+        String oldRole = user.getRole() != null ? user.getRole().getRoleName() : "None";
         String roleName = normalizeChoice(requestedRole, MANAGED_ROLES, "Role");
         Role role = roleRepository.findByRoleNameIgnoreCase(roleName)
                 .orElseThrow(() -> conflict("Role is not configured: " + roleName));
         user.setRole(role);
         User saved = userRepository.saveAndFlush(user);
+
+        // Ghi nhận Audit Log thay đổi vai trò (Role Change History)
+        auditLogService.recordLog(
+                null,
+                "CHANGE_ROLE",
+                "User",
+                String.format("Thay đổi vai trò người dùng #%d (%s) từ '%s' sang '%s'",
+                        user.getId(), user.getUsername(), oldRole, roleName)
+        );
+
         return UserManagementResponse.success("Cập nhật vai trò thành công", UserManagementUserData.fromEntity(saved));
     }
 
     @Transactional
     public UserManagementResponse updateStatus(Integer id, String requestedStatus) {
         User user = findManagedUser(id);
+        String oldStatus = user.getStatus();
         String status = normalizeChoice(requestedStatus, STATUSES, "Status");
         user.setStatus(status);
         User saved = userRepository.saveAndFlush(user);
+
+        auditLogService.recordLog(
+                null,
+                "UPDATE_STATUS",
+                "User",
+                String.format("Cập nhật trạng thái người dùng #%d (%s) từ '%s' sang '%s'",
+                        user.getId(), user.getUsername(), oldStatus, status)
+        );
+
         return UserManagementResponse.success("Cập nhật trạng thái thành công", UserManagementUserData.fromEntity(saved));
     }
 
@@ -166,6 +202,15 @@ public class UserManagementService {
         String password = validatePassword(request.getPassword(), request.getConfirmPassword());
         user.setPassword(passwordEncoder.encode(password));
         User saved = userRepository.saveAndFlush(user);
+
+        auditLogService.recordLog(
+                null,
+                "RESET_PASSWORD",
+                "User",
+                String.format("Đặt lại mật khẩu cho người dùng #%d (%s)",
+                        user.getId(), user.getUsername())
+        );
+
         return UserManagementResponse.success("Đặt lại mật khẩu thành công", UserManagementUserData.fromEntity(saved));
     }
 

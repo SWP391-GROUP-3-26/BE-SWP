@@ -17,6 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigInteger;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import com.swp391.beswp.entity.ActivityLog;
+import com.swp391.beswp.repository.ActivityLogRepository;
 import java.util.Map;
 import java.util.Objects;
 
@@ -31,6 +33,9 @@ public class MemberPaymentService {
     private final VnpayService vnpay;
     private final SepayService sepay;
     private final Clock paymentClock;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ActivityLogRepository activityLogRepository;
 
     @Transactional
     public MemberPaymentResponse getPayment(String principal, Integer paymentId) {
@@ -109,6 +114,18 @@ public class MemberPaymentService {
             for (ClassBooking item : registration) {
                 item.setStatus("Booked");
                 item.setPaymentExpiresAt(null);
+            }
+            if (activityLogRepository != null) {
+                try {
+                    activityLogRepository.save(ActivityLog.builder()
+                            .user(booking.getUser())
+                            .actionType("CONFIRM_PAYMENT")
+                            .targetEntity("Payment")
+                            .description(String.format("Xác nhận thanh toán VNPay #PAY-%s thành công cho lớp '%s' số tiền %s VND",
+                                    payment.getId(), classEntity.getName(), payment.getAmount()))
+                            .createdAt(now)
+                            .build());
+                } catch (Exception ignored) {}
             }
         } else if (latestAttempt && "Pending".equals(booking.getStatus())) {
             reservations.cancelPendingRegistration(booking);

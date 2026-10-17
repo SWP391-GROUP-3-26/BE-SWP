@@ -17,6 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import com.swp391.beswp.entity.ActivityLog;
+import com.swp391.beswp.repository.ActivityLogRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.regex.Pattern;
@@ -32,6 +34,9 @@ public class SepayService {
     private final ClassBookingRepository bookings;
     private final ClassReservationService reservations;
     private final Clock paymentClock;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ActivityLogRepository activityLogs;
 
     public void requireConfigured() {
         if (!config.isEnabled() || config.getBankCode() == null || !config.getBankCode().matches("[A-Za-z0-9]{2,30}")
@@ -97,6 +102,18 @@ public class SepayService {
         payment.setRequiresReview(!canConfirm);
         if (canConfirm) {
             registration.forEach(item -> { item.setStatus("Booked"); item.setPaymentExpiresAt(null); });
+            if (activityLogs != null) {
+                try {
+                    activityLogs.save(ActivityLog.builder()
+                            .user(booking.getUser())
+                            .actionType("CONFIRM_PAYMENT")
+                            .targetEntity("Payment")
+                            .description(String.format("Xác nhận thanh toán SePay chuyển khoản #PAY-%s thành công cho lớp '%s' số tiền %s VND",
+                                    payment.getId(), classEntity.getName(), payment.getAmount()))
+                            .createdAt(now)
+                            .build());
+                } catch (Exception ignored) {}
+            }
         } else {
             reservations.cancelPendingRegistration(booking);
         }

@@ -83,6 +83,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/packages/**").authenticated()
                         .requestMatchers("/api/member/**").hasAnyAuthority("ROLE_Member", "ROLE_Admin")
                         .requestMatchers("/api/coach/**").hasAnyAuthority("ROLE_Coach", "ROLE_Admin", "ROLE_Center Manager")
+                        .requestMatchers("/api/admin/audit-logs/**", "/api/audit-logs/**").hasAnyAuthority("ROLE_Admin", "ROLE_Center Manager")
                         .anyRequest().authenticated()
                 );
 

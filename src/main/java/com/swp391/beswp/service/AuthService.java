@@ -12,6 +12,8 @@ import com.swp391.beswp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +54,7 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
@@ -115,6 +118,42 @@ public class AuthService {
         user.setStatus("Active");
 
         User savedUser = userRepository.save(user);
+
+        // Ghi nhận Audit Log cho đăng ký người dùng (Lễ tân đăng ký vs Người dùng tự đăng ký)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isStaff = auth != null && auth.isAuthenticated()
+                && !"anonymousUser".equalsIgnoreCase(String.valueOf(auth.getPrincipal()));
+
+        if (isStaff) {
+            User performer = null;
+            try {
+                String principalStr = auth.getName();
+                if (StringUtils.hasText(principalStr)) {
+                    try {
+                        performer = userRepository.findById(Integer.parseInt(principalStr)).orElse(null);
+                    } catch (NumberFormatException e) {
+                        performer = userRepository.findByUsernameIgnoreCase(principalStr).orElse(null);
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            auditLogService.recordLog(
+                    performer,
+                    "CREATE_MEMBER",
+                    "User",
+                    String.format("Lễ tân đăng ký tài khoản hội viên #%d (%s - %s) cho khách hàng",
+                            savedUser.getId(), savedUser.getUsername(), savedUser.getFullName())
+            );
+        } else {
+            auditLogService.recordLog(
+                    savedUser,
+                    "REGISTER_USER",
+                    "User",
+                    String.format("Người dùng tự đăng ký tài khoản trực tuyến #%d (%s - %s)",
+                            savedUser.getId(), savedUser.getUsername(), savedUser.getFullName())
+            );
+        }
+
         return RegisterResponse.success(new RegisterResponse.RegisterUserData(
                 savedUser.getId(),
                 savedUser.getUsername(),
@@ -173,7 +212,15 @@ public class AuthService {
         user.setRole(memberRole);
         user.setStatus("Active");
 
-        return userRepository.saveAndFlush(user);
+        User savedUser = userRepository.saveAndFlush(user);
+        auditLogService.recordLog(
+                savedUser,
+                "REGISTER_USER",
+                "User",
+                String.format("Người dùng tự đăng ký tài khoản trực tuyến qua Google #%d (%s - %s)",
+                        savedUser.getId(), savedUser.getUsername(), savedUser.getFullName())
+        );
+        return savedUser;
     }
 
     private String generateGoogleUsername(String email) {

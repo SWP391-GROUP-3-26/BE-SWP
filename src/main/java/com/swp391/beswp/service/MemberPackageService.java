@@ -43,6 +43,7 @@ public class MemberPackageService {
     private final MemberPackageSubscriptionRepository subscriptionRepository;
     private final MemberPackagePaymentRepository paymentRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     public MemberPackageCatalogResponse getAvailablePackages(String principal, String search, int page, int size) {
@@ -111,6 +112,18 @@ public class MemberPackageService {
                 .discountAmount(BigDecimal.ZERO)
                 .build();
         Payment savedPayment = paymentRepository.save(payment);
+
+        // Ghi nhận Audit Log lịch sử thanh toán gói hội viên
+        auditLogService.recordLog(
+                member,
+                "PURCHASE_MEMBERSHIP",
+                "Payment",
+                String.format("Hội viên %s thanh toán gói '%s' số tiền %s VND (Phương thức: %s)",
+                        member.getFullName(),
+                        membershipPackage.getName(),
+                        membershipPackage.getPrice() != null ? String.format("%,d", membershipPackage.getPrice().longValue()) : "0",
+                        paymentMethod)
+        );
 
         return new MemberPackageSubscriptionResponse(
                 true,

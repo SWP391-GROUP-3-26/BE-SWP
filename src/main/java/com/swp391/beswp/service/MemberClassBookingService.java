@@ -497,6 +497,18 @@ public class MemberClassBookingService {
                     .build();
             savedPayment = paymentRepository.save(payment);
             if (isCard) paymentUrl = vnpayService.createPaymentUrl(savedPayment, ipAddress);
+
+            logActivity(
+                    user,
+                    "CREATE_PAYMENT",
+                    "Payment",
+                    String.format("Tạo thanh toán trực tiếp #PAY-%s cho lớp '%s' số tiền %s VND (Phương thức: %s, Trạng thái: %s)",
+                            savedPayment.getId() != null ? savedPayment.getId() : "NEW",
+                            classEntity.getName(),
+                            formatCurrency(paymentAmount),
+                            channel,
+                            isOnline ? "Pending" : "Paid")
+            );
         }
 
         logActivity(
@@ -578,13 +590,24 @@ public class MemberClassBookingService {
             }
         }
 
-        for (Payment payment : paymentRepository.findAllByBooking_IdOrderByIdDesc(root.getId())) {
-            if ("Pending".equals(payment.getStatus())) payment.setStatus("Failed");
-            if ("Paid".equals(payment.getStatus())) payment.setRequiresReview(true);
-        }
-
         String className = booking.getSession() != null && booking.getSession().getClassEntity() != null
                 ? booking.getSession().getClassEntity().getName() : "lớp học";
+
+        for (Payment payment : paymentRepository.findAllByBooking_IdOrderByIdDesc(root.getId())) {
+            if ("Pending".equals(payment.getStatus())) payment.setStatus("Failed");
+            if ("Paid".equals(payment.getStatus())) {
+                payment.setRequiresReview(true);
+                logActivity(
+                        user,
+                        "REFUND_PAYMENT",
+                        "Payment",
+                        String.format("Yêu cầu hoàn tiền thanh toán #PAY-%s số tiền %s VND do hủy đăng ký lớp '%s'",
+                                payment.getId(),
+                                formatCurrency(payment.getAmount()),
+                                className)
+                );
+            }
+        }
 
         logActivity(
                 user,

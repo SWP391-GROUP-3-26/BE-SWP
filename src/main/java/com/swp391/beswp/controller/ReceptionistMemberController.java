@@ -54,7 +54,7 @@ public class ReceptionistMemberController {
         return ResponseEntity.ok(memberService.searchMembers(keyword, page, size));
     }
 
-    @Operation(summary = "Get MEMBER profile", description = "Receptionist only. Nonexistent IDs and accounts of other roles both return 404.", security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Get MEMBER profile", description = "Receptionist only. Includes active packages within their term and confirmed classes with remaining scheduled sessions. Expiry uses Vietnam time; the end date is inclusive. Nonexistent IDs and accounts of other roles both return 404.", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Member profile"),
         @ApiResponse(responseCode = "400", description = "ID is not a 32-bit integer", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),

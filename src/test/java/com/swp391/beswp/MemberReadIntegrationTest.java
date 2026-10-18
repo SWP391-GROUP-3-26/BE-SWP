@@ -97,6 +97,8 @@ class MemberReadIntegrationTest {
             if (member) {
                 var data = mapper.readTree(response.body()).path("data");
                 assertEquals(((Number) account.get("User_ID")).intValue(), data.path("userId").asInt());
+                assertTrue(data.path("activePackages").isArray());
+                assertTrue(data.path("activeClasses").isArray());
                 assertSafe(data);
             }
         }
@@ -130,7 +132,7 @@ class MemberReadIntegrationTest {
     }
 
     private void assertSafe(JsonNode data) {
-        assertEquals(11, data.size());
+        assertEquals(data.has("activePackages") ? 13 : 11, data.size());
         for (String field : List.of("password", "passwordHash", "accessToken", "refreshToken", "secret")) {
             assertFalse(data.has(field));
         }

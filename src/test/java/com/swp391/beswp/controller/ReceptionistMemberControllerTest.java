@@ -5,6 +5,11 @@ import com.swp391.beswp.entity.Role;
 import com.swp391.beswp.entity.User;
 import com.swp391.beswp.repository.RoleRepository;
 import com.swp391.beswp.repository.UserRepository;
+import com.swp391.beswp.repository.MemberSubscriptionRepository;
+import com.swp391.beswp.repository.ClassBookingRepository;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import com.swp391.beswp.service.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +46,9 @@ class ReceptionistMemberControllerTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @MockitoBean UserRepository users;
+    @MockitoBean MemberSubscriptionRepository subscriptions;
+    @MockitoBean ClassBookingRepository bookings;
+    @MockitoBean Clock paymentClock;
     @MockitoBean RoleRepository roles;
     @MockitoBean PasswordEncoder encoder;
     @MockitoBean JwtService jwt;
@@ -52,6 +60,8 @@ class ReceptionistMemberControllerTest {
 
     @BeforeEach
     void setUp() {
+        when(paymentClock.instant()).thenReturn(Instant.parse("2026-10-16T03:00:00Z"));
+        when(paymentClock.getZone()).thenReturn(ZoneId.of("Asia/Ho_Chi_Minh"));
         body = new LinkedHashMap<>(Map.of("username", " New.Member ", "fullName", " Nguyen Van A ",
                 "email", " NEW@example.com ", "phone", "+84 (90) 123-4567",
                 "password", "Password1!", "confirmPassword", "Password1!"));
@@ -197,11 +207,42 @@ class ReceptionistMemberControllerTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.userId").value(42))
                 .andExpect(jsonPath("$.data.role").value("Member"))
                 .andExpect(jsonPath("$.data.dob").value("2000-01-02"))
+                .andExpect(jsonPath("$.data.activePackages").isEmpty())
+                .andExpect(jsonPath("$.data.activeClasses").isEmpty())
                 .andExpect(jsonPath("$.data.password").doesNotExist())
                 .andExpect(jsonPath("$.data.accessToken").doesNotExist())
                 .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
         mvc.perform(get(URL + "/99").with(user("staff").roles("Receptionist")))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.message").value("Member not found"));
+    }
+
+    @Test
+    void detailSerializesActiveRegistrationsForSelectedMember() throws Exception {
+        when(users.findByIdAndRoleRoleNameIgnoreCase(42, "Member")).thenReturn(Optional.of(member()));
+        var today = java.time.LocalDate.of(2026, 10, 16);
+        var pack = com.swp391.beswp.entity.MembershipPackage.builder().id(3).name("Gói tháng").includedClasses(12).build();
+        when(subscriptions.findActiveSubscriptionsByUserId(42, today)).thenReturn(List.of(
+                com.swp391.beswp.entity.MemberSubscription.builder().id(7).membershipPackage(pack)
+                        .startDate(today.minusDays(10)).endDate(today).build()));
+        var coach = new User();
+        coach.setFullName("Coach");
+        var course = com.swp391.beswp.entity.ClassEntity.builder().id(5).name("Yoga").status("Active")
+                .subject(com.swp391.beswp.entity.Subject.builder().name("Yoga").build()).coach(coach)
+                .room(com.swp391.beswp.entity.Room.builder().name("Room").build())
+                .date(today.minusDays(7)).endDate(today).daysOfWeek("T2,T6").build();
+        var session = com.swp391.beswp.entity.ClassSession.builder().classEntity(course).date(today)
+                .startTime(java.time.LocalTime.of(15, 0)).endTime(java.time.LocalTime.of(16, 0)).build();
+        when(bookings.findMyBookings(42, "Booked", null)).thenReturn(List.of(
+                com.swp391.beswp.entity.ClassBooking.builder().session(session).build()));
+
+        mvc.perform(get(URL + "/42").with(user("staff").roles("Receptionist")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activePackages[0].subscriptionId").value(7))
+                .andExpect(jsonPath("$.data.activePackages[0].packageName").value("Gói tháng"))
+                .andExpect(jsonPath("$.data.activePackages[0].endDate").value("2026-10-16"))
+                .andExpect(jsonPath("$.data.activeClasses[0].classId").value(5))
+                .andExpect(jsonPath("$.data.activeClasses[0].className").value("Yoga"))
+                .andExpect(jsonPath("$.data.activeClasses[0].coachName").value("Coach"));
     }
 
     @ParameterizedTest

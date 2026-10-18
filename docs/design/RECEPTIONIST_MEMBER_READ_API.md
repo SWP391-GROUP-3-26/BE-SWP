@@ -9,10 +9,10 @@ list/search/detail endpoint was available to reuse. Login UserResponse describes
 signed-in user, not an arbitrary member profile. Creation and authentication contracts
 are unchanged. The existing controller, UserRepository, User/Role entities, DTO mapping
 style, success/message/data envelope, and ErrorResponse are reused. No schema changes,
-new dependencies, generic response framework, or frontend edits.
+new dependencies, or generic response framework are introduced.
 
-The current FE ReceptionistDashboard.jsx is a placeholder; it does not yet call these
-read APIs. This change makes the backend ready for integration, not the frontend UI.
+FE ReceptionistDashboard.jsx calls the search API and opens ReceptionistMemberDetail.jsx.
+The detail page shows the profile followed by the member's active packages and classes.
 
 ## Authentication and permissions
 
@@ -112,8 +112,29 @@ HTTP 200 example:
 Both responses explicitly map the same 11 profile fields from User/Role. userId is an
 integer; dob is an ISO date or null; other profile fields are strings or null according
 to stored values (role is the stored Member role name). No entity is serialized.
-Password/hash, tokens and secrets are excluded. There are no payment, package, health,
-or schedule fields.
+Password/hash, tokens and secrets are excluded.
+
+### Active registrations in member detail
+
+The detail response additionally includes `data.activePackages` and `data.activeClasses`.
+Both are arrays (empty when no matching registrations exist). Search results retain
+only the profile fields. The receptionist frontend renders these arrays below the profile.
+
+- `activePackages`: `subscriptionId`, `packageId`, `packageName`, `includedClasses`,
+  `startDate`, `endDate`. Subscriptions must be Active with startDate <= today <= endDate.
+  `includedClasses` is the package allowance, not the remaining session balance.
+- `activeClasses`: `classId`, `className`, `subjectName`, `coachName`, `roomName`,
+  `daysOfWeek`, `startDate`, `endDate`, `startTime`, `endTime`. Only confirmed Booked
+  registrations in Active/Open classes are included. Classes must not be expired and
+  must have at least one Scheduled session within the class term whose end time is
+  still in the future. Sessions in progress count. Pending, cancelled and completed
+  registrations/classes are excluded. Multiple matching bookings for one class yield
+  one class item. Legacy classes without an end date still require a remaining session;
+  missing class times use the matching session times.
+
+Dates use the existing business Clock in Asia/Ho_Chi_Minh. End dates are inclusive.
+These are registrations belonging to the selected member ID, not the signed-in receptionist.
+The existing Receptionist-only access policy is unchanged; no schema change is required.
 
 ## Errors
 
@@ -142,6 +163,19 @@ success/error responses, and bearer authentication. SwaggerIntegrationTest verif
 the generated /v3/api-docs, security scheme, paths, and GET operations. It also checks
 Swagger UI HTML, JavaScript and redirect via HTTP. No browser-rendered Swagger UI or
 interactive Try it out was inspected.
+
+## Verification (2026-10-16)
+
+- 47 tests passed: MemberServiceTest, ReceptionistMemberControllerTest,
+  BookingRepositoryQueryTest, and the opt-in MemberReadIntegrationTest against local SQL Server.
+- Tests cover selected-member lookup, Vietnam date boundaries, packages ending today,
+  future package activation, class deduplication, expired/cancelled/completed classes,
+  past/out-of-term sessions, DTO serialization, and existing read authorization.
+- FE production build and ESLint for the changed JavaScript/JSX files passed using the
+  bundled Node runtime. Full FE lint reports two existing static-components errors
+  in PackageManagement.jsx. Browser testing with a receptionist login was not performed.
+- BE tests loaded Mockito as a JVM startup agent because dynamic attach is restricted
+  in the sandbox; Spring loopback and the SQL Server integration ran outside the sandbox.
 
 ## Verification (2026-10-08)
 

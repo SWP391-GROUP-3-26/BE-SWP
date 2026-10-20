@@ -44,6 +44,7 @@ public class MemberPackageService {
     private final MemberPackagePaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private final OnlineSubscriptionPaymentService subscriptionPayments;
 
     @Transactional(readOnly = true)
     public MemberPackageCatalogResponse getAvailablePackages(String principal, String search, int page, int size) {
@@ -77,11 +78,13 @@ public class MemberPackageService {
             MemberPackageRegistrationRequest request
     ) {
         User member = requireMember(principal);
+        userRepository.findByIdForUpdate(member.getId()).orElseThrow();
+        subscriptionPayments.expirePending(member.getId());
         MembershipPackage membershipPackage = findActivePackage(request.getPackageId());
         String paymentMethod = normalizePaymentMethod(request.getPaymentMethod());
         LocalDate today = LocalDate.now();
 
-        if (subscriptionRepository.hasActiveSubscription(member.getId(), today)) {
+        if (subscriptionPayments.hasPending(member.getId()) || subscriptionRepository.hasActiveSubscription(member.getId(), today)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Bạn đang có gói hội viên hoạt động. Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới"

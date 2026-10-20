@@ -4,9 +4,7 @@ import com.swp391.beswp.dto.ReceptionistClassRegistrationRequest;
 import com.swp391.beswp.dto.ReceptionistPackageRegistrationRequest;
 import com.swp391.beswp.dto.ReceptionistRegistrationDtos.ClassCatalogResponse;
 import com.swp391.beswp.dto.ReceptionistRegistrationDtos.ClassRegistrationPreview;
-import com.swp391.beswp.dto.ReceptionistRegistrationDtos.ClassRegistrationResponse;
 import com.swp391.beswp.dto.ReceptionistRegistrationDtos.PackageCatalogResponse;
-import com.swp391.beswp.dto.ReceptionistRegistrationDtos.PackageRegistrationResponse;
 import com.swp391.beswp.service.ReceptionistRegistrationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -62,26 +60,56 @@ public class ReceptionistRegistrationController {
     }
 
     @Operation(summary = "Đăng ký gói tập cho hội viên và ghi nhận thanh toán tại quầy",
-            description = "Lễ tân xác nhận đã nhận tiền; các phương thức hợp lệ là Cash, Card, Bank_Transfer và E_Wallet.")
+            description = "Cash ghi Paid sau xác nhận nhận tiền. Card (VNPay) và E_Wallet (SePay) tạo Pending; chỉ kích hoạt gói khi callback hợp lệ.")
     @PostMapping("/members/{memberId}/packages")
-    public ResponseEntity<PackageRegistrationResponse> registerPackage(
+    public ResponseEntity<Object> registerPackage(
             Authentication authentication,
             @PathVariable Integer memberId,
+            jakarta.servlet.http.HttpServletRequest servletRequest,
             @Valid @RequestBody ReceptionistPackageRegistrationRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(registrationService.registerPackage(authentication, memberId, request));
+                .body("Cash".equalsIgnoreCase(request.paymentMethod())
+                        ? registrationService.registerPackage(authentication, memberId, request)
+                        : registrationService.registerOnlinePackage(authentication, memberId, request, servletRequest.getRemoteAddr()));
     }
 
     @Operation(summary = "Đăng ký hội viên vào toàn bộ các buổi còn lại của lớp",
-            description = "Với DIRECT, lễ tân xác nhận thanh toán tại quầy bằng Cash, Card, Bank_Transfer hoặc E_Wallet. PACKAGE dùng số buổi từ gói hội viên đang hoạt động.")
+            description = "DIRECT/Cash ghi Paid sau xác nhận nhận tiền; DIRECT/Card hoặc E_Wallet giữ chỗ Pending qua cổng thanh toán. PACKAGE trừ lượt gói, không gửi paymentChannel.")
     @PostMapping("/members/{memberId}/classes")
-    public ResponseEntity<ClassRegistrationResponse> registerClass(
+    public ResponseEntity<Object> registerClass(
             Authentication authentication,
             @PathVariable Integer memberId,
+            jakarta.servlet.http.HttpServletRequest servletRequest,
             @Valid @RequestBody ReceptionistClassRegistrationRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(registrationService.registerClass(authentication, memberId, request));
+                .body("DIRECT".equalsIgnoreCase(request.paymentMethod()) && !"Cash".equalsIgnoreCase(request.paymentChannel())
+                        ? registrationService.registerOnlineClass(authentication, memberId, request, servletRequest.getRemoteAddr())
+                        : registrationService.registerClass(authentication, memberId, request));
+    }
+    @GetMapping("/members/{memberId}/classes")
+    public Object memberClasses(Authentication auth, @PathVariable Integer memberId) {
+        return registrationService.getMemberClasses(auth, memberId);
+    }
+
+    @GetMapping("/members/{memberId}/packages")
+    public Object memberPackages(Authentication auth, @PathVariable Integer memberId) {
+        return registrationService.getMemberPackages(auth, memberId);
+    }
+
+    @GetMapping("/members/{memberId}/payments/{paymentId}")
+    public Object payment(Authentication auth, @PathVariable Integer memberId, @PathVariable Integer paymentId) {
+        return registrationService.getPayment(auth, memberId, paymentId);
+    }
+
+    @PostMapping("/members/{memberId}/classes/bookings/{bookingId}/cancel")
+    public Object cancelClass(Authentication auth, @PathVariable Integer memberId, @PathVariable Integer bookingId) {
+        return registrationService.cancelClass(auth, memberId, bookingId);
+    }
+
+    @PostMapping("/members/{memberId}/payments/{paymentId}/cancel")
+    public Object cancelPendingPayment(Authentication auth, @PathVariable Integer memberId, @PathVariable Integer paymentId) {
+        return registrationService.cancelPendingPayment(auth, memberId, paymentId);
     }
 }

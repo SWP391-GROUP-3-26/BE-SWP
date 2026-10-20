@@ -50,7 +50,7 @@ import java.util.UUID;
 public class ReceptionistRegistrationService {
 
     private static final List<String> COUNTER_PAYMENT_CHANNELS =
-            List.of("Cash", "Card", "Bank_Transfer", "E_Wallet");
+            List.of("Cash", "Card", "E_Wallet");
 
     private final UserRepository userRepository;
     private final MembershipPackageRepository packageRepository;
@@ -63,6 +63,12 @@ public class ReceptionistRegistrationService {
     private final ClassReservationService classReservationService;
     private final AuditLogService auditLogService;
     private final Clock paymentClock;
+    private final MemberClassBookingService memberBookings;
+    private final MemberPackageService memberPackages;
+    private final MemberPaymentService memberPayments;
+    private final OnlineSubscriptionPaymentService subscriptionPayments;
+    private final VnpayService vnpay;
+    private final SepayService sepay;
 
     @Transactional(readOnly = true)
     public PackageCatalogResponse getPackages(Authentication authentication, String search) {
@@ -167,9 +173,13 @@ public class ReceptionistRegistrationService {
                 .filter(p -> "Active".equalsIgnoreCase(p.getStatus()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy gói tập đang mở bán"));
         String paymentMethod = normalizePaymentChannel(request.paymentMethod());
+        if (!"Cash".equals(paymentMethod)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thanh toán online phải tạo giao dịch chờ xác nhận");
+        }
         LocalDate today = LocalDate.now(paymentClock);
+        subscriptionPayments.expirePending(member.getId());
 
-        if (packageSubscriptionRepository.hasActiveSubscription(member.getId(), today)) {
+        if (subscriptionPayments.hasPending(member.getId()) || packageSubscriptionRepository.hasActiveSubscription(member.getId(), today)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Hội viên đang có gói hoạt động; không thể đăng ký thêm gói tại thời điểm này");
         }
@@ -278,11 +288,14 @@ public class ReceptionistRegistrationService {
             packageClassesRemaining = remaining - sessions.size();
         } else {
             paymentChannel = normalizePaymentChannel(request.paymentChannel());
+            if (!"Cash".equals(paymentChannel)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thanh toán online phải tạo giao dịch chờ xác nhận");
+            }
         }
 
         BigDecimal paymentAmount = packagePayment ? null
                 : unitPrice(course).multiply(BigDecimal.valueOf(sessions.size()));
-        if (paymentAmount != null && !fitsPaymentColumn(paymentAmount)) {
+        if (paymentAmount != null && (paymentAmount.signum() < 0 || !fitsPaymentColumn(paymentAmount))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tổng học phí vượt giới hạn thanh toán");
         }
 
@@ -337,6 +350,128 @@ public class ReceptionistRegistrationService {
                         ? null : activeSubscription.getMembershipPackage().getName(),
                 packageClassesRemaining, payment == null ? null : payment.getId(), paymentAmount,
                 payment == null ? null : payment.getStatus(), registeredAt);
+    }
+
+    @Transactional
+    public Object registerOnlineClass(Authentication authentication, Integer memberId,
+            ReceptionistClassRegistrationRequest request, String ipAddress) {
+        User actor = requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        String channel = normalizePaymentChannel(request.paymentChannel());
+        if (!"DIRECT".equalsIgnoreCase(request.paymentMethod()) || !List.of("Card", "E_Wallet").contains(channel)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kênh thanh toán online không hợp lệ");
+        }
+        var body = com.swp391.beswp.dto.MemberClassBookingRequest.builder()
+                .classId(request.classId()).paymentMethod("DIRECT").paymentChannel(channel).build();
+        var result = memberBookings.registerClass(member.getId().toString(), request.classId(), body, ipAddress);
+        Payment payment = paymentRepository.findById(result.getPaymentId()).orElseThrow();
+        payment.setReceptionist(actor);
+        auditLogService.recordLog(actor, "BOOK_CLASS", "Payment", "Tạo thanh toán #" + payment.getId()
+                + " cho hội viên #" + memberId + " - " + member.getFullName());
+        return result;
+    }
+
+    @Transactional
+    public Object registerOnlinePackage(Authentication authentication, Integer memberId,
+            ReceptionistPackageRegistrationRequest request, String ipAddress) {
+        User actor = requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        userRepository.findByIdForUpdate(memberId).orElseThrow();
+        String channel = normalizePaymentChannel(request.paymentMethod());
+        if (!List.of("Card", "E_Wallet").contains(channel)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kênh thanh toán online không hợp lệ");
+        }
+        if ("Card".equals(channel)) vnpay.requireConfigured(); else sepay.requireConfigured();
+        subscriptionPayments.expirePending(memberId);
+        LocalDate today = LocalDate.now(paymentClock);
+        if (packageSubscriptionRepository.hasActiveSubscription(memberId, today) || subscriptionPayments.hasPending(memberId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Hội viên đang có gói hoạt động hoặc giao dịch gói đang chờ thanh toán");
+        }
+        MembershipPackage pack = packageRepository.findById(request.packageId())
+                .filter(p -> "Active".equalsIgnoreCase(p.getStatus()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy gói đang mở bán"));
+        BigDecimal amount = pack.getPrice();
+        if (pack.getDuration() == null || pack.getDuration() <= 0 || amount == null || amount.signum() <= 0
+                || !fitsPaymentColumn(amount) || amount.stripTrailingZeros().scale() > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Giá hoặc thời hạn gói không hợp lệ để thanh toán online");
+        }
+        var subscription = packageSubscriptionRepository.save(MemberSubscription.builder().user(member)
+                .membershipPackage(pack).startDate(today).endDate(today.plusDays(pack.getDuration() - 1L))
+                .status("Pending").build());
+        Payment payment = paymentRepository.save(Payment.builder().subscription(subscription).receptionist(actor)
+                .paymentType("Subscription").amount(amount).method(channel).paymentDate(now())
+                .expiresAt(now().plusMinutes(VnpayService.PAYMENT_TIMEOUT_MINUTES)).status("Pending").build());
+        String url = "Card".equals(channel) ? vnpay.createPaymentUrl(payment, ipAddress) : "";
+        auditLogService.recordLog(actor, "PURCHASE_MEMBERSHIP", "Payment", "Tạo thanh toán #" + payment.getId()
+                + " cho hội viên #" + memberId + " - " + member.getFullName());
+        return Map.of("success", true, "paymentId", payment.getId(), "paymentStatus", "Pending",
+                "paymentUrl", url, "memberId", memberId);
+    }
+
+    @Transactional(readOnly = true)
+    public Object getMemberClasses(Authentication authentication, Integer memberId) {
+        requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        return memberBookings.getMyClasses(member.getId().toString(), "all", null);
+    }
+
+    @Transactional
+    public Object getMemberPackages(Authentication authentication, Integer memberId) {
+        requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        userRepository.findByIdForUpdate(memberId).orElseThrow();
+        subscriptionPayments.expirePending(memberId);
+        return memberPackages.getMySubscriptions(member.getId().toString(), null, 0, 100);
+    }
+
+    @Transactional
+    public Object cancelPendingPayment(Authentication authentication, Integer memberId, Integer paymentId) {
+        User actor = requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        userRepository.findByIdForUpdate(memberId).orElseThrow();
+        Integer owner = paymentRepository.findOnlineSubscriptionMemberId(paymentId).orElse(null);
+        Payment payment;
+        if (owner != null) {
+            if (!owner.equals(memberId)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thanh toán của hội viên");
+            payment = subscriptionPayments.lock(paymentId);
+        } else {
+            Integer classId = paymentRepository.findOnlineClassId(paymentId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thanh toán online"));
+            classRepository.findByIdForUpdate(classId).orElseThrow();
+            payment = paymentRepository.findById(paymentId).orElseThrow();
+            if (!payment.getBooking().getUser().getId().equals(memberId)) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Thanh toán không thuộc hội viên");
+            }
+        }
+        if (!"Pending".equals(payment.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Thanh toán đã thay đổi trạng thái. Hãy kiểm tra lại trước khi thao tác");
+        }
+        if (payment.getSubscription() != null) {
+            payment.setStatus("Failed");
+            payment.getSubscription().setStatus("Cancelled");
+        } else {
+            memberBookings.cancelClassBooking(member.getId().toString(), payment.getBooking().getId());
+        }
+        auditLogService.recordLog(actor, "CANCEL_PAYMENT", "Payment", "Hủy yêu cầu thanh toán #" + paymentId + " của hội viên #" + memberId);
+        return Map.of("success", true, "message", "Đã hủy yêu cầu chờ thanh toán. Giao dịch chuyển tiền đến sau sẽ được đánh dấu cần đối soát, không tự hoàn tiền.");
+    }
+
+    @Transactional
+    public Object getPayment(Authentication authentication, Integer memberId, Integer paymentId) {
+        requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        return memberPayments.getPayment(member.getId().toString(), paymentId);
+    }
+
+    @Transactional
+    public Object cancelClass(Authentication authentication, Integer memberId, Integer bookingId) {
+        User actor = requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        userRepository.findByIdForUpdate(memberId).orElseThrow();
+        memberBookings.cancelClassBooking(member.getId().toString(), bookingId);
+        auditLogService.recordLog(actor, "CANCEL_BOOKING", "Class_Booking",
+                "Hủy đăng ký #" + bookingId + " của hội viên #" + memberId + " - " + member.getFullName());
+        return Map.of("success", true, "message", "Đã hủy các buổi tương lai. Tiền đã thu cần đối soát, chưa được tự động hoàn.");
     }
 
     private User requireReceptionist(Authentication authentication) {

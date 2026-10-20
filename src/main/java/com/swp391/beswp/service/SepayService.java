@@ -34,6 +34,7 @@ public class SepayService {
     private final ClassBookingRepository bookings;
     private final ClassReservationService reservations;
     private final Clock paymentClock;
+    private final OnlineSubscriptionPaymentService subscriptionPayments;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ActivityLogRepository activityLogs;
@@ -74,6 +75,17 @@ public class SepayService {
                 || !config.getBankCode().equalsIgnoreCase(request.gateway())) return;
         Integer paymentId = paymentId(request);
         if (paymentId == null || payments.existsBySepayTransactionId(request.id())) return;
+        Integer subscriptionMemberId = payments.findOnlineSubscriptionMemberId(paymentId).orElse(null);
+        if (subscriptionMemberId != null) {
+            Payment payment = subscriptionPayments.lock(paymentId);
+            if (!"E_Wallet".equals(payment.getMethod())) return;
+            if (payment.getSepayTransactionId() != null || payments.existsBySepayTransactionId(request.id())) return;
+            if (payment.getAmount().compareTo(request.transferAmount()) != 0) return;
+            payment.setSepayTransactionId(request.id());
+            payment.setPaymentDate(LocalDateTime.now(paymentClock).withNano(0));
+            subscriptionPayments.confirm(payment, true);
+            return;
+        }
         Integer classId = payments.findSepayClassId(paymentId).orElse(null);
         if (classId == null) return;
         var classEntity = classes.findByIdForUpdate(classId).orElseThrow();

@@ -40,7 +40,8 @@ public class SecurityConfig {
                 ("POST".equals(request.getMethod()) && "/api/receptionist/members".equals(request.getServletPath()))
                 || ("GET".equals(request.getMethod()) && ("/api/receptionist/members".equals(request.getServletPath())
                 || request.getServletPath().startsWith("/api/receptionist/members/")))
-                || request.getServletPath().startsWith("/api/member/payments/");
+                || request.getServletPath().startsWith("/api/member/payments/")
+                || request.getServletPath().startsWith("/api/receptionist/registrations/");
         HttpSecurity security = http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -81,6 +82,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/packages/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.DELETE, "/api/packages/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.GET, "/api/packages/**").authenticated()
+                        .requestMatchers("/api/receptionist/registrations/**").hasAuthority("ROLE_Receptionist")
                         .requestMatchers("/api/member/**").hasAnyAuthority("ROLE_Member", "ROLE_Admin")
                         .requestMatchers("/api/coach/**").hasAnyAuthority("ROLE_Coach", "ROLE_Admin", "ROLE_Center Manager")
                         .requestMatchers("/api/admin/audit-logs/**", "/api/audit-logs/**").hasAnyAuthority("ROLE_Admin", "ROLE_Center Manager")

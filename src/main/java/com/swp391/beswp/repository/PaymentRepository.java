@@ -22,6 +22,11 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
     @org.springframework.data.jpa.repository.Query("SELECT p.booking.session.classEntity.id FROM Payment p WHERE p.id = :id AND p.expiresAt IS NOT NULL AND p.method = 'E_Wallet' AND p.paymentType = 'Class_Booking'")
     Optional<Integer> findSepayClassId(@org.springframework.data.repository.query.Param("id") Integer id);
 
+    java.util.List<Payment> findAllBySubscription_User_IdAndStatus(Integer memberId, String status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT p.subscription.user.id FROM Payment p WHERE p.id = :id AND p.expiresAt IS NOT NULL AND p.method IN ('Card', 'E_Wallet') AND p.paymentType = 'Subscription'")
+    Optional<Integer> findOnlineSubscriptionMemberId(@org.springframework.data.repository.query.Param("id") Integer id);
+
     boolean existsBySepayTransactionId(Long transactionId);
 
     boolean existsByBooking_IdAndStatusIgnoreCase(Integer bookingId, String status);

@@ -33,6 +33,7 @@ public class MemberPaymentService {
     private final VnpayService vnpay;
     private final SepayService sepay;
     private final Clock paymentClock;
+    private final OnlineSubscriptionPaymentService subscriptionPayments;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ActivityLogRepository activityLogRepository;
@@ -40,6 +41,18 @@ public class MemberPaymentService {
     @Transactional
     public MemberPaymentResponse getPayment(String principal, Integer paymentId) {
         User user = memberBookings.findMemberUser(principal);
+        Integer subscriptionMemberId = payments.findOnlineSubscriptionMemberId(paymentId).orElse(null);
+        if (subscriptionMemberId != null) {
+            if (!Objects.equals(subscriptionMemberId, user.getId())) throw notFound();
+            Payment payment = subscriptionPayments.lock(paymentId);
+            subscriptionPayments.expirePending(user.getId());
+            return MemberPaymentResponse.builder().success(true).paymentId(payment.getId())
+                    .memberId(user.getId()).memberName(user.getFullName()).itemName(payment.getSubscription().getMembershipPackage().getName())
+                    .paymentStatus(payment.getStatus()).bookingStatus("Active".equals(payment.getSubscription().getStatus())
+                            ? "Đang diễn ra" : "Pending".equals(payment.getSubscription().getStatus()) ? "Chờ thanh toán" : "Đã hủy")
+                    .paymentAmount(payment.getAmount()).expiresAt(payment.getExpiresAt().atOffset(VnpayService.OFFSET))
+                    .requiresReview(payment.isRequiresReview()).qrPayment(sepay.qrPayment(payment)).build();
+        }
         Integer classId = payments.findOnlineClassId(paymentId).orElseThrow(this::notFound);
         classes.findByIdForUpdate(classId).orElseThrow(this::notFound);
         Payment payment = payments.findById(paymentId).orElseThrow(this::notFound);
@@ -51,6 +64,7 @@ public class MemberPaymentService {
         }
         return MemberPaymentResponse.builder().success(true)
                 .paymentId(payment.getId()).bookingId(payment.getBooking().getId())
+                .memberId(user.getId()).memberName(user.getFullName()).itemName(payment.getBooking().getSession().getClassEntity().getName())
                 .paymentStatus(payment.getStatus()).bookingStatus(displayStatus(ClassSchedule.bookingStatus(payment.getBooking(), now().toLocalDate())))
                 .paymentAmount(payment.getAmount()).expiresAt(payment.getExpiresAt().atOffset(VnpayService.OFFSET))
                 .requiresReview(payment.isRequiresReview()).qrPayment(sepay.qrPayment(payment)).build();
@@ -62,7 +76,13 @@ public class MemberPaymentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phản hồi VNPay không hợp lệ");
         }
         Integer id = paymentId(params);
-        if (id == null || payments.findVnpayClassId(id).isEmpty()) throw notFound();
+        if (id == null) throw notFound();
+        Payment candidate = payments.findById(id).orElseThrow(this::notFound);
+        if (candidate.getSubscription() != null && "Card".equals(candidate.getMethod()) && candidate.getExpiresAt() != null) {
+            if (!validAmount(params, candidate)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền VNPay không hợp lệ");
+            return resultUrl(candidate);
+        }
+        if (payments.findVnpayClassId(id).isEmpty()) throw notFound();
         Payment payment = payments.findById(id).orElseThrow(this::notFound);
         if (!validAmount(params, payment)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền VNPay không hợp lệ");
@@ -71,7 +91,7 @@ public class MemberPaymentService {
                 !ClassSchedule.bookable(b.getSession().getClassEntity(), b.getSession(), now()))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buổi học không còn hiệu lực");
         }
-        return vnpay.frontendResultUrl(id);
+        return resultUrl(payment);
     }
 
     @Transactional
@@ -79,6 +99,21 @@ public class MemberPaymentService {
         if (!vnpay.validSignature(params)) return response("97", "Invalid signature");
         if (!vnpay.validMerchant(params)) return response("01", "Order not found");
         Integer id = paymentId(params);
+        Integer subscriptionMemberId = id == null ? null : payments.findOnlineSubscriptionMemberId(id).orElse(null);
+        if (subscriptionMemberId != null) {
+            Payment payment = subscriptionPayments.lock(id);
+            if (!"Card".equals(payment.getMethod())) return response("01", "Order not found");
+            if (!validAmount(params, payment)) return response("04", "invalid amount");
+            if (!validResult(params)) return response("99", "Invalid request");
+            if (payment.getVnpResponseCode() != null) return response("02", "Order already confirmed");
+            boolean success = "00".equals(params.get("vnp_ResponseCode")) && "00".equals(params.get("vnp_TransactionStatus"));
+            payment.setVnpTransactionNo(params.get("vnp_TransactionNo"));
+            payment.setVnpResponseCode(params.get("vnp_ResponseCode"));
+            payment.setVnpTransactionStatus(params.get("vnp_TransactionStatus"));
+            payment.setVnpPayDate(params.get("vnp_PayDate"));
+            subscriptionPayments.confirm(payment, success);
+            return response("00", "Confirm Success");
+        }
         Integer classId = id == null ? null : payments.findVnpayClassId(id).orElse(null);
         if (classId == null) return response("01", "Order not found");
         ClassEntity classEntity = classes.findByIdForUpdate(classId).orElse(null);
@@ -131,6 +166,14 @@ public class MemberPaymentService {
             reservations.cancelPendingRegistration(booking);
         }
         return response("00", "Confirm Success");
+    }
+
+    private String resultUrl(Payment payment) {
+        String url = vnpay.frontendResultUrl(payment.getId());
+        if (payment.getReceptionist() == null) return url;
+        Integer memberId = payment.getBooking() != null ? payment.getBooking().getUser().getId()
+                : payment.getSubscription().getUser().getId();
+        return url.replace("/member/payment-result", "/receptionist/members/" + memberId + "/payment-result");
     }
 
     private boolean validResult(Map<String, String> params) {

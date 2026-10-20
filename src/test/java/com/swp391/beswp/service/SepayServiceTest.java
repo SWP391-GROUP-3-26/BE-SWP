@@ -21,7 +21,8 @@ class SepayServiceTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-16T01:00:00Z"), VnpayService.OFFSET);
     final SepayConfig config = configured();
     final ClassReservationService reservations = new ClassReservationService(bookings, payments);
-    final SepayService service = new SepayService(config, payments, classes, bookings, reservations, clock);
+    final OnlineSubscriptionPaymentService subscriptionPayments = mock(OnlineSubscriptionPaymentService.class);
+    final SepayService service = new SepayService(config, payments, classes, bookings, reservations, clock, subscriptionPayments);
     final String auth = "Apikey " + config.getWebhookApiKey();
     Payment payment;
     ClassBooking booking;
@@ -55,6 +56,17 @@ class SepayServiceTest {
         return new SepayWebhookRequest(id, "MBBank", account, code, "thanh toan SWP105", type, new BigDecimal(amount));
     }
     SepayWebhookRequest valid() { return transaction(12345L, config.getAccountNumber(), "SWP105", "in", "100000"); }
+
+    @Test void subscriptionWebhookRequiresExactAmountAndProcessesDuplicateOnce() {
+        when(payments.findOnlineSubscriptionMemberId(105)).thenReturn(Optional.of(7));
+        when(subscriptionPayments.lock(105)).thenReturn(payment);
+        service.processWebhook(auth, transaction(1L, config.getAccountNumber(), "SWP105", "in", "1"));
+        verify(subscriptionPayments, never()).confirm(any(), anyBoolean());
+        service.processWebhook(auth, valid()); service.processWebhook(auth, valid());
+        verify(subscriptionPayments, times(1)).confirm(payment, true);
+        assertEquals(12345L, payment.getSepayTransactionId());
+        verify(classes, never()).findByIdForUpdate(any());
+    }
 
     @Test
     void qrContainsDatabaseAmountAndPaymentCodeWithoutSecrets() {

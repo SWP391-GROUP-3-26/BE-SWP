@@ -87,7 +87,7 @@ class ClassRegistrationFlowTest {
         ClassReservationService reservations = new ClassReservationService(bookings, payments);
         service = new MemberClassBookingService(classes, sessions, bookings, subscriptions, payments, mock(ActivityLogRepository.class),
                 users, subjects, vnpay, mock(SepayService.class), reservations, clock);
-        paymentService = new MemberPaymentService(payments, classes, bookings, reservations, service, vnpay, mock(SepayService.class), clock);
+        paymentService = new MemberPaymentService(payments, classes, bookings, reservations, service, vnpay, mock(SepayService.class), clock, mock(OnlineSubscriptionPaymentService.class));
     }
 
     MemberClassBookingResponse register(String method, String channel) {

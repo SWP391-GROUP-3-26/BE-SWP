@@ -57,11 +57,15 @@ public class MemberResponse {
     }
 
     public record PackageData(Integer subscriptionId, Integer packageId, String packageName,
-                              Integer includedClasses, LocalDate startDate, LocalDate endDate) {
+                              Integer includedClasses, LocalDate startDate, LocalDate endDate, Integer remainingClasses) {
         public static PackageData fromEntity(MemberSubscription subscription) {
+            return fromEntity(subscription, null);
+        }
+
+        public static PackageData fromEntity(MemberSubscription subscription, Integer remainingClasses) {
             var pack = subscription.getMembershipPackage();
             return new PackageData(subscription.getId(), pack.getId(), pack.getName(), pack.getIncludedClasses(),
-                    subscription.getStartDate(), subscription.getEndDate());
+                    subscription.getStartDate(), subscription.getEndDate(), remainingClasses);
         }
     }
 

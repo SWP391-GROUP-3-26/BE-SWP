@@ -45,6 +45,7 @@ class ReceptionistMemberControllerTest {
     private static final String URL = "/api/receptionist/members";
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
+    @MockitoBean com.swp391.beswp.service.AuditLogService audit;
     @MockitoBean UserRepository users;
     @MockitoBean MemberSubscriptionRepository subscriptions;
     @MockitoBean ClassBookingRepository bookings;

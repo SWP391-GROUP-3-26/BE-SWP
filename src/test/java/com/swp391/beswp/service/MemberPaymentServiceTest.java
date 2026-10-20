@@ -20,7 +20,8 @@ class MemberPaymentServiceTest {
     private final VnpayService vnpay = VnpayServiceTest.configured();
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-13T01:00:00Z"), VnpayService.OFFSET);
     private final ClassReservationService reservations = new ClassReservationService(bookings, payments);
-    private final MemberPaymentService service = new MemberPaymentService(payments, classes, bookings, reservations, memberBookings, vnpay, mock(SepayService.class), clock);
+    private final OnlineSubscriptionPaymentService subscriptionPayments = mock(OnlineSubscriptionPaymentService.class);
+    private final MemberPaymentService service = new MemberPaymentService(payments, classes, bookings, reservations, memberBookings, vnpay, mock(SepayService.class), clock, subscriptionPayments);
     private ClassEntity classEntity;
     private ClassBooking booking;
     private Payment payment;
@@ -44,6 +45,28 @@ class MemberPaymentServiceTest {
         when(bookings.countReservedMembersByClassId(eq(10), any())).thenReturn(1L);
         when(bookings.countReservedMembersBySessionId(eq(20), any())).thenReturn(1L);
         when(memberBookings.findMemberUser("1")).thenReturn(member);
+    }
+
+    @Test void subscriptionCallbackVerifiesAmountAndIsIdempotent() {
+        payment.setBooking(null); payment.setPaymentType("Subscription");
+        payment.setSubscription(MemberSubscription.builder().user(member).build());
+        when(payments.findOnlineSubscriptionMemberId(105)).thenReturn(Optional.of(1));
+        when(subscriptionPayments.lock(105)).thenReturn(payment);
+        var invalid = callback("00", "00"); invalid.put("vnp_Amount", "1");
+        assertEquals("04", service.processIpn(signed(invalid)).get("RspCode"));
+        verify(subscriptionPayments, never()).confirm(any(), anyBoolean());
+        assertEquals("00", service.processIpn(callback("00", "00")).get("RspCode"));
+        assertEquals("02", service.processIpn(callback("00", "00")).get("RspCode"));
+        verify(subscriptionPayments, times(1)).confirm(payment, true);
+        verify(classes, never()).findByIdForUpdate(any());
+    }
+
+    @Test void receptionistReturnUsesStoredOwnerAndOtherMemberCannotReadSubscriptionPayment() {
+        User actor = new User(); actor.setId(2); payment.setReceptionist(actor);
+        assertTrue(service.returnUrl(callback("00", "00")).contains("/receptionist/members/1/payment-result"));
+        when(payments.findOnlineSubscriptionMemberId(105)).thenReturn(Optional.of(7));
+        assertEquals(404, assertThrows(ResponseStatusException.class, () -> service.getPayment("1", 105)).getStatusCode().value());
+        verify(subscriptionPayments, never()).lock(any());
     }
 
     private Map<String, String> callback(String responseCode, String transactionStatus) {

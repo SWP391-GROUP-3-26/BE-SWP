@@ -10,6 +10,9 @@ import java.time.OffsetDateTime;
 public class MemberPaymentResponse {
     private boolean success;
     private Integer paymentId;
+    private Integer memberId;
+    private String memberName;
+    private String itemName;
     private Integer bookingId;
     private String paymentStatus;
     private String bookingStatus;

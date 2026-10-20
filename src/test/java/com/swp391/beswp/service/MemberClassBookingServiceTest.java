@@ -125,7 +125,7 @@ class MemberClassBookingServiceTest {
     @Test
     void unconfiguredWalletDoesNotCreateBookingOrPayment() {
         var sepay = new SepayService(new com.swp391.beswp.config.SepayConfig(), payments, classes, bookings,
-                new ClassReservationService(bookings, payments), clock);
+                new ClassReservationService(bookings, payments), clock, mock(OnlineSubscriptionPaymentService.class));
         var unconfigured = new MemberClassBookingService(classes, sessions, bookings, subscriptions, payments, logs, users,
                 subjects, VnpayServiceTest.configured(), sepay, new ClassReservationService(bookings, payments), clock);
         var error = assertThrows(ResponseStatusException.class, () -> unconfigured.registerClass("1", 10,

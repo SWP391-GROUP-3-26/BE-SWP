@@ -23,6 +23,10 @@ public class PackageResponse {
         return new PackageResponse(true, message, PackageData.fromEntity(pkg));
     }
 
+    public static PackageResponse success(String message, PackageData data) {
+        return new PackageResponse(true, message, data);
+    }
+
     @Getter
     @AllArgsConstructor
     @NoArgsConstructor

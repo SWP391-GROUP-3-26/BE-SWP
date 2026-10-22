@@ -2,6 +2,9 @@ package com.swp391.beswp.controller;
 
 import com.swp391.beswp.dto.MemberPackageCatalogResponse;
 import com.swp391.beswp.dto.MemberPackageRegistrationRequest;
+import com.swp391.beswp.dto.MemberPackageRenewalOverviewResponse;
+import com.swp391.beswp.dto.MemberPackageRenewalPreviewRequest;
+import com.swp391.beswp.dto.MemberPackageRenewalPreviewResponse;
 import com.swp391.beswp.dto.MemberPackageSubscriptionListResponse;
 import com.swp391.beswp.dto.MemberPackageSubscriptionResponse;
 import com.swp391.beswp.dto.PackageResponse;
@@ -55,6 +58,27 @@ public class MemberPackageController {
             @PathVariable Integer packageId
     ) {
         return ResponseEntity.ok(memberPackageService.getAvailablePackage(authentication.getName(), packageId));
+    }
+
+    @Operation(summary = "Thông tin gia hạn gói hội viên", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/renewal")
+    public ResponseEntity<MemberPackageRenewalOverviewResponse> getRenewalOverview(Authentication authentication) {
+        return ResponseEntity.ok(memberPackageService.getRenewalOverview(authentication.getName()));
+    }
+
+    @Operation(summary = "Xem trước thông tin gia hạn", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/renewal/preview")
+    public ResponseEntity<MemberPackageRenewalPreviewResponse> previewRenewal(
+            Authentication authentication, @Valid @RequestBody MemberPackageRenewalPreviewRequest request) {
+        return ResponseEntity.ok(memberPackageService.previewRenewal(authentication.getName(), request));
+    }
+
+    @Operation(summary = "Xác nhận gia hạn gói hội viên", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/renewal")
+    public ResponseEntity<MemberPackageSubscriptionResponse> renewPackage(
+            Authentication authentication, @Valid @RequestBody MemberPackageRegistrationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(memberPackageService.renewPackage(authentication.getName(), request));
     }
 
     @Operation(

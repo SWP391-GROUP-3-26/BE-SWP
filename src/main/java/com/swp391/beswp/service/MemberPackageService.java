@@ -2,6 +2,9 @@ package com.swp391.beswp.service;
 
 import com.swp391.beswp.dto.MemberPackageCatalogResponse;
 import com.swp391.beswp.dto.MemberPackageRegistrationRequest;
+import com.swp391.beswp.dto.MemberPackageRenewalOverviewResponse;
+import com.swp391.beswp.dto.MemberPackageRenewalPreviewRequest;
+import com.swp391.beswp.dto.MemberPackageRenewalPreviewResponse;
 import com.swp391.beswp.dto.MemberPackageSubscriptionData;
 import com.swp391.beswp.dto.MemberPackageSubscriptionListResponse;
 import com.swp391.beswp.dto.MemberPackageSubscriptionResponse;
@@ -86,7 +89,72 @@ public class MemberPackageService {
         }
 
         MembershipPackage membershipPackage = findActivePackage(packageId);
-        return PackageResponse.success("Lấy thông tin gói dịch vụ thành công", membershipPackage);
+        return PackageResponse.success("Lấy thông tin gói dịch vụ thành công", packageData(membershipPackage));
+    }
+
+    @Transactional(readOnly = true)
+    public MemberPackageRenewalOverviewResponse getRenewalOverview(String principal) {
+        User member = requireMember(principal);
+        LocalDate today = LocalDate.now();
+        List<MemberSubscription> active = subscriptionRepository.findCurrentActiveSubscriptions(member.getId(), today);
+        if (active.size() > 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Tài khoản đang có nhiều gói ACTIVE; cần được quản trị viên xử lý trước");
+        }
+        MemberSubscription current = active.isEmpty() ? null : active.getFirst();
+        Payment currentPayment = current == null ? null
+                : paymentRepository.findFirstBySubscription_IdOrderByIdDesc(current.getId()).orElse(null);
+        Integer currentPackageId = current == null ? null : current.getMembershipPackage().getId();
+        List<PackageResponse.PackageData> packages = packageRepository.searchPackages(null, "Active").stream()
+                .filter(pkg -> !java.util.Objects.equals(pkg.getId(), currentPackageId))
+                .map(this::packageData)
+                .toList();
+        return MemberPackageRenewalOverviewResponse.builder()
+                .success(true)
+                .message("Lấy thông tin gói dịch vụ thành công")
+                .currentSubscription(current == null ? null : MemberPackageSubscriptionData.fromEntities(current, currentPayment))
+                .availablePackages(packages)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public MemberPackageRenewalPreviewResponse previewRenewal(
+            String principal, MemberPackageRenewalPreviewRequest request) {
+        User member = requireMember(principal);
+        LocalDate today = LocalDate.now();
+        MemberSubscription current = requireSingleActiveSubscription(member.getId(), today);
+        MembershipPackage selected = findActivePackage(request.getPackageId());
+        validatePackageForPurchase(selected);
+        validateSelections(selected.getId(), request.getChoiceGroups());
+        String renewalStart = normalizeRenewalStart(request.getRenewalStart());
+        if ("AFTER_CURRENT".equals(renewalStart) && subscriptionRepository.hasPendingSubscription(member.getId(), today)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bạn đã có một gói PENDING sẽ bắt đầu sau gói hiện tại");
+        }
+        LocalDate startDate = "AFTER_CURRENT".equals(renewalStart)
+                ? current.getEndDate().plusDays(1) : today;
+        BigDecimal listedPrice = selected.getPrice();
+        BigDecimal discountAmount = listedPrice.multiply(defaultDiscount(selected)).movePointLeft(2);
+        Payment payment = paymentRepository.findFirstBySubscription_IdOrderByIdDesc(current.getId()).orElse(null);
+        return MemberPackageRenewalPreviewResponse.builder()
+                .success(true)
+                .message("Thông tin gia hạn hợp lệ")
+                .currentSubscription(MemberPackageSubscriptionData.fromEntities(current, payment))
+                .selectedPackage(packageData(selected))
+                .renewalStart(renewalStart)
+                .newStartDate(startDate)
+                .newEndDate(startDate.plusDays(selected.getDuration().longValue() - 1L))
+                .listedPrice(listedPrice)
+                .discountAmount(discountAmount)
+                .totalAmount(listedPrice.subtract(discountAmount))
+                .build();
+    }
+
+    @Transactional
+    public MemberPackageSubscriptionResponse renewPackage(String principal, MemberPackageRegistrationRequest request) {
+        User member = requireMember(principal);
+        requireSingleActiveSubscription(member.getId(), LocalDate.now());
+        return registerPackage(principal, request);
     }
 
     @Transactional
@@ -125,9 +193,7 @@ public class MemberPackageService {
                     "Bạn đã có một gói PENDING sẽ bắt đầu sau gói hiện tại");
         }
 
-        if (membershipPackage.getDuration() == null || membershipPackage.getDuration() <= 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Thời hạn gói hội viên không hợp lệ");
-        }
+        validatePackageForPurchase(membershipPackage);
 
         LocalDate startDate = "AFTER_CURRENT".equals(renewalStart)
                 ? current.getEndDate().plusDays(1) : today;
@@ -136,7 +202,7 @@ public class MemberPackageService {
         }
         LocalDate endDate = startDate.plusDays(membershipPackage.getDuration().longValue() - 1L);
         BigDecimal discountAmount = membershipPackage.getPrice()
-                .multiply(membershipPackage.getDiscount() == null ? BigDecimal.ZERO : membershipPackage.getDiscount())
+                .multiply(defaultDiscount(membershipPackage))
                 .movePointLeft(2);
         BigDecimal priceAtPurchase = membershipPackage.getPrice().subtract(discountAmount);
         MemberSubscription subscription = MemberSubscription.builder()
@@ -316,6 +382,54 @@ public class MemberPackageService {
                 .subject(included.getSubject())
                 .subjectNameAtPurchase(included.getSubject().getName())
                 .build());
+    }
+
+    private MemberSubscription requireSingleActiveSubscription(Integer memberId, LocalDate today) {
+        List<MemberSubscription> active = subscriptionRepository.findCurrentActiveSubscriptions(memberId, today);
+        if (active.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn chưa có gói hội viên đang hoạt động để gia hạn");
+        }
+        if (active.size() > 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Tài khoản đang có nhiều gói ACTIVE; cần được quản trị viên xử lý trước");
+        }
+        return active.getFirst();
+    }
+
+    private PackageResponse.PackageData packageData(MembershipPackage pkg) {
+        PackageResponse.PackageData base = PackageResponse.PackageData.fromEntity(pkg);
+        List<PackageResponse.SportData> included = includedSportRepository.findByPackageId(pkg.getId()).stream()
+                .map(item -> PackageResponse.SportData.builder().id(item.getSubject().getId())
+                        .name(item.getSubject().getName()).build())
+                .toList();
+        List<PackageResponse.ChoiceGroupData> groups = choiceGroupRepository.findByPackageId(pkg.getId()).stream()
+                .map(group -> PackageResponse.ChoiceGroupData.builder()
+                        .id(group.getId()).name(group.getGroupName()).description(group.getDescription())
+                        .requiredSelection(group.getRequiredSelection()).sortOrder(group.getSortOrder())
+                        .sports(choiceGroupSportRepository.findByChoiceGroupId(group.getId()).stream()
+                                .map(item -> PackageResponse.SportData.builder().id(item.getSubject().getId())
+                                        .name(item.getSubject().getName()).build()).toList())
+                        .build())
+                .toList();
+        return PackageResponse.PackageData.builder()
+                .code(base.getCode()).id(base.getId()).name(base.getName()).description(base.getDescription())
+                .price(base.getPrice()).discount(base.getDiscount()).durationDays(base.getDurationDays())
+                .durationMonths(base.getDurationMonths()).includedClasses(base.getIncludedClasses())
+                .benefits(base.getBenefits()).termConditions(base.getTermConditions()).status(base.getStatus())
+                .statusLabel(base.getStatusLabel()).includedSports(included).choiceGroups(groups).build();
+    }
+
+    private BigDecimal defaultDiscount(MembershipPackage pkg) {
+        return pkg.getDiscount() == null ? BigDecimal.ZERO : pkg.getDiscount();
+    }
+
+    private void validatePackageForPurchase(MembershipPackage pkg) {
+        if (pkg.getDuration() == null || pkg.getDuration() <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Thời hạn gói hội viên không hợp lệ");
+        }
+        if (pkg.getPrice() == null || pkg.getPrice().signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Giá gói hội viên không hợp lệ");
+        }
     }
 
     private String normalizeRenewalStart(String value) {

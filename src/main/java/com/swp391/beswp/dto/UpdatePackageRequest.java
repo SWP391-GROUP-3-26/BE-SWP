@@ -4,13 +4,11 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * DTO dùng để cập nhật thông tin gói dịch vụ.
@@ -18,9 +16,6 @@ import java.math.BigDecimal;
  */
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class UpdatePackageRequest {
 
     @Size(max = 100, message = "Tên gói dịch vụ không được vượt quá 100 ký tự")
@@ -40,7 +35,15 @@ public class UpdatePackageRequest {
     )
     private String status;
 
-    private Integer includedClasses;
-    private String benefits;
+    @DecimalMin(value = "0.0", message = "Chiết khấu không được âm")
+    private BigDecimal discount;
+
     private String termConditions;
+
+    /** null = giữ nguyên; [] = bỏ toàn bộ Included Sports. */
+    private List<Integer> includedSportIds;
+
+    /** null = giữ nguyên; [] = bỏ toàn bộ Choice Groups. */
+    @jakarta.validation.Valid
+    private List<CreatePackageRequest.ChoiceGroupRequest> choiceGroups;
 }

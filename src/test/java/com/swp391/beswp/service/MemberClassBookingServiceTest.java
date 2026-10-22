@@ -23,6 +23,8 @@ class MemberClassBookingServiceTest {
     private final ClassSessionRepository sessions = mock(ClassSessionRepository.class);
     private final ClassBookingRepository bookings = mock(ClassBookingRepository.class);
     private final MemberSubscriptionRepository subscriptions = mock(MemberSubscriptionRepository.class);
+    private final MembershipIncludedSportRepository includedSports = mock(MembershipIncludedSportRepository.class);
+    private final MembershipSportSelectionRepository selections = mock(MembershipSportSelectionRepository.class);
     private final PaymentRepository payments = mock(PaymentRepository.class);
     private final ActivityLogRepository logs = mock(ActivityLogRepository.class);
     private final UserRepository users = mock(UserRepository.class);
@@ -80,7 +82,7 @@ class MemberClassBookingServiceTest {
     }
 
     private MemberClassBookingService newService(VnpayService vnpay) {
-        return new MemberClassBookingService(classes, sessions, bookings, subscriptions, payments, logs, users, subjects,
+        return new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, logs, users, subjects,
                 vnpay, mock(SepayService.class), new ClassReservationService(bookings, payments), clock);
     }
     private User member(int id) {
@@ -126,7 +128,7 @@ class MemberClassBookingServiceTest {
     void unconfiguredWalletDoesNotCreateBookingOrPayment() {
         var sepay = new SepayService(new com.swp391.beswp.config.SepayConfig(), payments, classes, bookings,
                 new ClassReservationService(bookings, payments), clock, mock(OnlineSubscriptionPaymentService.class));
-        var unconfigured = new MemberClassBookingService(classes, sessions, bookings, subscriptions, payments, logs, users,
+        var unconfigured = new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, logs, users,
                 subjects, VnpayServiceTest.configured(), sepay, new ClassReservationService(bookings, payments), clock);
         var error = assertThrows(ResponseStatusException.class, () -> unconfigured.registerClass("1", 10,
                 MemberClassBookingRequest.builder().paymentMethod("DIRECT").paymentChannel("E_Wallet").build(), "127.0.0.1"));

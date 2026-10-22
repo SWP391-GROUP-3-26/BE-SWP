@@ -22,6 +22,8 @@ import com.swp391.beswp.repository.ClassBookingRepository;
 import com.swp391.beswp.repository.ClassRepository;
 import com.swp391.beswp.repository.ClassSessionRepository;
 import com.swp391.beswp.repository.MemberSubscriptionRepository;
+import com.swp391.beswp.repository.MembershipIncludedSportRepository;
+import com.swp391.beswp.repository.MembershipSportSelectionRepository;
 import com.swp391.beswp.repository.PaymentRepository;
 import com.swp391.beswp.repository.SubjectRepository;
 import com.swp391.beswp.repository.UserRepository;
@@ -56,6 +58,8 @@ public class MemberClassBookingService {
     private final ClassSessionRepository classSessionRepository;
     private final ClassBookingRepository classBookingRepository;
     private final MemberSubscriptionRepository memberSubscriptionRepository;
+    private final MembershipIncludedSportRepository membershipIncludedSports;
+    private final MembershipSportSelectionRepository membershipSelections;
     private final PaymentRepository paymentRepository;
     private final ActivityLogRepository activityLogRepository;
     private final UserRepository userRepository;
@@ -451,6 +455,12 @@ public class MemberClassBookingService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn chưa có gói hội viên nào đang hoạt động hoặc gói đã hết hạn. Vui lòng chọn 'Thanh toán trực tiếp' hoặc mua thêm gói dịch vụ");
             }
             activeSub = subOpt.get();
+            Integer subjectId = classEntity.getSubject() == null ? null : classEntity.getSubject().getId();
+            if (subjectId == null || (!membershipIncludedSports.hasActiveIncludedEntitlement(user.getId(), subjectId, LocalDate.now(paymentClock))
+                    && !membershipSelections.hasActiveSelectedEntitlement(user.getId(), subjectId, LocalDate.now(paymentClock)))) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Gói hội viên hiện tại không bao gồm Sport của lớp này");
+            }
             int total = activeSub.getMembershipPackage() != null ? activeSub.getMembershipPackage().getIncludedClasses() : 0;
             long used = classBookingRepository.countUsedPackageSessions(
                     user.getId(),

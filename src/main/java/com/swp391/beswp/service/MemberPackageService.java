@@ -8,11 +8,22 @@ import com.swp391.beswp.dto.MemberPackageSubscriptionResponse;
 import com.swp391.beswp.dto.PackageResponse;
 import com.swp391.beswp.entity.MemberSubscription;
 import com.swp391.beswp.entity.MembershipPackage;
+import com.swp391.beswp.entity.MembershipSportSelection;
+import com.swp391.beswp.entity.MembershipIncludedSport;
+import com.swp391.beswp.entity.PackageChoiceGroup;
+import com.swp391.beswp.entity.PackageIncludedSport;
 import com.swp391.beswp.entity.Payment;
+import com.swp391.beswp.entity.Subject;
 import com.swp391.beswp.entity.User;
 import com.swp391.beswp.repository.MemberPackagePaymentRepository;
 import com.swp391.beswp.repository.MemberPackageSubscriptionRepository;
 import com.swp391.beswp.repository.MembershipPackageRepository;
+import com.swp391.beswp.repository.MembershipSportSelectionRepository;
+import com.swp391.beswp.repository.MembershipIncludedSportRepository;
+import com.swp391.beswp.repository.PackageIncludedSportRepository;
+import com.swp391.beswp.repository.PackageChoiceGroupRepository;
+import com.swp391.beswp.repository.PackageChoiceGroupSportRepository;
+import com.swp391.beswp.repository.SubjectRepository;
 import com.swp391.beswp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -45,6 +56,12 @@ public class MemberPackageService {
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
     private final OnlineSubscriptionPaymentService subscriptionPayments;
+    private final PackageChoiceGroupRepository choiceGroupRepository;
+    private final PackageChoiceGroupSportRepository choiceGroupSportRepository;
+    private final MembershipSportSelectionRepository selectionRepository;
+    private final MembershipIncludedSportRepository includedSnapshotRepository;
+    private final PackageIncludedSportRepository includedSportRepository;
+    private final SubjectRepository subjectRepository;
 
     @Transactional(readOnly = true)
     public MemberPackageCatalogResponse getAvailablePackages(String principal, String search, int page, int size) {
@@ -83,36 +100,78 @@ public class MemberPackageService {
         MembershipPackage membershipPackage = findActivePackage(request.getPackageId());
         String paymentMethod = normalizePaymentMethod(request.getPaymentMethod());
         LocalDate today = LocalDate.now();
+        Map<Integer, List<Integer>> selections = validateSelections(membershipPackage.getId(), request.getChoiceGroups());
 
-        if (subscriptionPayments.hasPending(member.getId()) || subscriptionRepository.hasActiveSubscription(member.getId(), today)) {
+        if (subscriptionPayments.hasPending(member.getId())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Bạn đang có gói hội viên hoạt động. Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới"
+                    "Bạn đang có một thanh toán gói hội viên chờ xác nhận"
             );
+        }
+
+        List<MemberSubscription> activeSubscriptions = subscriptionRepository
+                .findCurrentActiveSubscriptions(member.getId(), today);
+        if (activeSubscriptions.size() > 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Tài khoản đang có nhiều gói ACTIVE; cần được quản trị viên xử lý trước khi gia hạn");
+        }
+        String renewalStart = normalizeRenewalStart(request.getRenewalStart());
+        MemberSubscription current = activeSubscriptions.isEmpty() ? null : activeSubscriptions.getFirst();
+        if (current == null && "AFTER_CURRENT".equals(renewalStart)) {
+            renewalStart = "IMMEDIATE";
+        }
+        if ("AFTER_CURRENT".equals(renewalStart) && subscriptionRepository.hasPendingSubscription(member.getId(), today)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bạn đã có một gói PENDING sẽ bắt đầu sau gói hiện tại");
         }
 
         if (membershipPackage.getDuration() == null || membershipPackage.getDuration() <= 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Thời hạn gói hội viên không hợp lệ");
         }
 
-        LocalDate endDate = today.plusDays(membershipPackage.getDuration().longValue() - 1L);
+        LocalDate startDate = "AFTER_CURRENT".equals(renewalStart)
+                ? current.getEndDate().plusDays(1) : today;
+        if (current != null && "IMMEDIATE".equals(renewalStart)) {
+            current.setStatus("Expired");
+        }
+        LocalDate endDate = startDate.plusDays(membershipPackage.getDuration().longValue() - 1L);
+        BigDecimal discountAmount = membershipPackage.getPrice()
+                .multiply(membershipPackage.getDiscount() == null ? BigDecimal.ZERO : membershipPackage.getDiscount())
+                .movePointLeft(2);
+        BigDecimal priceAtPurchase = membershipPackage.getPrice().subtract(discountAmount);
         MemberSubscription subscription = MemberSubscription.builder()
                 .user(member)
                 .membershipPackage(membershipPackage)
-                .startDate(today)
+                .priceAtPurchase(priceAtPurchase)
+                .durationAtPurchase(membershipPackage.getDuration())
+                .termsAtPurchase(membershipPackage.getTermConditions())
+                .packageNameAtPurchase(membershipPackage.getName())
+                .startDate(startDate)
                 .endDate(endDate)
-                .status("Active")
+                .status("AFTER_CURRENT".equals(renewalStart) ? "Pending" : "Active")
                 .build();
         MemberSubscription savedSubscription = subscriptionRepository.save(subscription);
+        for (PackageIncludedSport included : includedSportRepository.findByPackageId(membershipPackage.getId())) {
+            selectionSnapshot(savedSubscription, included);
+        }
+        selections.forEach((groupId, subjectIds) -> {
+            PackageChoiceGroup group = choiceGroupRepository.findById(groupId).orElseThrow();
+            subjectIds.forEach(subjectId -> selectionRepository.save(MembershipSportSelection.builder()
+                    .subscription(savedSubscription).choiceGroupId(group.getId())
+                    .choiceGroupNameAtPurchase(group.getGroupName())
+                    .subject(subjectRepository.findById(subjectId).orElseThrow())
+                    .subjectNameAtPurchase(subjectRepository.findById(subjectId).orElseThrow().getName())
+                    .build()));
+        });
 
         Payment payment = Payment.builder()
                 .subscription(savedSubscription)
                 .paymentType("Subscription")
-                .amount(membershipPackage.getPrice())
+                .amount(priceAtPurchase)
                 .method(paymentMethod)
                 .paymentDate(LocalDateTime.now())
                 .status("Paid")
-                .discountAmount(BigDecimal.ZERO)
+                .discountAmount(discountAmount)
                 .build();
         Payment savedPayment = paymentRepository.save(payment);
 
@@ -213,6 +272,58 @@ public class MemberPackageService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản hội viên không hoạt động");
         }
         return member;
+    }
+
+    private Map<Integer, List<Integer>> validateSelections(
+            Integer packageId,
+            List<MemberPackageRegistrationRequest.ChoiceGroupSelectionRequest> inputs
+    ) {
+        List<PackageChoiceGroup> groups = choiceGroupRepository.findByPackageId(packageId);
+        Map<Integer, MemberPackageRegistrationRequest.ChoiceGroupSelectionRequest> inputByGroup = new HashMap<>();
+        if (inputs != null) {
+            for (MemberPackageRegistrationRequest.ChoiceGroupSelectionRequest input : inputs) {
+                if (input == null || input.getChoiceGroupId() == null || inputByGroup.put(input.getChoiceGroupId(), input) != null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choice Group selection bị trùng hoặc không hợp lệ");
+                }
+            }
+        }
+        if (inputByGroup.size() != groups.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phải chọn Sport cho đầy đủ tất cả Choice Group");
+        }
+
+        Map<Integer, List<Integer>> result = new HashMap<>();
+        for (PackageChoiceGroup group : groups) {
+            MemberPackageRegistrationRequest.ChoiceGroupSelectionRequest input = inputByGroup.get(group.getId());
+            if (input == null || input.getSportIds() == null
+                    || input.getSportIds().size() != group.getRequiredSelection()
+                    || new java.util.HashSet<>(input.getSportIds()).size() != input.getSportIds().size()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Choice Group '" + group.getGroupName() + "' phải chọn chính xác " + group.getRequiredSelection() + " Sport");
+            }
+            for (Integer subjectId : input.getSportIds()) {
+                if (!choiceGroupSportRepository.existsByChoiceGroup_IdAndSubject_Id(group.getId(), subjectId)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sport được chọn không thuộc Choice Group");
+                }
+            }
+            result.put(group.getId(), List.copyOf(input.getSportIds()));
+        }
+        return result;
+    }
+
+    private void selectionSnapshot(MemberSubscription subscription, PackageIncludedSport included) {
+        includedSnapshotRepository.save(MembershipIncludedSport.builder()
+                .subscription(subscription)
+                .subject(included.getSubject())
+                .subjectNameAtPurchase(included.getSubject().getName())
+                .build());
+    }
+
+    private String normalizeRenewalStart(String value) {
+        String normalized = normalize(value);
+        if (normalized == null || "IMMEDIATE".equalsIgnoreCase(normalized)) return "IMMEDIATE";
+        if ("AFTER_CURRENT".equalsIgnoreCase(normalized)) return "AFTER_CURRENT";
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "renewalStart chỉ nhận IMMEDIATE hoặc AFTER_CURRENT");
     }
 
     private MembershipPackage findActivePackage(Integer packageId) {

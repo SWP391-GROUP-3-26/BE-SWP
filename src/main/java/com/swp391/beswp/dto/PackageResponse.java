@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @AllArgsConstructor
@@ -34,6 +35,7 @@ public class PackageResponse {
         private String name;
         private String description;
         private BigDecimal price;
+        private BigDecimal discount;
 
         /** Thời gian hiệu lực lưu theo số ngày trong DB */
         private Integer durationDays;
@@ -49,6 +51,8 @@ public class PackageResponse {
         private String termConditions;
         private String status;
         private String statusLabel;
+        private List<SportData> includedSports;
+        private List<ChoiceGroupData> choiceGroups;
 
         public static PackageData fromEntity(MembershipPackage pkg) {
             if (pkg == null) return null;
@@ -66,6 +70,7 @@ public class PackageResponse {
                     .name(pkg.getName())
                     .description(pkg.getDescription())
                     .price(pkg.getPrice())
+                    .discount(pkg.getDiscount())
                     .durationDays(days)
                     .durationMonths(months)
                     .includedClasses(pkg.getIncludedClasses())
@@ -75,5 +80,18 @@ public class PackageResponse {
                     .statusLabel(statusLabel)
                     .build();
         }
+    }
+
+    @Getter @AllArgsConstructor @NoArgsConstructor @Builder
+    public static class SportData { private Integer id; private String name; }
+
+    @Getter @AllArgsConstructor @NoArgsConstructor @Builder
+    public static class ChoiceGroupData {
+        private Integer id;
+        private String name;
+        private String description;
+        private Integer requiredSelection;
+        private Integer sortOrder;
+        private List<SportData> sports;
     }
 }

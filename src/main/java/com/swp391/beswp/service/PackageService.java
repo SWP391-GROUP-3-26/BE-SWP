@@ -5,7 +5,16 @@ import com.swp391.beswp.dto.PackageListResponse;
 import com.swp391.beswp.dto.PackageResponse;
 import com.swp391.beswp.dto.UpdatePackageRequest;
 import com.swp391.beswp.entity.MembershipPackage;
+import com.swp391.beswp.entity.PackageChoiceGroup;
+import com.swp391.beswp.entity.PackageChoiceGroupSport;
+import com.swp391.beswp.entity.PackageIncludedSport;
+import com.swp391.beswp.entity.Subject;
 import com.swp391.beswp.repository.MembershipPackageRepository;
+import com.swp391.beswp.repository.MemberPackageSubscriptionRepository;
+import com.swp391.beswp.repository.PackageChoiceGroupRepository;
+import com.swp391.beswp.repository.PackageChoiceGroupSportRepository;
+import com.swp391.beswp.repository.PackageIncludedSportRepository;
+import com.swp391.beswp.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -13,179 +22,139 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class PackageService {
-
-    private final MembershipPackageRepository packageRepository;
-
-    // ------------------------------------------------------------------ //
-    //  Tạo gói dịch vụ mới
-    // ------------------------------------------------------------------ //
+    private final MembershipPackageRepository packages;
+    private final MemberPackageSubscriptionRepository subscriptionRepository;
+    private final SubjectRepository subjects;
+    private final PackageIncludedSportRepository includedSports;
+    private final PackageChoiceGroupRepository choiceGroups;
+    private final PackageChoiceGroupSportRepository choiceGroupSports;
 
     @Transactional
     public PackageResponse createPackage(CreatePackageRequest request) {
-        String name = normalize(request.getName());
-        if (!StringUtils.hasText(name)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Tên gói dịch vụ không được để trống");
-        }
-
-        if (packageRepository.existsByNameIgnoreCase(name)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Tên gói dịch vụ '" + name + "' đã tồn tại trong hệ thống");
-        }
-
+        String name = required(request.getName(), "Tên gói dịch vụ không được để trống");
+        if (packages.existsByNameIgnoreCase(name)) throw conflict("Tên gói dịch vụ đã tồn tại");
         validateStatus(request.getStatus());
-
-        int durationDays = monthsToDays(request.getDurationMonths());
-
-        MembershipPackage pkg = MembershipPackage.builder()
-                .name(name)
-                .description(request.getDescription())
-                .price(request.getPrice())
-                .duration(durationDays)
-                .includedClasses(
-                        request.getIncludedClasses() != null ? request.getIncludedClasses() : 0)
-                .benefits(request.getBenefits())
-                .termConditions(request.getTermConditions())
-                .status(resolveStatus(request.getStatus()))
-                .build();
-
-        MembershipPackage saved = packageRepository.save(pkg);
-        return PackageResponse.success("Tạo mới gói dịch vụ thành công", saved);
+        MembershipPackage pkg = packages.save(MembershipPackage.builder()
+                .name(name).description(request.getDescription()).price(request.getPrice())
+                .duration(toDays(request.getDurationMonths())).discount(discount(request.getDiscount()))
+                .termConditions(request.getTermConditions()).status(status(request.getStatus())).build());
+        replaceBenefits(pkg, request.getIncludedSportIds(), request.getChoiceGroups());
+        return PackageResponse.success("Tạo mới gói dịch vụ thành công", pkg);
     }
-
-    // ------------------------------------------------------------------ //
-    //  Lấy danh sách gói dịch vụ (có tìm kiếm & lọc trạng thái)
-    // ------------------------------------------------------------------ //
 
     @Transactional(readOnly = true)
     public PackageListResponse getAllPackages(String search, String status) {
-        String keyword = normalize(search);
-        String st = normalize(status);
-
-        // "all" hoặc "tất cả" → không lọc theo trạng thái
-        if ("all".equalsIgnoreCase(st) || "tất cả".equalsIgnoreCase(st)) {
-            st = null;
-        }
-
-        List<MembershipPackage> packages = packageRepository.searchPackages(
-                StringUtils.hasText(keyword) ? keyword : null,
-                StringUtils.hasText(st) ? st : null
-        );
-        return PackageListResponse.success(packages);
+        String filter = normalize(status);
+        if ("all".equalsIgnoreCase(filter) || "tất cả".equalsIgnoreCase(filter)) filter = null;
+        return PackageListResponse.success(packages.searchPackages(normalize(search), filter));
     }
-
-    // ------------------------------------------------------------------ //
-    //  Lấy chi tiết một gói theo ID
-    // ------------------------------------------------------------------ //
 
     @Transactional(readOnly = true)
     public PackageResponse getPackageById(Integer id) {
-        MembershipPackage pkg = findOrThrow(id);
-        return PackageResponse.success("Lấy thông tin gói dịch vụ thành công", pkg);
+        return PackageResponse.success("Lấy thông tin gói dịch vụ thành công", find(id));
     }
-
-    // ------------------------------------------------------------------ //
-    //  Cập nhật gói dịch vụ
-    // ------------------------------------------------------------------ //
 
     @Transactional
     public PackageResponse updatePackage(Integer id, UpdatePackageRequest request) {
-        MembershipPackage pkg = findOrThrow(id);
-
+        MembershipPackage pkg = find(id);
         if (StringUtils.hasText(request.getName())) {
-            String newName = normalize(request.getName());
-            if (!newName.equalsIgnoreCase(pkg.getName())
-                    && packageRepository.existsByNameIgnoreCase(newName)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
-                        "Tên gói dịch vụ '" + newName + "' đã tồn tại trong hệ thống");
-            }
-            pkg.setName(newName);
+            String name = required(request.getName(), "Tên gói dịch vụ không được để trống");
+            if (!name.equalsIgnoreCase(pkg.getName()) && packages.existsByNameIgnoreCase(name)) throw conflict("Tên gói dịch vụ đã tồn tại");
+            pkg.setName(name);
         }
-
-        if (request.getDescription() != null) {
-            pkg.setDescription(request.getDescription());
+        if (request.getDescription() != null) pkg.setDescription(request.getDescription());
+        if (request.getPrice() != null) pkg.setPrice(request.getPrice());
+        if (request.getDurationMonths() != null) pkg.setDuration(toDays(request.getDurationMonths()));
+        if (request.getDiscount() != null) pkg.setDiscount(discount(request.getDiscount()));
+        if (request.getTermConditions() != null) pkg.setTermConditions(request.getTermConditions());
+        if (StringUtils.hasText(request.getStatus())) { validateStatus(request.getStatus()); pkg.setStatus(request.getStatus().trim()); }
+        packages.save(pkg);
+        if (request.getIncludedSportIds() != null || request.getChoiceGroups() != null) {
+            List<Integer> included = request.getIncludedSportIds() != null ? request.getIncludedSportIds()
+                    : includedSports.findByPackageId(id).stream().map(x -> x.getSubject().getId()).toList();
+            replaceBenefits(pkg, included, request.getChoiceGroups());
         }
-        if (request.getPrice() != null) {
-            pkg.setPrice(request.getPrice());
-        }
-        if (request.getDurationMonths() != null) {
-            pkg.setDuration(monthsToDays(request.getDurationMonths()));
-        }
-        if (request.getIncludedClasses() != null) {
-            pkg.setIncludedClasses(request.getIncludedClasses());
-        }
-        if (request.getBenefits() != null) {
-            pkg.setBenefits(request.getBenefits());
-        }
-        if (request.getTermConditions() != null) {
-            pkg.setTermConditions(request.getTermConditions());
-        }
-        if (StringUtils.hasText(request.getStatus())) {
-            validateStatus(request.getStatus());
-            pkg.setStatus(request.getStatus().trim());
-        }
-
-        MembershipPackage updated = packageRepository.save(pkg);
-        return PackageResponse.success("Cập nhật gói dịch vụ thành công", updated);
+        return PackageResponse.success("Cập nhật gói dịch vụ thành công", pkg);
     }
-
-    // ------------------------------------------------------------------ //
-    //  Xoá gói dịch vụ
-    // ------------------------------------------------------------------ //
 
     @Transactional
     public void deletePackage(Integer id) {
-        MembershipPackage pkg = findOrThrow(id);
-        packageRepository.delete(pkg);
-    }
-
-    // ------------------------------------------------------------------ //
-    //  Private helpers
-    // ------------------------------------------------------------------ //
-
-    /**
-     * Quy đổi số tháng → số ngày.
-     * Công thức: tháng × 30, ngoại trừ 12 tháng = 365 ngày và 24 tháng = 730 ngày.
-     */
-    private int monthsToDays(Integer months) {
-        if (months == null || months <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Thời gian hiệu lực phải lớn hơn 0 tháng");
+        MembershipPackage pkg = find(id);
+        if (subscriptionRepository.existsByMembershipPackage_Id(id)) {
+            throw conflict("Gói đã có lịch sử mua, chỉ có thể chuyển sang Inactive để bảo toàn dữ liệu lịch sử");
         }
-        return switch (months) {
-            case 12 -> 365;
-            case 24 -> 730;
-            default -> months * 30;
-        };
+        choiceGroupSports.deleteByPackageId(id);
+        choiceGroups.deleteByPackageId(id);
+        includedSports.deleteByPackageId(id);
+        packages.delete(pkg);
     }
 
-    private void validateStatus(String status) {
-        if (status != null && !status.trim().isEmpty()
-                && !status.trim().equalsIgnoreCase("Active")
-                && !status.trim().equalsIgnoreCase("Inactive")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Trạng thái chỉ được là 'Active' (Đang mở bán) hoặc 'Inactive' (Tạm ngưng cung cấp)");
+    private void replaceBenefits(MembershipPackage pkg, List<Integer> includedIds,
+                                 List<CreatePackageRequest.ChoiceGroupRequest> groups) {
+        if (includedIds != null) {
+            uniqueIds(includedIds, "Included Sport");
+            includedSports.deleteByPackageId(pkg.getId());
+            for (Integer subjectId : includedIds) includedSports.save(PackageIncludedSport.builder()
+                    .membershipPackage(pkg).subject(subject(subjectId)).build());
+        }
+        if (groups != null) {
+            choiceGroupSports.deleteByPackageId(pkg.getId());
+            choiceGroups.deleteByPackageId(pkg.getId());
+            for (int index = 0; index < groups.size(); index++) {
+                CreatePackageRequest.ChoiceGroupRequest input = groups.get(index);
+                List<Integer> sportIds = input.getSportIds();
+                if (sportIds == null || input.getRequiredSelection() == null || sportIds.size() < input.getRequiredSelection())
+                    throw badRequest("Choice Group phải có ít nhất requiredSelection Sport");
+                uniqueIds(sportIds, "Sport trong Choice Group");
+                PackageChoiceGroup group = choiceGroups.save(PackageChoiceGroup.builder().membershipPackage(pkg)
+                        .groupName(required(input.getGroupName(), "Tên Choice Group không được để trống"))
+                        .description(input.getDescription()).requiredSelection(input.getRequiredSelection())
+                        .sortOrder(input.getSortOrder() == null ? index : input.getSortOrder()).build());
+                for (Integer subjectId : sportIds) choiceGroupSports.save(PackageChoiceGroupSport.builder()
+                        .choiceGroup(group).subject(subject(subjectId)).build());
+            }
         }
     }
 
-    private String resolveStatus(String status) {
-        return StringUtils.hasText(status) ? status.trim() : "Active";
+    private Subject subject(Integer id) {
+        if (id == null || id <= 0) throw badRequest("Sport không hợp lệ");
+        Subject subject = subjects.findById(id).orElseThrow(() -> badRequest("Sport không tồn tại: " + id));
+        if (!"Active".equalsIgnoreCase(subject.getStatus())) {
+            throw badRequest("Sport đã ngừng cung cấp, không thể đưa vào Package: " + id);
+        }
+        return subject;
     }
-
-    private MembershipPackage findOrThrow(Integer id) {
-        return packageRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Không tìm thấy gói dịch vụ với ID: " + id));
+    private void uniqueIds(List<Integer> ids, String label) {
+        if (ids.stream().anyMatch(id -> id == null || id <= 0) || new HashSet<>(ids).size() != ids.size())
+            throw badRequest(label + " không được trùng hoặc không hợp lệ");
     }
-
-    private String normalize(String input) {
-        if (input == null) return null;
-        String trimmed = input.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+    private int toDays(Integer months) {
+        if (months == null || months <= 0) throw badRequest("Thời gian hiệu lực phải lớn hơn 0 tháng");
+        return switch (months) { case 12 -> 365; case 24 -> 730; default -> months * 30; };
     }
+    private BigDecimal discount(BigDecimal value) {
+        BigDecimal result = value == null ? BigDecimal.ZERO : value;
+        if (result.signum() < 0 || result.compareTo(new BigDecimal("100")) > 0) throw badRequest("Chiết khấu phải từ 0 đến 100");
+        return result;
+    }
+    private void validateStatus(String value) {
+        if (StringUtils.hasText(value) && !"Active".equalsIgnoreCase(value.trim()) && !"Inactive".equalsIgnoreCase(value.trim()))
+            throw badRequest("Trạng thái chỉ được là Active hoặc Inactive");
+    }
+    private String status(String value) { return StringUtils.hasText(value) ? value.trim() : "Active"; }
+    private MembershipPackage find(Integer id) {
+        if (id == null || id <= 0) throw badRequest("packageId không hợp lệ");
+        return packages.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy gói dịch vụ"));
+    }
+    private String normalize(String value) { return StringUtils.hasText(value) ? value.trim() : null; }
+    private String required(String value, String message) { String normalized = normalize(value); if (normalized == null) throw badRequest(message); return normalized; }
+    private ResponseStatusException badRequest(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }
+    private ResponseStatusException conflict(String message) { return new ResponseStatusException(HttpStatus.CONFLICT, message); }
 }

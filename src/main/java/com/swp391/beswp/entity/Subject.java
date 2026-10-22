@@ -34,4 +34,9 @@ public class Subject {
 
     @Column(name = "Category", length = 50)
     private String category;
+
+    /** Active | Discontinued. Sport đã ngừng không được đưa vào Package mới. */
+    @Column(name = "Status", nullable = false, length = 20)
+    @Builder.Default
+    private String status = "Active";
 }

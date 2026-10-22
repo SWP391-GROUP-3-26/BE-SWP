@@ -24,6 +24,8 @@ class ClassRegistrationFlowTest {
     final SubjectRepository subjects = mock(SubjectRepository.class);
     final RoomRepository rooms = mock(RoomRepository.class);
     final MemberSubscriptionRepository subscriptions = mock(MemberSubscriptionRepository.class);
+    final MembershipIncludedSportRepository includedSports = mock(MembershipIncludedSportRepository.class);
+    final MembershipSportSelectionRepository selections = mock(MembershipSportSelectionRepository.class);
     final List<ClassSession> sessionRows = new ArrayList<>();
     final List<ClassBooking> bookingRows = new ArrayList<>();
     final List<Payment> paymentRows = new ArrayList<>();
@@ -85,7 +87,7 @@ class ClassRegistrationFlowTest {
         when(bookings.findByIdAndUser_Id(anyInt(), eq(1))).thenAnswer(i -> bookingRows.stream()
                 .filter(b -> b.getId().equals(i.getArgument(0))).findFirst());
         ClassReservationService reservations = new ClassReservationService(bookings, payments);
-        service = new MemberClassBookingService(classes, sessions, bookings, subscriptions, payments, mock(ActivityLogRepository.class),
+        service = new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, mock(ActivityLogRepository.class),
                 users, subjects, vnpay, mock(SepayService.class), reservations, clock);
         paymentService = new MemberPaymentService(payments, classes, bookings, reservations, service, vnpay, mock(SepayService.class), clock, mock(OnlineSubscriptionPaymentService.class));
     }

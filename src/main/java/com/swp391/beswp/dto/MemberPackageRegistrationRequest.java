@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class MemberPackageRegistrationRequest {
@@ -18,4 +20,21 @@ public class MemberPackageRegistrationRequest {
     @NotBlank(message = "paymentMethod không được để trống")
     @Size(max = 30, message = "paymentMethod không được vượt quá 30 ký tự")
     private String paymentMethod;
+
+    /** Lựa chọn Sport cho từng Choice Group của Package. */
+    private List<ChoiceGroupSelectionRequest> choiceGroups;
+
+    /** IMMEDIATE (mặc định) hoặc AFTER_CURRENT khi gia hạn. */
+    private String renewalStart;
+
+    @Getter
+    @Setter
+    public static class ChoiceGroupSelectionRequest {
+        @NotNull(message = "choiceGroupId không được để trống")
+        @Positive(message = "choiceGroupId phải lớn hơn 0")
+        private Integer choiceGroupId;
+
+        @NotNull(message = "sportIds không được để trống")
+        private List<@NotNull @Positive Integer> sportIds;
+    }
 }

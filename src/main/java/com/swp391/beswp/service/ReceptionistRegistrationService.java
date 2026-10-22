@@ -14,6 +14,7 @@ import com.swp391.beswp.entity.ClassBooking;
 import com.swp391.beswp.entity.ClassEntity;
 import com.swp391.beswp.entity.ClassSession;
 import com.swp391.beswp.entity.MemberSubscription;
+import com.swp391.beswp.entity.MembershipIncludedSport;
 import com.swp391.beswp.entity.MembershipPackage;
 import com.swp391.beswp.entity.Payment;
 import com.swp391.beswp.entity.User;
@@ -23,6 +24,9 @@ import com.swp391.beswp.repository.ClassSessionRepository;
 import com.swp391.beswp.repository.MemberPackageSubscriptionRepository;
 import com.swp391.beswp.repository.MemberSubscriptionRepository;
 import com.swp391.beswp.repository.MembershipPackageRepository;
+import com.swp391.beswp.repository.MembershipIncludedSportRepository;
+import com.swp391.beswp.repository.PackageChoiceGroupRepository;
+import com.swp391.beswp.repository.PackageIncludedSportRepository;
 import com.swp391.beswp.repository.PaymentRepository;
 import com.swp391.beswp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -69,6 +73,9 @@ public class ReceptionistRegistrationService {
     private final OnlineSubscriptionPaymentService subscriptionPayments;
     private final VnpayService vnpay;
     private final SepayService sepay;
+    private final PackageChoiceGroupRepository choiceGroups;
+    private final PackageIncludedSportRepository includedSports;
+    private final MembershipIncludedSportRepository includedSnapshots;
 
     @Transactional(readOnly = true)
     public PackageCatalogResponse getPackages(Authentication authentication, String search) {
@@ -186,6 +193,10 @@ public class ReceptionistRegistrationService {
         if (membershipPackage.getDuration() == null || membershipPackage.getDuration() <= 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Thời hạn gói tập không hợp lệ");
         }
+        if (!choiceGroups.findByPackageId(membershipPackage.getId()).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Gói có Choice Group phải được đăng ký qua luồng Member để chọn Sport đầy đủ");
+        }
 
         LocalDate endDate;
         try {
@@ -198,23 +209,34 @@ public class ReceptionistRegistrationService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Giá gói không hợp lệ để ghi nhận thanh toán");
         }
 
+        BigDecimal discount = membershipPackage.getDiscount() == null ? BigDecimal.ZERO : membershipPackage.getDiscount();
+        BigDecimal discountAmount = amount.multiply(discount).movePointLeft(2);
+        BigDecimal amountAfterDiscount = amount.subtract(discountAmount);
         MemberSubscription subscription = packageSubscriptionRepository.save(MemberSubscription.builder()
                 .user(member)
                 .membershipPackage(membershipPackage)
+                .priceAtPurchase(amountAfterDiscount)
+                .durationAtPurchase(membershipPackage.getDuration())
+                .termsAtPurchase(membershipPackage.getTermConditions())
+                .packageNameAtPurchase(membershipPackage.getName())
                 .startDate(today)
                 .endDate(endDate)
                 .status("Active")
                 .build());
+        for (var included : includedSports.findByPackageId(membershipPackage.getId())) {
+            includedSnapshots.save(MembershipIncludedSport.builder().subscription(subscription)
+                    .subject(included.getSubject()).subjectNameAtPurchase(included.getSubject().getName()).build());
+        }
         LocalDateTime registeredAt = now();
         Payment payment = paymentRepository.save(Payment.builder()
                 .subscription(subscription)
                 .receptionist(receptionist)
                 .paymentType("Subscription")
-                .amount(amount)
+                .amount(amountAfterDiscount)
                 .method(paymentMethod)
                 .paymentDate(registeredAt)
                 .status("Paid")
-                .discountAmount(BigDecimal.ZERO)
+                .discountAmount(discountAmount)
                 .build());
 
         auditLogService.recordLog(receptionist, "PURCHASE_MEMBERSHIP", "Payment",

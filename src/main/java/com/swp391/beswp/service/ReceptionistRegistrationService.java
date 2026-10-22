@@ -2,6 +2,11 @@ package com.swp391.beswp.service;
 
 import com.swp391.beswp.dto.ReceptionistClassRegistrationRequest;
 import com.swp391.beswp.dto.ReceptionistPackageRegistrationRequest;
+import com.swp391.beswp.dto.MemberPackageRegistrationRequest;
+import com.swp391.beswp.dto.MemberPackageRenewalOverviewResponse;
+import com.swp391.beswp.dto.MemberPackageRenewalPreviewRequest;
+import com.swp391.beswp.dto.MemberPackageRenewalPreviewResponse;
+import com.swp391.beswp.dto.MemberPackageSubscriptionResponse;
 import com.swp391.beswp.dto.ReceptionistRegistrationDtos.ClassCatalogResponse;
 import com.swp391.beswp.dto.ReceptionistRegistrationDtos.ClassOption;
 import com.swp391.beswp.dto.ReceptionistRegistrationDtos.ClassRegistrationPreview;
@@ -86,6 +91,42 @@ public class ReceptionistRegistrationService {
                         p.getDuration(), p.getIncludedClasses(), p.getBenefits(), p.getTermConditions()))
                 .toList();
         return new PackageCatalogResponse(true, "Lấy danh sách gói tập thành công", data);
+    }
+
+    @Transactional(readOnly = true)
+    public MemberPackageRenewalOverviewResponse getPackageRenewalOverview(
+            Authentication authentication, Integer memberId) {
+        requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        return memberPackages.getRenewalOverview(member.getId().toString());
+    }
+
+    @Transactional(readOnly = true)
+    public MemberPackageRenewalPreviewResponse previewPackageRenewal(
+            Authentication authentication, Integer memberId, MemberPackageRenewalPreviewRequest request) {
+        requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        return memberPackages.previewRenewal(member.getId().toString(), request);
+    }
+
+    @Transactional
+    public MemberPackageSubscriptionResponse renewPackage(
+            Authentication authentication, Integer memberId, ReceptionistPackageRegistrationRequest request) {
+        User receptionist = requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        if (!"Cash".equals(normalizePaymentChannel(request.paymentMethod()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Gia han tai quay hien chi ho tro Cash; Card va E_Wallet can thanh toan online");
+        }
+        userRepository.findByIdForUpdate(member.getId()).orElseThrow();
+        MemberPackageSubscriptionResponse response = memberPackages.renewPackage(member.getId().toString(),
+                toMemberPackageRequest(request));
+        Integer paymentId = response.getData().getPaymentId();
+        Payment payment = paymentRepository.findById(paymentId).orElseThrow();
+        payment.setReceptionist(receptionist);
+        auditLogService.recordLog(receptionist, "RENEW_MEMBERSHIP", "Payment",
+                "Le tan gia han Package cho hoi vien #" + member.getId() + ", payment #" + paymentId);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -580,6 +621,15 @@ public class ReceptionistRegistrationService {
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "paymentMethod chỉ nhận PACKAGE hoặc DIRECT");
         };
+    }
+
+    private MemberPackageRegistrationRequest toMemberPackageRequest(ReceptionistPackageRegistrationRequest request) {
+        MemberPackageRegistrationRequest result = new MemberPackageRegistrationRequest();
+        result.setPackageId(request.packageId());
+        result.setPaymentMethod(request.paymentMethod());
+        result.setRenewalStart(request.renewalStart());
+        result.setChoiceGroups(request.choiceGroups());
+        return result;
     }
 
     private String normalizePaymentChannel(String rawMethod) {

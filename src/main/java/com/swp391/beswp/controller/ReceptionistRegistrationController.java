@@ -2,6 +2,10 @@ package com.swp391.beswp.controller;
 
 import com.swp391.beswp.dto.ReceptionistClassRegistrationRequest;
 import com.swp391.beswp.dto.ReceptionistPackageRegistrationRequest;
+import com.swp391.beswp.dto.MemberPackageRenewalOverviewResponse;
+import com.swp391.beswp.dto.MemberPackageRenewalPreviewRequest;
+import com.swp391.beswp.dto.MemberPackageRenewalPreviewResponse;
+import com.swp391.beswp.dto.MemberPackageSubscriptionResponse;
 import com.swp391.beswp.dto.ReceptionistRegistrationDtos.ClassCatalogResponse;
 import com.swp391.beswp.dto.ReceptionistRegistrationDtos.ClassRegistrationPreview;
 import com.swp391.beswp.dto.ReceptionistRegistrationDtos.PackageCatalogResponse;
@@ -72,6 +76,30 @@ public class ReceptionistRegistrationController {
                 .body("Cash".equalsIgnoreCase(request.paymentMethod())
                         ? registrationService.registerPackage(authentication, memberId, request)
                         : registrationService.registerOnlinePackage(authentication, memberId, request, servletRequest.getRemoteAddr()));
+    }
+
+    @Operation(summary = "Thong tin Package de gia han tai quay")
+    @GetMapping("/members/{memberId}/packages/renewal")
+    public ResponseEntity<MemberPackageRenewalOverviewResponse> getPackageRenewalOverview(
+            Authentication authentication, @PathVariable Integer memberId) {
+        return ResponseEntity.ok(registrationService.getPackageRenewalOverview(authentication, memberId));
+    }
+
+    @Operation(summary = "Xem truoc thong tin gia han Package tai quay")
+    @PostMapping("/members/{memberId}/packages/renewal/preview")
+    public ResponseEntity<MemberPackageRenewalPreviewResponse> previewPackageRenewal(
+            Authentication authentication, @PathVariable Integer memberId,
+            @Valid @RequestBody MemberPackageRenewalPreviewRequest request) {
+        return ResponseEntity.ok(registrationService.previewPackageRenewal(authentication, memberId, request));
+    }
+
+    @Operation(summary = "Xac nhan gia han Package tai quay", description = "Cash only")
+    @PostMapping("/members/{memberId}/packages/renewal")
+    public ResponseEntity<MemberPackageSubscriptionResponse> renewPackage(
+            Authentication authentication, @PathVariable Integer memberId,
+            @Valid @RequestBody ReceptionistPackageRegistrationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(registrationService.renewPackage(authentication, memberId, request));
     }
 
     @Operation(summary = "Đăng ký hội viên vào toàn bộ các buổi còn lại của lớp",

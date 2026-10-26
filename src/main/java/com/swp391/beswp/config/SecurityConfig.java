@@ -68,6 +68,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/receptionist/members", "/api/receptionist/members/**").hasAuthority("ROLE_Receptionist")
                         .requestMatchers(HttpMethod.GET, "/api/auth/google/exchange").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/payments/vnpay/ipn", "/api/payments/vnpay/return").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/api/chat/**").hasAnyAuthority("ROLE_Member", "ROLE_Coach")
                         .requestMatchers(HttpMethod.GET, "/api/member/payments/**").hasAuthority("ROLE_Member")
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()

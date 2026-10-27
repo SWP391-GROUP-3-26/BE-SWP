@@ -31,6 +31,8 @@ public class MemberPackageSubscriptionData {
     private BigDecimal paymentAmount;
     private BigDecimal discountAmount;
     private String paymentStatus;
+    @lombok.Setter
+    private String paymentUrl;
     private LocalDateTime paymentDate;
 
     public static MemberPackageSubscriptionData fromEntities(MemberSubscription subscription, Payment payment) {

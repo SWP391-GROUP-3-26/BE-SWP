@@ -37,6 +37,13 @@ public class Payment {
     private MemberSubscription subscription;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "Renewal_Subscription_ID")
+    private MemberSubscription renewalSubscription;
+
+    @Column(name = "Renewal_Start", length = 20)
+    private String renewalStart;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "Receptionist_ID")
     private User receptionist;
 

@@ -40,19 +40,38 @@ public class OnlineSubscriptionPaymentService {
         // The initial lookup only obtains the owner; refresh after locking for duplicate callbacks.
         entityManager.refresh(initial);
         entityManager.refresh(initial.getSubscription());
+        if (initial.getRenewalSubscription() != null) entityManager.refresh(initial.getRenewalSubscription());
         return initial;
     }
 
     public void confirm(Payment payment, boolean success) {
+        if ("Paid".equals(payment.getStatus())) return;
         var subscription = payment.getSubscription();
         var member = subscription.getUser();
+        var today = now().toLocalDate();
+        var previous = payment.getRenewalSubscription();
+        boolean membershipEligible;
+        if (previous == null) {
+            membershipEligible = !subscriptions.hasActiveSubscription(member.getId(), today);
+        } else {
+            var active = subscriptions.findCurrentActiveSubscriptions(member.getId(), today);
+            membershipEligible = java.util.Objects.equals(previous.getUser().getId(), member.getId())
+                    && ("Active".equals(previous.getStatus())
+                        || ("Expired".equals(previous.getStatus()) && previous.getEndDate().isBefore(today)))
+                    && active.stream().allMatch(s -> java.util.Objects.equals(s.getId(), previous.getId()))
+                    && ("IMMEDIATE".equals(payment.getRenewalStart())
+                        || ("AFTER_CURRENT".equals(payment.getRenewalStart())
+                            && subscription.getStartDate().equals(previous.getEndDate().plusDays(1))));
+        }
         boolean eligible = "Pending".equals(payment.getStatus()) && "Pending".equals(subscription.getStatus())
                 && payment.getExpiresAt().isAfter(now()) && "Active".equalsIgnoreCase(member.getStatus())
-                && !subscriptions.hasActiveSubscription(member.getId(), now().toLocalDate())
-                && subscription.getEndDate().compareTo(now().toLocalDate()) >= 0;
+                && membershipEligible && subscription.getEndDate().compareTo(today) >= 0;
         payment.setStatus(success ? "Paid" : "Failed");
         payment.setRequiresReview(success && !eligible);
-        if (success && eligible) subscription.setStatus("Active");
+        if (success && eligible) {
+            if (previous != null && "IMMEDIATE".equals(payment.getRenewalStart())) previous.setStatus("Expired");
+            subscription.setStatus(subscription.getStartDate().isAfter(today) ? "Pending" : "Active");
+        }
         else if ("Pending".equals(subscription.getStatus())) subscription.setStatus("Cancelled");
         audit.recordLog(payment.getReceptionist() == null ? member : payment.getReceptionist(),
                 "CONFIRM_PAYMENT", "Payment", "Thanh toán gói #" + payment.getId() + " cho hội viên #"

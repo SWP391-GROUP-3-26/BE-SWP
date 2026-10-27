@@ -33,6 +33,9 @@ class ReceptionistRegistrationServiceTest {
     @Mock OnlineSubscriptionPaymentService subscriptionPayments;
     @Mock VnpayService vnpay;
     @Mock SepayService sepay;
+    @Mock PackageChoiceGroupRepository choiceGroups;
+    @Mock PackageIncludedSportRepository includedSports;
+    @Mock MembershipIncludedSportRepository includedSnapshots;
     @InjectMocks ReceptionistRegistrationService service;
     final UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken("2", "", List.of(new SimpleGrantedAuthority("ROLE_Receptionist")));
     User member, actor;
@@ -59,7 +62,7 @@ class ReceptionistRegistrationServiceTest {
         verify(paymentRepository).save(payment.capture());
         assertSame(member, payment.getValue().getSubscription().getUser());
         assertSame(actor, payment.getValue().getReceptionist());
-        assertEquals(new BigDecimal("100000"), payment.getValue().getAmount());
+        assertEquals(0, new BigDecimal("100000").compareTo(payment.getValue().getAmount()));
     }
 
     @Test void onlinePurchaseCreatesPendingSubscriptionAndNeverCounterPaid() {

@@ -48,8 +48,7 @@ public class MemberPaymentService {
             subscriptionPayments.expirePending(user.getId());
             return MemberPaymentResponse.builder().success(true).paymentId(payment.getId())
                     .memberId(user.getId()).memberName(user.getFullName()).itemName(payment.getSubscription().getMembershipPackage().getName())
-                    .paymentStatus(payment.getStatus()).bookingStatus("Active".equals(payment.getSubscription().getStatus())
-                            ? "Đang diễn ra" : "Pending".equals(payment.getSubscription().getStatus()) ? "Chờ thanh toán" : "Đã hủy")
+                    .paymentType("Subscription").paymentStatus(payment.getStatus()).bookingStatus(subscriptionDisplayStatus(payment))
                     .paymentAmount(payment.getAmount()).expiresAt(payment.getExpiresAt().atOffset(VnpayService.OFFSET))
                     .requiresReview(payment.isRequiresReview()).qrPayment(sepay.qrPayment(payment)).build();
         }
@@ -170,6 +169,7 @@ public class MemberPaymentService {
 
     private String resultUrl(Payment payment) {
         String url = vnpay.frontendResultUrl(payment.getId());
+        if (payment.getSubscription() != null) url += "&type=package";
         if (payment.getReceptionist() == null) return url;
         Integer memberId = payment.getBooking() != null ? payment.getBooking().getUser().getId()
                 : payment.getSubscription().getUser().getId();
@@ -198,6 +198,15 @@ public class MemberPaymentService {
         String value = params.get("vnp_Amount");
         return matches(value, "\\d{1,12}")
                 && new BigInteger(value).equals(payment.getAmount().movePointRight(2).toBigIntegerExact());
+    }
+
+    private String subscriptionDisplayStatus(Payment payment) {
+        return switch (payment.getSubscription().getStatus()) {
+            case "Active" -> "Đang diễn ra";
+            case "Expired" -> "Đã hoàn thành";
+            case "Pending" -> "Paid".equals(payment.getStatus()) && !payment.isRequiresReview() ? "Chờ bắt đầu" : "Chờ thanh toán";
+            default -> "Đã hủy";
+        };
     }
 
     private LocalDateTime now() { return LocalDateTime.now(paymentClock).withNano(0); }

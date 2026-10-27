@@ -77,6 +77,8 @@ public interface MemberPackageSubscriptionRepository extends JpaRepository<Membe
             SELECT s FROM MemberSubscription s
             WHERE LOWER(s.status) = 'pending'
               AND s.startDate <= :today
+              AND EXISTS (SELECT p.id FROM Payment p WHERE p.subscription.id = s.id
+                  AND p.status = 'Paid' AND p.requiresReview = false)
             """)
     List<MemberSubscription> findDuePendingSubscriptions(@Param("today") LocalDate today);
 

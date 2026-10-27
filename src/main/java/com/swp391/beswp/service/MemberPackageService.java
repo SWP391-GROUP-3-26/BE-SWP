@@ -65,6 +65,9 @@ public class MemberPackageService {
     private final MembershipIncludedSportRepository includedSnapshotRepository;
     private final PackageIncludedSportRepository includedSportRepository;
     private final SubjectRepository subjectRepository;
+    private final VnpayService vnpay;
+    private final SepayService sepay;
+    private final java.time.Clock paymentClock;
 
     @Transactional(readOnly = true)
     public MemberPackageCatalogResponse getAvailablePackages(String principal, String search, int page, int size) {
@@ -95,7 +98,7 @@ public class MemberPackageService {
     @Transactional(readOnly = true)
     public MemberPackageRenewalOverviewResponse getRenewalOverview(String principal) {
         User member = requireMember(principal);
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(paymentClock);
         List<MemberSubscription> active = subscriptionRepository.findCurrentActiveSubscriptions(member.getId(), today);
         if (active.size() > 1) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -104,9 +107,7 @@ public class MemberPackageService {
         MemberSubscription current = active.isEmpty() ? null : active.getFirst();
         Payment currentPayment = current == null ? null
                 : paymentRepository.findFirstBySubscription_IdOrderByIdDesc(current.getId()).orElse(null);
-        Integer currentPackageId = current == null ? null : current.getMembershipPackage().getId();
         List<PackageResponse.PackageData> packages = packageRepository.searchPackages(null, "Active").stream()
-                .filter(pkg -> !java.util.Objects.equals(pkg.getId(), currentPackageId))
                 .map(this::packageData)
                 .toList();
         return MemberPackageRenewalOverviewResponse.builder()
@@ -121,7 +122,7 @@ public class MemberPackageService {
     public MemberPackageRenewalPreviewResponse previewRenewal(
             String principal, MemberPackageRenewalPreviewRequest request) {
         User member = requireMember(principal);
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(paymentClock);
         MemberSubscription current = requireSingleActiveSubscription(member.getId(), today);
         MembershipPackage selected = findActivePackage(request.getPackageId());
         validatePackageForPurchase(selected);
@@ -152,9 +153,7 @@ public class MemberPackageService {
 
     @Transactional
     public MemberPackageSubscriptionResponse renewPackage(String principal, MemberPackageRegistrationRequest request) {
-        User member = requireMember(principal);
-        requireSingleActiveSubscription(member.getId(), LocalDate.now());
-        return registerPackage(principal, request);
+        return purchasePackage(principal, request, null, false, true);
     }
 
     @Transactional
@@ -162,12 +161,29 @@ public class MemberPackageService {
             String principal,
             MemberPackageRegistrationRequest request
     ) {
+        return purchasePackage(principal, request, null, false, false);
+    }
+
+    @Transactional
+    public MemberPackageSubscriptionResponse registerOnlinePackage(String principal,
+            MemberPackageRegistrationRequest request, String ipAddress, boolean renewal) {
+        return purchasePackage(principal, request, ipAddress, true, renewal);
+    }
+
+    private MemberPackageSubscriptionResponse purchasePackage(String principal,
+            MemberPackageRegistrationRequest request, String ipAddress, boolean online, boolean renewal) {
         User member = requireMember(principal);
         userRepository.findByIdForUpdate(member.getId()).orElseThrow();
         subscriptionPayments.expirePending(member.getId());
         MembershipPackage membershipPackage = findActivePackage(request.getPackageId());
         String paymentMethod = normalizePaymentMethod(request.getPaymentMethod());
-        LocalDate today = LocalDate.now();
+        if (online) {
+            if (!List.of("Card", "E_Wallet").contains(paymentMethod)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hội viên chỉ thanh toán qua VNPay hoặc QR SePay");
+            }
+            if ("Card".equals(paymentMethod)) vnpay.requireConfigured(); else sepay.requireConfigured();
+        }
+        LocalDate today = LocalDate.now(paymentClock);
         Map<Integer, List<Integer>> selections = validateSelections(membershipPackage.getId(), request.getChoiceGroups());
 
         if (subscriptionPayments.hasPending(member.getId())) {
@@ -185,6 +201,12 @@ public class MemberPackageService {
         }
         String renewalStart = normalizeRenewalStart(request.getRenewalStart());
         MemberSubscription current = activeSubscriptions.isEmpty() ? null : activeSubscriptions.getFirst();
+        if (renewal && current == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn chưa có gói hội viên đang hoạt động để gia hạn");
+        }
+        if (online && !renewal && current != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đang có gói hoạt động; hãy sử dụng chức năng gia hạn");
+        }
         if (current == null && "AFTER_CURRENT".equals(renewalStart)) {
             renewalStart = "IMMEDIATE";
         }
@@ -197,7 +219,7 @@ public class MemberPackageService {
 
         LocalDate startDate = "AFTER_CURRENT".equals(renewalStart)
                 ? current.getEndDate().plusDays(1) : today;
-        if (current != null && "IMMEDIATE".equals(renewalStart)) {
+        if (!online && current != null && "IMMEDIATE".equals(renewalStart)) {
             current.setStatus("Expired");
         }
         LocalDate endDate = startDate.plusDays(membershipPackage.getDuration().longValue() - 1L);
@@ -205,6 +227,10 @@ public class MemberPackageService {
                 .multiply(defaultDiscount(membershipPackage))
                 .movePointLeft(2);
         BigDecimal priceAtPurchase = membershipPackage.getPrice().subtract(discountAmount);
+        if (online && (priceAtPurchase.signum() <= 0 || priceAtPurchase.stripTrailingZeros().scale() > 0
+                || priceAtPurchase.compareTo(new BigDecimal("9999999999")) > 0)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Học phí thanh toán online phải là số nguyên VND dương trong giới hạn thanh toán");
+        }
         MemberSubscription subscription = MemberSubscription.builder()
                 .user(member)
                 .membershipPackage(membershipPackage)
@@ -214,7 +240,7 @@ public class MemberPackageService {
                 .packageNameAtPurchase(membershipPackage.getName())
                 .startDate(startDate)
                 .endDate(endDate)
-                .status("AFTER_CURRENT".equals(renewalStart) ? "Pending" : "Active")
+                .status(online || "AFTER_CURRENT".equals(renewalStart) ? "Pending" : "Active")
                 .build();
         MemberSubscription savedSubscription = subscriptionRepository.save(subscription);
         for (PackageIncludedSport included : includedSportRepository.findByPackageId(membershipPackage.getId())) {
@@ -232,11 +258,14 @@ public class MemberPackageService {
 
         Payment payment = Payment.builder()
                 .subscription(savedSubscription)
+                .renewalSubscription(online && renewal ? current : null)
+                .renewalStart(online && renewal ? renewalStart : null)
                 .paymentType("Subscription")
                 .amount(priceAtPurchase)
                 .method(paymentMethod)
-                .paymentDate(LocalDateTime.now())
-                .status("Paid")
+                .paymentDate(LocalDateTime.now(paymentClock).withNano(0))
+                .expiresAt(online ? LocalDateTime.now(paymentClock).withNano(0).plusMinutes(VnpayService.PAYMENT_TIMEOUT_MINUTES) : null)
+                .status(online ? "Pending" : "Paid")
                 .discountAmount(discountAmount)
                 .build();
         Payment savedPayment = paymentRepository.save(payment);
@@ -253,10 +282,12 @@ public class MemberPackageService {
                         paymentMethod)
         );
 
+        MemberPackageSubscriptionData data = MemberPackageSubscriptionData.fromEntities(savedSubscription, savedPayment);
+        if (online && "Card".equals(paymentMethod)) data.setPaymentUrl(vnpay.createPaymentUrl(savedPayment, ipAddress));
         return new MemberPackageSubscriptionResponse(
                 true,
-                "Đăng ký gói hội viên thành công",
-                MemberPackageSubscriptionData.fromEntities(savedSubscription, savedPayment)
+                online ? "Đã tạo giao dịch chờ thanh toán gói hội viên" : "Đăng ký gói hội viên thành công",
+                data
         );
     }
 

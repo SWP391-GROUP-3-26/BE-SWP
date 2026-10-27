@@ -69,6 +69,17 @@ class MemberPaymentServiceTest {
         verify(subscriptionPayments, never()).lock(any());
     }
 
+    @Test void paidQueuedOrExpiredMembershipIsNotDisplayedAsCancelled() {
+        payment.setBooking(null); payment.setPaymentType("Subscription"); payment.setStatus("Paid");
+        payment.setSubscription(MemberSubscription.builder().user(member).status("Pending")
+                .membershipPackage(MembershipPackage.builder().name("Standard").build()).build());
+        when(payments.findOnlineSubscriptionMemberId(105)).thenReturn(Optional.of(1));
+        when(subscriptionPayments.lock(105)).thenReturn(payment);
+        assertEquals("Chờ bắt đầu", service.getPayment("1", 105).getBookingStatus());
+        payment.getSubscription().setStatus("Expired");
+        assertEquals("Đã hoàn thành", service.getPayment("1", 105).getBookingStatus());
+    }
+
     private Map<String, String> callback(String responseCode, String transactionStatus) {
         Map<String, String> params = new HashMap<>(Map.of("vnp_TmnCode", "TESTCODE", "vnp_TxnRef", "105",
                 "vnp_Amount", "10000000", "vnp_ResponseCode", responseCode, "vnp_TransactionStatus", transactionStatus,

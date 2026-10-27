@@ -76,23 +76,25 @@ public class MemberPackageController {
     @Operation(summary = "Xác nhận gia hạn gói hội viên", security = @SecurityRequirement(name = "bearerAuth"))
     @PostMapping("/renewal")
     public ResponseEntity<MemberPackageSubscriptionResponse> renewPackage(
-            Authentication authentication, @Valid @RequestBody MemberPackageRegistrationRequest request) {
+            Authentication authentication, jakarta.servlet.http.HttpServletRequest servletRequest,
+            @Valid @RequestBody MemberPackageRegistrationRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(memberPackageService.renewPackage(authentication.getName(), request));
+                .body(memberPackageService.registerOnlinePackage(authentication.getName(), request, servletRequest.getRemoteAddr(), true));
     }
 
     @Operation(
             summary = "Đăng ký một gói hội viên",
-            description = "Tạo subscription và payment cho hội viên hiện tại. paymentMethod nhận Cash, Card, Bank_Transfer hoặc E_Wallet. Payment được ghi nhận Paid ngay theo quy ước thanh toán trực tiếp hiện tại của backend; chưa tích hợp cổng thanh toán.",
+            description = "Card tạo giao dịch VNPay; E_Wallet tạo giao dịch QR SePay. Chỉ kích hoạt gói sau callback hợp lệ. Không hỗ trợ tiền mặt cho Member.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @PostMapping("/register")
     public ResponseEntity<MemberPackageSubscriptionResponse> registerPackage(
             Authentication authentication,
+            jakarta.servlet.http.HttpServletRequest servletRequest,
             @Valid @RequestBody MemberPackageRegistrationRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(memberPackageService.registerPackage(authentication.getName(), request));
+                .body(memberPackageService.registerOnlinePackage(authentication.getName(), request, servletRequest.getRemoteAddr(), false));
     }
 
     @Operation(

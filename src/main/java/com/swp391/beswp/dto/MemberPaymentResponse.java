@@ -15,6 +15,7 @@ public class MemberPaymentResponse {
     private String itemName;
     private Integer bookingId;
     private String paymentStatus;
+    private String paymentType;
     private String bookingStatus;
     private BigDecimal paymentAmount;
     private OffsetDateTime expiresAt;

@@ -446,3 +446,13 @@ Nếu gặp lỗi, gửi cho team:
 - request/response trong Network nếu lỗi API
 
 Không gửi password, JWT token hoặc API key lên group chat/GitHub.
+
+## Member package payments
+
+Apply `docs/database/migrations/20261026_member_package_online_payment.sql` before restarting the updated backend. This adds nullable renewal metadata to `Payment`; existing rows are preserved.
+
+Member `POST /api/member/packages/register` and `POST /api/member/packages/renewal` accept `Card` (VNPay) or `E_Wallet` (SePay QR), not cash. They return `data.paymentId`, `data.paymentStatus = Pending` and `data.paymentUrl` for VNPay. Read `/api/member/payments/{paymentId}` for QR details and payment status. Prices, discounts and sport selections are checked on the server.
+
+An immediate renewal replaces its original membership only after a valid paid callback. A paid `AFTER_CURRENT` renewal stays pending until its start date. Unpaid subscriptions are excluded from automatic activation. Late payments are marked for review without replacing the original membership.
+
+Rollback-only SQL Server checks: set `MEMBER_PACKAGE_DB_CHECK=true` and run `MemberPackageOnlineSqlServerTest`. The tests sign local VNPay callback data and simulate authenticated SePay webhooks; they do not transfer funds.

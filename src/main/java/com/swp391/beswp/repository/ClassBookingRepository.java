@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -107,4 +108,53 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
            "AND LOWER(b.session.classEntity.status) IN ('active', 'open') " +
            "AND (b.session.classEntity.endDate IS NULL OR b.session.classEntity.endDate >= :today)")
     long countTotalActiveStudentsByCoachId(@Param("coachId") Integer coachId, @Param("today") java.time.LocalDate today);
+
+    @Query("SELECT b FROM ClassBooking b " +
+           "JOIN FETCH b.user member " +
+           "JOIN FETCH b.session s " +
+           "JOIN FETCH s.classEntity c " +
+           "JOIN FETCH c.coach coach " +
+           "JOIN FETCH c.subject subject " +
+           "WHERE member.id = :memberId " +
+           "AND LOWER(b.status) = 'booked' " +
+           "AND LOWER(c.status) IN ('active', 'open') " +
+           "AND (c.endDate IS NULL OR c.endDate >= :today) " +
+           "ORDER BY s.date DESC, b.id DESC")
+    List<ClassBooking> findChatBookingsForMember(
+            @Param("memberId") Integer memberId,
+            @Param("today") LocalDate today
+    );
+
+    @Query("SELECT b FROM ClassBooking b " +
+           "JOIN FETCH b.user member " +
+           "JOIN FETCH b.session s " +
+           "JOIN FETCH s.classEntity c " +
+           "JOIN FETCH c.coach coach " +
+           "JOIN FETCH c.subject subject " +
+           "WHERE coach.id = :coachId " +
+           "AND LOWER(b.status) = 'booked' " +
+           "AND LOWER(c.status) IN ('active', 'open') " +
+           "AND (c.endDate IS NULL OR c.endDate >= :today) " +
+           "ORDER BY s.date DESC, b.id DESC")
+    List<ClassBooking> findChatBookingsForCoach(
+            @Param("coachId") Integer coachId,
+            @Param("today") LocalDate today
+    );
+
+    @Query("SELECT b FROM ClassBooking b " +
+           "JOIN FETCH b.user member " +
+           "JOIN FETCH b.session s " +
+           "JOIN FETCH s.classEntity c " +
+           "JOIN FETCH c.coach coach " +
+           "JOIN FETCH c.subject subject " +
+           "WHERE member.id = :memberId AND coach.id = :coachId " +
+           "AND LOWER(b.status) = 'booked' " +
+           "AND LOWER(c.status) IN ('active', 'open') " +
+           "AND (c.endDate IS NULL OR c.endDate >= :today) " +
+           "ORDER BY s.date DESC, b.id DESC")
+    List<ClassBooking> findChatBookingsForPair(
+            @Param("memberId") Integer memberId,
+            @Param("coachId") Integer coachId,
+            @Param("today") LocalDate today
+    );
 }

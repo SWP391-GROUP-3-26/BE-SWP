@@ -77,8 +77,8 @@ public final class CoachAttendanceDtos {
 
             @NotBlank(message = "Trạng thái điểm danh không được để trống")
             @Pattern(
-                    regexp = "(?i)^(Present|Absent|Late|Excused)$",
-                    message = "Trạng thái chỉ nhận Present, Absent, Late hoặc Excused"
+                    regexp = "(?i)^(Present|Absent)$",
+                    message = "Trạng thái chỉ nhận Present hoặc Absent"
             )
             String status,
 

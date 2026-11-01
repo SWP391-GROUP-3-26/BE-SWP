@@ -50,6 +50,9 @@ DROP TABLE IF EXISTS Schedule;
 DROP TABLE IF EXISTS Activity_Log;
 DROP TABLE IF EXISTS Training_Result;
 DROP TABLE IF EXISTS Attendance;
+DROP TABLE IF EXISTS Training_Exercise_Result;
+DROP TABLE IF EXISTS Training_Plan_Recipient;
+DROP TABLE IF EXISTS Training_Exercise;
 DROP TABLE IF EXISTS Training_Plan;
 DROP TABLE IF EXISTS Payment;
 DROP TABLE IF EXISTS Voucher;
@@ -314,18 +317,71 @@ GO
 CREATE TABLE Training_Plan (
     Plan_ID     INT IDENTITY(1,1) NOT NULL,
     Coach_ID    INT               NOT NULL,
-    Member_ID   INT               NOT NULL,
-    Goal        NVARCHAR(255)     NOT NULL,
+    Member_ID   INT               NULL,
+    Plan_Scope  VARCHAR(20)       NOT NULL CONSTRAINT DF_Training_Plan_Scope DEFAULT 'INDIVIDUAL',
+    Class_ID    INT               NULL,
+    Title       NVARCHAR(150)     NOT NULL CONSTRAINT DF_Training_Plan_Title DEFAULT N'Kế hoạch tập luyện',
+    Goal        NVARCHAR(2000)    NOT NULL,
     Description NVARCHAR(MAX)     NULL,
+    Assessment  NVARCHAR(2000)    NULL,
     Start_Date  DATE              NOT NULL,
     End_Date    DATE              NULL,
+    Status      VARCHAR(20)       NOT NULL CONSTRAINT DF_Training_Plan_Status DEFAULT 'DRAFT',
+    Coach_Feedback NVARCHAR(2000) NULL,
+    Published_Revision INT NOT NULL CONSTRAINT DF_Training_Plan_Published DEFAULT 0,
+    Read_Revision INT NOT NULL CONSTRAINT DF_Training_Plan_Read DEFAULT 0,
+    Published_At DATETIME2(7) NULL,
+    Created_At DATETIME2(7) NOT NULL CONSTRAINT DF_Training_Plan_Created DEFAULT SYSDATETIME(),
+    Updated_At DATETIME2(7) NOT NULL CONSTRAINT DF_Training_Plan_Updated DEFAULT SYSDATETIME(),
+    Version BIGINT NOT NULL CONSTRAINT DF_Training_Plan_Version DEFAULT 0,
     CONSTRAINT PK_Training_Plan PRIMARY KEY (Plan_ID),
+    CONSTRAINT CK_Training_Plan_Scope CHECK ((Plan_Scope = 'CLASS' AND Member_ID IS NULL AND Class_ID IS NOT NULL)
+        OR (Plan_Scope = 'INDIVIDUAL' AND Member_ID IS NOT NULL)),
+    CONSTRAINT FK_Training_Plan_Class FOREIGN KEY (Class_ID) REFERENCES Class(Class_ID),
+    CONSTRAINT CK_Training_Plan_Status CHECK (Status IN ('DRAFT','ASSIGNED','COMPLETED','CANCELLED')),
+    CONSTRAINT CK_Training_Plan_Revisions CHECK (Read_Revision >= 0 AND Published_Revision >= Read_Revision),
     CONSTRAINT FK_Plan_Coach FOREIGN KEY (Coach_ID)
         REFERENCES [User] (User_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
     CONSTRAINT FK_Plan_Member FOREIGN KEY (Member_ID)
         REFERENCES [User] (User_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
     CONSTRAINT CK_Plan_Dates  CHECK (End_Date IS NULL OR End_Date >= Start_Date),
     CONSTRAINT CK_Plan_People CHECK (Coach_ID <> Member_ID)
+);
+GO
+
+CREATE UNIQUE INDEX UX_Training_Plan_Assigned ON Training_Plan(Class_ID, Member_ID) WHERE Status = 'ASSIGNED';
+CREATE INDEX IX_Training_Plan_Member ON Training_Plan(Member_ID, Published_At DESC);
+CREATE TABLE Training_Exercise (
+    Exercise_ID INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Training_Exercise PRIMARY KEY,
+    Plan_ID INT NOT NULL REFERENCES Training_Plan(Plan_ID),
+    Position INT NOT NULL,
+    Training_Date DATE NOT NULL,
+    Name NVARCHAR(150) NOT NULL,
+    Instructions NVARCHAR(2000) NULL,
+    Target NVARCHAR(255) NOT NULL,
+    Completed BIT NOT NULL CONSTRAINT DF_Training_Exercise_Completed DEFAULT 0,
+    Member_Result NVARCHAR(2000) NULL
+);
+CREATE INDEX IX_Training_Exercise_Plan ON Training_Exercise(Plan_ID, Position);
+GO
+
+CREATE TABLE Training_Plan_Recipient (
+    Recipient_ID INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Training_Plan_Recipient PRIMARY KEY,
+    Plan_ID INT NOT NULL REFERENCES Training_Plan(Plan_ID),
+    Member_ID INT NOT NULL REFERENCES [User](User_ID),
+    Read_Revision INT NOT NULL CONSTRAINT DF_Training_Plan_Recipient_Read DEFAULT 0,
+    Coach_Feedback NVARCHAR(2000) NULL,
+    CONSTRAINT UQ_Training_Plan_Recipient UNIQUE (Plan_ID, Member_ID),
+    CONSTRAINT CK_Training_Plan_Recipient_Read CHECK (Read_Revision >= 0)
+);
+CREATE INDEX IX_Training_Plan_Recipient_Member ON Training_Plan_Recipient(Member_ID, Plan_ID);
+CREATE TABLE Training_Exercise_Result (
+    Result_ID INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Training_Exercise_Result PRIMARY KEY,
+    Recipient_ID INT NOT NULL REFERENCES Training_Plan_Recipient(Recipient_ID),
+    Exercise_ID INT NOT NULL REFERENCES Training_Exercise(Exercise_ID),
+    Completed BIT NOT NULL CONSTRAINT DF_Training_Exercise_Result_Completed DEFAULT 0,
+    Member_Result NVARCHAR(2000) NULL,
+    CONSTRAINT UQ_Training_Exercise_Result UNIQUE (Recipient_ID, Exercise_ID)
 );
 GO
 
@@ -352,10 +408,18 @@ CREATE TABLE Training_Result (
     Session_ID     INT               NOT NULL,
     User_ID        INT               NOT NULL,
     Coach_ID       INT               NOT NULL,
-    Metric         NVARCHAR(255)     NULL,
+    Metric         NVARCHAR(2000)    NULL,
+    Training_Content NVARCHAR(2000) NULL,
+    Progress_Status VARCHAR(30) NULL,
+    Next_Steps NVARCHAR(2000) NULL,
+    Updated_At DATETIME2(7) NULL,
+    Is_Withdrawn BIT NOT NULL CONSTRAINT DF_Training_Result_Withdrawn DEFAULT 0,
+    Version BIGINT NOT NULL CONSTRAINT DF_Training_Result_Version DEFAULT 0,
     Coach_Feedback NVARCHAR(MAX)     NULL,
     Date           DATE              NOT NULL CONSTRAINT DF_Result_Date DEFAULT CAST(GETDATE() AS DATE),
     CONSTRAINT PK_Training_Result PRIMARY KEY (Result_ID),
+    CONSTRAINT UQ_Training_Result_Session_Member UNIQUE (Session_ID, User_ID),
+    CONSTRAINT CK_Training_Result_Progress CHECK (Progress_Status IS NULL OR Progress_Status IN ('INITIAL','IMPROVING','STEADY','NEEDS_IMPROVEMENT')),
     CONSTRAINT FK_Result_Session FOREIGN KEY (Session_ID)
         REFERENCES Class_Session (Session_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
     CONSTRAINT FK_Result_User FOREIGN KEY (User_ID)

@@ -29,6 +29,7 @@ class MemberClassBookingServiceTest {
     private final ActivityLogRepository logs = mock(ActivityLogRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final SubjectRepository subjects = mock(SubjectRepository.class);
+    private final CoachAttendanceRepository attendance = mock(CoachAttendanceRepository.class);
     private final Clock clock = mock(Clock.class);
     private final AtomicReference<Instant> instant = new AtomicReference<>(Instant.parse("2026-10-13T01:00:00Z"));
     private final List<ClassBooking> bookingRows = new CopyOnWriteArrayList<>();
@@ -83,7 +84,8 @@ class MemberClassBookingServiceTest {
 
     private MemberClassBookingService newService(VnpayService vnpay) {
         return new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, logs, users, subjects,
-                vnpay, mock(SepayService.class), new ClassReservationService(bookings, payments), clock);
+                vnpay, mock(SepayService.class), new ClassReservationService(bookings, payments), clock,
+                attendance);
     }
     private User member(int id) {
         Role role = new Role(); role.setRoleName("Member");
@@ -129,7 +131,7 @@ class MemberClassBookingServiceTest {
         var sepay = new SepayService(new com.swp391.beswp.config.SepayConfig(), payments, classes, bookings,
                 new ClassReservationService(bookings, payments), clock, mock(OnlineSubscriptionPaymentService.class));
         var unconfigured = new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, logs, users,
-                subjects, VnpayServiceTest.configured(), sepay, new ClassReservationService(bookings, payments), clock);
+                subjects, VnpayServiceTest.configured(), sepay, new ClassReservationService(bookings, payments), clock, attendance);
         var error = assertThrows(ResponseStatusException.class, () -> unconfigured.registerClass("1", 10,
                 MemberClassBookingRequest.builder().paymentMethod("DIRECT").paymentChannel("E_Wallet").build(), "127.0.0.1"));
         assertEquals(503, error.getStatusCode().value()); assertTrue(bookingRows.isEmpty()); assertTrue(paymentRows.isEmpty());
@@ -178,6 +180,8 @@ class MemberClassBookingServiceTest {
 
     @Test
     void packageConfirmsWithoutGatewayAndCountsOnlyPackageBookings() {
+        classEntity.setSubject(Subject.builder().id(1).name("Yoga").build());
+        when(includedSports.hasActiveIncludedEntitlement(eq(1), eq(1), any())).thenReturn(true);
         MembershipPackage pkg = new MembershipPackage(); pkg.setIncludedClasses(5); pkg.setName("Test package");
         MemberSubscription sub = MemberSubscription.builder().membershipPackage(pkg).startDate(LocalDate.of(2026, 10, 1))
                 .endDate(LocalDate.of(2026, 10, 31)).build();
@@ -302,5 +306,29 @@ class MemberClassBookingServiceTest {
         assertEquals("Completed", completed.getRawStatus()); assertEquals("Completed", completed.getClassStatus());
         assertFalse(completed.isCanCancel()); assertFalse(completed.isCanRebook());
         assertEquals("Booked", booking.getStatus());
+    }
+
+    @Test
+    void memberCalendarOnlyShowsSavedAttendanceForTheMemberAndTheMatchingSession() {
+        ClassSession nextSession = ClassSession.builder().id(21).classEntity(classEntity)
+                .date(session.getDate().plusDays(1)).startTime(session.getStartTime()).endTime(session.getEndTime()).build();
+        bookingRows.add(ClassBooking.builder().id(42).user(member).session(session).status("Booked")
+                .registrationCode("REG-ATTENDANCE").build());
+        bookingRows.add(ClassBooking.builder().id(43).user(member).session(nextSession).status("Completed")
+                .registrationCode("REG-ATTENDANCE").build());
+
+        var unmarked = service.getMyClasses("1", "all", null).getClasses().getFirst().getSessions();
+        assertTrue(unmarked.stream().allMatch(s -> s.attendanceStatus() == null));
+
+        AttendanceRecord record = AttendanceRecord.builder().id(1).user(member).session(session).status("Present").build();
+        when(attendance.findByUser_IdAndSession_IdIn(1, List.of(20, 21))).thenReturn(List.of(record));
+        var marked = service.getMyClasses("1", "all", null).getClasses().getFirst().getSessions();
+        assertEquals("Present", marked.getFirst().attendanceStatus());
+        assertNull(marked.getLast().attendanceStatus());
+
+        record.setStatus("Absent");
+        assertEquals("Absent", service.getMyClasses("1", "all", null).getClasses().getFirst().getSessions().getFirst().attendanceStatus());
+        verify(attendance, times(3)).findByUser_IdAndSession_IdIn(1, List.of(20, 21));
+        verify(attendance, never()).findBySession_IdIn(any());
     }
 }

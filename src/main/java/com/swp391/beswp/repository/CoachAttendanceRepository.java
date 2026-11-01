@@ -18,6 +18,8 @@ public interface CoachAttendanceRepository extends JpaRepository<AttendanceRecor
 
     List<AttendanceRecord> findBySession_IdIn(Collection<Integer> sessionIds);
 
+    List<AttendanceRecord> findByUser_IdAndSession_IdIn(Integer userId, Collection<Integer> sessionIds);
+
     @Query("SELECT b FROM ClassBooking b " +
             "JOIN FETCH b.session s " +
             "JOIN FETCH b.user u " +

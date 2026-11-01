@@ -14,6 +14,20 @@ import java.util.Optional;
 @Repository
 public interface ClassBookingRepository extends JpaRepository<ClassBooking, Integer> {
 
+    @Query("SELECT CASE WHEN COUNT(b) > 0 THEN TRUE ELSE FALSE END FROM ClassBooking b " +
+            "WHERE b.user.id = :memberId AND b.session.classEntity.id = :classId " +
+            "AND LOWER(b.status) = 'booked' AND LOWER(b.session.status) <> 'cancelled' " +
+            "AND (b.session.classEntity.date IS NULL OR b.session.date >= b.session.classEntity.date) " +
+            "AND (b.session.classEntity.endDate IS NULL OR b.session.date <= b.session.classEntity.endDate)")
+    boolean isTrainingPlanMember(@Param("classId") Integer classId, @Param("memberId") Integer memberId);
+
+    @Query("SELECT DISTINCT b.user FROM ClassBooking b WHERE b.session.classEntity.id = :classId " +
+            "AND LOWER(b.status) = 'booked' AND LOWER(b.session.status) <> 'cancelled' " +
+            "AND LOWER(b.user.status) = 'active' AND LOWER(b.user.role.roleName) = 'member' " +
+            "AND (b.session.classEntity.date IS NULL OR b.session.date >= b.session.classEntity.date) " +
+            "AND (b.session.classEntity.endDate IS NULL OR b.session.date <= b.session.classEntity.endDate)")
+    List<com.swp391.beswp.entity.User> findTrainingPlanMembers(@Param("classId") Integer classId);
+
     List<ClassBooking> findBySession_ClassEntity_Id(Integer classId);
 
     List<ClassBooking> findByRegistrationCodeOrderByIdAsc(String registrationCode);

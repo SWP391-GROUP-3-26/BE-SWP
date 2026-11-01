@@ -10,5 +10,6 @@ public record MemberClassSessionData(
         @JsonFormat(pattern = "HH:mm") LocalTime sessionStartTime,
         @JsonFormat(pattern = "HH:mm") LocalTime sessionEndTime,
         String sessionStatus,
-        String rawStatus
+        String rawStatus,
+        String attendanceStatus
 ) {}

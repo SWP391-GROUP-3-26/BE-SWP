@@ -45,7 +45,7 @@ public class CoachAttendanceController {
     }
 
     @PutMapping("/{sessionId}/attendance")
-    @Operation(summary = "Lưu điểm danh cả buổi", description = "Upsert điểm danh cho toàn bộ roster hiện tại. Mỗi memberId đang đăng ký phải xuất hiện đúng một lần; trạng thái nhận Present, Absent, Late hoặc Excused.")
+    @Operation(summary = "Lưu điểm danh cả buổi", description = "Upsert điểm danh cho toàn bộ roster hiện tại. Mỗi memberId đang đăng ký phải xuất hiện đúng một lần; trạng thái nhận Present hoặc Absent.")
     public ResponseEntity<AttendanceResponse> saveSessionAttendance(
             Authentication authentication,
             @PathVariable Integer classId,

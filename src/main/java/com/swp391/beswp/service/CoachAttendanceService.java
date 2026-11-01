@@ -39,12 +39,13 @@ import java.util.stream.Collectors;
 public class CoachAttendanceService {
 
     private static final Set<String> ALLOWED_ATTENDANCE_STATUSES =
-            Set.of("Present", "Absent", "Late", "Excused");
+            Set.of("Present", "Absent");
 
     private final ClassRepository classRepository;
     private final ClassSessionRepository classSessionRepository;
     private final CoachAttendanceRepository coachAttendanceRepository;
     private final UserRepository userRepository;
+    private final com.swp391.beswp.repository.TrainingResultRepository trainingResults;
 
     @Transactional(readOnly = true)
     public SessionsResponse getClassSessions(Authentication authentication, Integer classId) {
@@ -149,7 +150,10 @@ public class CoachAttendanceService {
             String normalizedStatus = normalizeStatus(entry.status());
             if (normalizedStatus == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Trạng thái chỉ nhận Present, Absent, Late hoặc Excused");
+                        "Trạng thái chỉ nhận Present hoặc Absent");
+            }
+            if ("Absent".equals(normalizedStatus) && trainingResults.existsBySession_IdAndMember_IdAndWithdrawnFalse(sessionId, entry.memberId())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Học viên đã có đánh giá. Vui lòng thu hồi đánh giá trước khi chuyển sang Vắng mặt");
             }
         }
 

@@ -21,6 +21,7 @@ import com.swp391.beswp.repository.ActivityLogRepository;
 import com.swp391.beswp.repository.ClassBookingRepository;
 import com.swp391.beswp.repository.ClassRepository;
 import com.swp391.beswp.repository.ClassSessionRepository;
+import com.swp391.beswp.repository.CoachAttendanceRepository;
 import com.swp391.beswp.repository.MemberSubscriptionRepository;
 import com.swp391.beswp.repository.MembershipIncludedSportRepository;
 import com.swp391.beswp.repository.MembershipSportSelectionRepository;
@@ -68,6 +69,7 @@ public class MemberClassBookingService {
     private final SepayService sepayService;
     private final ClassReservationService reservationService;
     private final java.time.Clock paymentClock;
+    private final CoachAttendanceRepository attendanceRepository;
 
     private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,###");
 
@@ -83,6 +85,12 @@ public class MemberClassBookingService {
         String keyword = StringUtils.hasText(search) ? search.trim().toLowerCase(Locale.ROOT) : null;
 
         List<ClassBooking> allBookings = classBookingRepository.findMyBookings(user.getId(), null, null);
+        Map<Integer, String> attendanceBySession = new LinkedHashMap<>();
+        if (!allBookings.isEmpty()) {
+            List<Integer> sessionIds = allBookings.stream().map(b -> b.getSession().getId()).distinct().toList();
+            attendanceRepository.findByUser_IdAndSession_IdIn(user.getId(), sessionIds)
+                    .forEach(record -> attendanceBySession.put(record.getSession().getId(), record.getStatus()));
+        }
         LocalDate today = LocalDate.now(paymentClock);
         Map<String, List<ClassBooking>> groups = new LinkedHashMap<>();
         for (ClassBooking booking : allBookings) {
@@ -120,7 +128,8 @@ public class MemberClassBookingService {
                     .registrationId(b.getId()).sessionCount(group.size())
                     .sessions(group.stream().sorted(Comparator.comparing((ClassBooking item) -> item.getSession().getDate())
                             .thenComparing(item -> item.getSession().getStartTime()))
-                            .map(item -> sessionData(item.getSession(), ClassSchedule.bookingStatus(item, today))).toList())
+                            .map(item -> sessionData(item.getSession(), ClassSchedule.bookingStatus(item, today),
+                                    attendanceBySession.get(item.getSession().getId()))).toList())
                     .paymentId(payment == null ? null : payment.getId())
                     .paymentStatus(payment == null ? ("PACKAGE".equals(b.getPaymentMethod()) ? "Package" : null) : payment.getStatus())
                     .paymentAmount(payment == null ? null : payment.getAmount())
@@ -180,8 +189,12 @@ public class MemberClassBookingService {
     }
 
     private MemberClassSessionData sessionData(ClassSession session, String bookingStatus) {
+        return sessionData(session, bookingStatus, null);
+    }
+
+    private MemberClassSessionData sessionData(ClassSession session, String bookingStatus, String attendanceStatus) {
         return new MemberClassSessionData(session.getId(), session.getDate(), session.getStartTime(), session.getEndTime(),
-                ClassSchedule.sessionStatus(session, LocalDate.now(paymentClock)), bookingStatus);
+                ClassSchedule.sessionStatus(session, LocalDate.now(paymentClock)), bookingStatus, attendanceStatus);
     }
 
     /**

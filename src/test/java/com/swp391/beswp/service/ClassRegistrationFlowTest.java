@@ -88,7 +88,7 @@ class ClassRegistrationFlowTest {
                 .filter(b -> b.getId().equals(i.getArgument(0))).findFirst());
         ClassReservationService reservations = new ClassReservationService(bookings, payments);
         service = new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, mock(ActivityLogRepository.class),
-                users, subjects, vnpay, mock(SepayService.class), reservations, clock);
+                users, subjects, vnpay, mock(SepayService.class), reservations, clock, mock(CoachAttendanceRepository.class));
         paymentService = new MemberPaymentService(payments, classes, bookings, reservations, service, vnpay, mock(SepayService.class), clock, mock(OnlineSubscriptionPaymentService.class));
     }
 
@@ -178,6 +178,7 @@ class ClassRegistrationFlowTest {
 
     @Test
     void insufficientPackageOrOneFullSessionWritesNoPartialRegistration() {
+        when(includedSports.hasActiveIncludedEntitlement(eq(1), eq(1), any())).thenReturn(true);
         MembershipPackage pkg = new MembershipPackage(); pkg.setIncludedClasses(3);
         MemberSubscription sub = MemberSubscription.builder().membershipPackage(pkg)
                 .startDate(LocalDate.of(2026, 10, 1)).endDate(LocalDate.of(2026, 10, 31)).build();

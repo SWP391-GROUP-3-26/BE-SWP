@@ -15,9 +15,14 @@ public class MemberPaymentResponse {
     private String itemName;
     private Integer bookingId;
     private String paymentStatus;
+    private String paymentMethod;
+    private boolean canResumePayment;
+    private String paymentUrl;
     private String paymentType;
     private String bookingStatus;
     private BigDecimal paymentAmount;
+    private Integer packageSessions;
+    private Integer payableSessions;
     private OffsetDateTime expiresAt;
     private boolean requiresReview;
     private SepayQrPayment qrPayment;

@@ -69,6 +69,7 @@ public class MemberClassBookingService {
     private final SepayService sepayService;
     private final ClassReservationService reservationService;
     private final java.time.Clock paymentClock;
+    private final RefundService refunds;
     private final CoachAttendanceRepository attendanceRepository;
 
     private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,###");
@@ -105,16 +106,20 @@ public class MemberClassBookingService {
             List<Payment> payments = paymentRepository.findAllByBooking_IdOrderByIdDesc(b.getId());
             Payment payment = payments.isEmpty() ? null : payments.getFirst();
 
-            boolean hasDirectPayment = "DIRECT".equals(b.getPaymentMethod()) || (b.getPaymentMethod() == null
+            boolean hasDirectPayment = group.stream().anyMatch(item -> "DIRECT".equals(item.getPaymentMethod())) || (b.getPaymentMethod() == null
                     && paymentRepository.existsByBooking_IdAndStatusIgnoreCase(b.getId(), "Paid"));
-            String paymentMethod = hasDirectPayment ? "Thanh toán trực tiếp" : "Trừ gói hội viên";
+            boolean hasPackageSessions = group.stream().anyMatch(item -> "PACKAGE".equals(item.getPaymentMethod()));
+            String paymentMethod = hasDirectPayment && hasPackageSessions ? "Gói hội viên + thanh toán phần thiếu"
+                    : hasDirectPayment ? "Thanh toán trực tiếp" : "Trừ gói hội viên";
 
             String rawStatus = registrationStatus(group, today);
             String displayStatus = mapBookingDisplayStatus(rawStatus);
             boolean canCancel = ("Booked".equals(rawStatus) || "Pending".equals(rawStatus))
+                    && ClassSchedule.notStarted(classEntity, LocalDateTime.now(paymentClock))
                     && group.stream().anyMatch(item -> item.getSession().getDate().atTime(item.getSession().getStartTime())
                     .isAfter(LocalDateTime.now(paymentClock)));
             boolean canRebook = ("Completed".equalsIgnoreCase(rawStatus) || "Cancelled".equalsIgnoreCase(rawStatus))
+                    && ClassSchedule.notStarted(classEntity, LocalDateTime.now(paymentClock))
                     && ClassSchedule.isOpen(classEntity) && !ClassSchedule.expired(classEntity, today);
 
             String coachName = classEntity.getCoach() != null ? "HLV " + classEntity.getCoach().getFullName() : "Chưa cập nhật";
@@ -134,6 +139,13 @@ public class MemberClassBookingService {
                     .paymentStatus(payment == null ? ("PACKAGE".equals(b.getPaymentMethod()) ? "Package" : null) : payment.getStatus())
                     .paymentAmount(payment == null ? null : payment.getAmount())
                     .requiresReview(payment != null && payment.isRequiresReview())
+                    .canResumePayment(payment != null && "Pending".equals(payment.getStatus()) && "Pending".equals(rawStatus)
+                            && !payment.isRequiresReview() && payment.getExpiresAt() != null && payment.getExpiresAt().isAfter(LocalDateTime.now(paymentClock))
+                            && ("Card".equals(payment.getMethod()) || "E_Wallet".equals(payment.getMethod())))
+                    .paymentExpiresAt(payment == null || payment.getExpiresAt() == null ? null : payment.getExpiresAt().atOffset(VnpayService.OFFSET))
+                    .heldPackageSessions((int) group.stream().filter(item -> "PACKAGE".equals(item.getPaymentMethod())
+                            && "Pending".equals(item.getStatus()) && item.getPaymentExpiresAt() != null
+                            && item.getPaymentExpiresAt().isAfter(LocalDateTime.now(paymentClock))).count())
                     .bookingId(b.getId())
                     .classId(classEntity.getId())
                     .classCode(String.format("CLS-%03d", classEntity.getId()))
@@ -254,7 +266,7 @@ public class MemberClassBookingService {
             int remainingSlots = upcoming.isEmpty() ? 0 : Math.max(0, c.getMaxCapacity() - (int) enrolledCount);
             boolean isEnrolled = classBookingRepository.existsActiveBookingByUserIdAndClassId(user.getId(), c.getId(), LocalDateTime.now(paymentClock));
             ClassSession nextSession = nextBookableSession(c, LocalDateTime.now(paymentClock)).orElse(null);
-            boolean canRegister = remainingSlots > 0 && !isEnrolled && nextSession != null;
+            boolean canRegister = ClassSchedule.notStarted(c, now) && remainingSlots > 0 && !isEnrolled && nextSession != null;
 
             String capacityUnit = resolveCapacityUnit(subjectName, subjectCategory);
             String remainingSlotsText = String.format("Còn %d %s", remainingSlots, capacityUnit);
@@ -344,21 +356,29 @@ public class MemberClassBookingService {
                 ? classEntity.getSubject().getDescription()
                 : "Chuỗi bài tập bài bản được hướng dẫn trực tiếp bởi Huấn luyện viên, giúp nâng cao thể lực và sự dẻo dai.";
 
-        boolean eligiblePackage = subInfo.isHasActivePackage() && subInfo.getRemainingSessions() != null
-                && subInfo.getRemainingSessions() >= courseSessions.size() && subInfo.getEndDate() != null
-                && !courseSessions.getLast().getDate().isAfter(subInfo.getEndDate());
-        String packageSubtitle = eligiblePackage
-                ? "Khả dụng: " + subInfo.getRemainingSessions() + " buổi"
-                : (subInfo.isHasActivePackage() ? "Không khả dụng (Đã hết buổi)" : "Chưa có gói hội viên khả dụng");
+        boolean packageCoversCourse = subInfo.isHasActivePackage() && subInfo.getStartDate() != null
+                && !subInfo.getStartDate().isAfter(LocalDate.now(paymentClock)) && subInfo.getEndDate() != null
+                && !courseSessions.getLast().getDate().isAfter(subInfo.getEndDate())
+                && hasPackageSport(user, classEntity);
+        int packageSessions = packageCoversCourse ? Math.min(courseSessions.size(), subInfo.getRemainingSessions()) : 0;
+        int payableSessions = courseSessions.size() - packageSessions;
+        BigDecimal additionalAmount = price.multiply(BigDecimal.valueOf(payableSessions));
+        boolean eligiblePackage = packageSessions == courseSessions.size();
+        boolean mixedEligible = packageSessions > 0 && payableSessions > 0 && price.signum() > 0;
+        String packageSubtitle = packageSessions > 0
+                ? "Dùng " + packageSessions + " lượt gói" + (payableSessions > 0 ? " + trả thêm " + payableSessions + " buổi" : "; không thu thêm học phí")
+                : "Gói phải đúng môn, còn lượt và có hiệu lực đến buổi cuối";
 
         ClassConfirmationDetailResponse.PackagePaymentOption packageOption = ClassConfirmationDetailResponse.PackagePaymentOption.builder()
                 .eligible(eligiblePackage)
                 .title("Trừ gói hội viên")
-                .subtitle(eligiblePackage ? packageSubtitle : "Cần đủ buổi và gói còn hiệu lực đến buổi cuối")
+                .subtitle(packageSubtitle)
                 .remainingSessions(subInfo.getRemainingSessions())
                 .requiredSessions(courseSessions.size())
+                .packageSessions(packageSessions).payableSessions(payableSessions)
+                .additionalAmount(additionalAmount).mixedEligible(mixedEligible)
                 .packageName(subInfo.getPackageName())
-                .note("Đăng ký cần " + courseSessions.size() + " buổi gói và gói phải còn hiệu lực đến buổi cuối")
+                .note("Lượt được giữ trong khi chờ thanh toán; chỉ trừ chính thức khi thanh toán thành công. Hết hạn hoặc thất bại sẽ giải phóng lượt.")
                 .build();
 
         ClassConfirmationDetailResponse.DirectPaymentOption directOption = ClassConfirmationDetailResponse.DirectPaymentOption.builder()
@@ -411,6 +431,10 @@ public class MemberClassBookingService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học với mã: " + classId));
         LocalDateTime now = LocalDateTime.now(paymentClock).withNano(0);
 
+        if (!ClassSchedule.notStarted(classEntity, now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp đã bắt đầu hoặc chưa có lịch bắt đầu hợp lệ, không thể đăng ký");
+        }
+
         String status = classEntity.getStatus() != null ? classEntity.getStatus().trim() : "";
         if ((!"Active".equalsIgnoreCase(status) && !"Open".equalsIgnoreCase(status))
                 || ClassSchedule.expired(classEntity, now.toLocalDate())) {
@@ -434,8 +458,9 @@ public class MemberClassBookingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn hình thức thanh toán");
         }
 
-        boolean isPackage = isPackagePayment(rawMethod);
-        boolean isDirect = isDirectPayment(rawMethod);
+        boolean isMixed = "MIXED".equalsIgnoreCase(rawMethod.trim());
+        boolean isPackage = isPackagePayment(rawMethod) || isMixed;
+        boolean isDirect = isDirectPayment(rawMethod) || isMixed;
 
         if (!isPackage && !isDirect) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hình thức thanh toán không hợp lệ. Vui lòng chọn 'Trừ gói hội viên' hoặc 'Thanh toán trực tiếp'");
@@ -445,22 +470,15 @@ public class MemberClassBookingService {
         boolean isCard = isDirect && "Card".equals(channel);
         boolean isQr = isDirect && "E_Wallet".equals(channel);
         boolean isOnline = isCard || isQr;
+        if (isMixed && !isOnline) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phần học phí còn thiếu phải thanh toán qua VNPay hoặc QR SePay");
+        }
         BigDecimal unitPrice = classEntity.getPrice() == null ? BigDecimal.ZERO : classEntity.getPrice();
         BigDecimal paymentAmount = isDirect ? unitPrice.multiply(BigDecimal.valueOf(courseSessions.size())) : null;
-        if (paymentAmount != null && (paymentAmount.signum() < 0 || paymentAmount.precision() - paymentAmount.scale() > 10)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tổng học phí không hợp lệ hoặc vượt giới hạn thanh toán");
-        }
-        if (isOnline) {
-            if (isCard) vnpayService.requireConfigured();
-            else sepayService.requireConfigured();
-            if (paymentAmount == null || paymentAmount.signum() <= 0
-                    || paymentAmount.stripTrailingZeros().scale() > 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá lớp phải là số VND nguyên dương để thanh toán trực tuyến");
-            }
-        }
 
         MemberSubscription activeSub = null;
         Integer remainingSessionsAfter = null;
+        int packageSessions = 0;
 
         if (isPackage) {
             Optional<MemberSubscription> subOpt = memberSubscriptionRepository.findCurrentActiveSubscription(user.getId(), LocalDate.now(paymentClock));
@@ -468,9 +486,7 @@ public class MemberClassBookingService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn chưa có gói hội viên nào đang hoạt động hoặc gói đã hết hạn. Vui lòng chọn 'Thanh toán trực tiếp' hoặc mua thêm gói dịch vụ");
             }
             activeSub = subOpt.get();
-            Integer subjectId = classEntity.getSubject() == null ? null : classEntity.getSubject().getId();
-            if (subjectId == null || (!membershipIncludedSports.hasActiveIncludedEntitlement(user.getId(), subjectId, LocalDate.now(paymentClock))
-                    && !membershipSelections.hasActiveSelectedEntitlement(user.getId(), subjectId, LocalDate.now(paymentClock)))) {
+            if (!hasPackageSport(user, classEntity)) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                         "Gói hội viên hiện tại không bao gồm Sport của lớp này");
             }
@@ -480,12 +496,36 @@ public class MemberClassBookingService {
                     activeSub.getStartDate().atStartOfDay(),
                     activeSub.getEndDate().atTime(23, 59, 59)
             );
-            int remaining = Math.max(0, total - (int) used);
-            if (remaining < courseSessions.size() || courseSessions.getLast().getDate().isAfter(activeSub.getEndDate())) {
+            long held = classBookingRepository.countHeldPackageSessions(user.getId(), activeSub.getStartDate().atStartOfDay(),
+                    activeSub.getEndDate().atTime(23, 59, 59), now);
+            int remaining = Math.max(0, total - (int) used - (int) held);
+            if ((!isMixed && remaining < courseSessions.size()) || remaining == 0
+                    || activeSub.getStartDate().isAfter(now.toLocalDate())
+                    || courseSessions.getLast().getDate().isAfter(activeSub.getEndDate())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đăng ký cần " + courseSessions.size()
                         + " buổi, gói còn " + remaining + " buổi và phải có hiệu lực đến buổi cuối. Vui lòng chọn gói phù hợp hoặc thanh toán trực tiếp");
             }
-            remainingSessionsAfter = remaining - courseSessions.size();
+            packageSessions = Math.min(remaining, courseSessions.size());
+            if (isMixed) {
+                paymentAmount = unitPrice.multiply(BigDecimal.valueOf(courseSessions.size() - packageSessions));
+                if (packageSessions == courseSessions.size() || request.getPackageSessions() == null
+                        || request.getPackageSessions() != packageSessions || request.getPaymentAmount() == null
+                        || request.getPaymentAmount().compareTo(paymentAmount) != 0) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Số lượt hoặc học phí đã thay đổi. Vui lòng mở lại xác nhận đăng ký.");
+                }
+            }
+            remainingSessionsAfter = remaining - packageSessions;
+        }
+
+        if (paymentAmount != null && (paymentAmount.signum() < 0 || paymentAmount.precision() - paymentAmount.scale() > 10)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tổng học phí không hợp lệ hoặc vượt giới hạn thanh toán");
+        }
+        if (isOnline) {
+            if (isCard) vnpayService.requireConfigured();
+            else sepayService.requireConfigured();
+            if (paymentAmount == null || paymentAmount.signum() <= 0 || paymentAmount.stripTrailingZeros().scale() > 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá lớp phải là số VND nguyên dương để thanh toán trực tuyến");
+            }
         }
 
         ClassSession session = courseSessions.getFirst();
@@ -501,7 +541,7 @@ public class MemberClassBookingService {
         for (ClassSession selected : courseSessions) {
             registration.add(classBookingRepository.save(ClassBooking.builder().user(user).session(selected)
                     .registrationCode(registrationCode).bookingDatetime(now).status(isOnline ? "Pending" : "Booked")
-                    .paymentMethod(isPackage ? "PACKAGE" : "DIRECT").paymentExpiresAt(expiresAt).build()));
+                    .paymentMethod(registration.size() < packageSessions ? "PACKAGE" : "DIRECT").paymentExpiresAt(expiresAt).build()));
         }
         ClassBooking savedBooking = registration.getFirst();
 
@@ -544,7 +584,7 @@ public class MemberClassBookingService {
                         isPackage ? "Trừ gói hội viên" : "Thanh toán trực tiếp")
         );
 
-        String paymentMethodDisplay = isPackage ? "Trừ gói hội viên" : "Thanh toán trực tiếp";
+        String paymentMethodDisplay = isMixed ? "Gói hội viên + thanh toán phần thiếu" : isPackage ? "Trừ gói hội viên" : "Thanh toán trực tiếp";
         String schedule = formatScheduleWithDays(classEntity.getStartTime(), classEntity.getEndTime(), classEntity.getDaysOfWeek());
 
         return MemberClassBookingResponse.builder()
@@ -579,6 +619,36 @@ public class MemberClassBookingService {
      */
     @Transactional
     public void cancelClassBooking(String principal, Integer bookingId) {
+        cancelClassBooking(principal, bookingId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public com.swp391.beswp.dto.RefundDtos.CancellationPreview cancellationPreview(String principal, Integer bookingId) {
+        User user = findMemberUser(principal);
+        ClassBooking booking = classBookingRepository.findByIdAndUser_Id(bookingId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đăng ký lớp"));
+        List<ClassBooking> registration = cancellableRegistration(booking);
+        return refunds.preview(bookingId, registration, paymentRepository.findAllByBooking_IdOrderByIdDesc(registration.getFirst().getId()));
+    }
+
+    private List<ClassBooking> cancellableRegistration(ClassBooking booking) {
+        if (!ClassSchedule.notStarted(booking.getSession().getClassEntity(), LocalDateTime.now(paymentClock))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp đã bắt đầu hoặc chưa có lịch bắt đầu hợp lệ, không thể hủy đăng ký");
+        }
+        if (ClassSchedule.expired(booking.getSession().getClassEntity(), LocalDate.now(paymentClock))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp học đã kết thúc");
+        }
+        List<ClassBooking> registration = reservationService.registrationBookings(booking);
+        LocalDateTime now = LocalDateTime.now(paymentClock);
+        if (registration.stream().noneMatch(b -> ("Booked".equals(b.getStatus()) || "Pending".equals(b.getStatus()))
+                && b.getSession().getDate().atTime(b.getSession().getStartTime()).isAfter(now))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không còn buổi tương lai có thể hủy");
+        }
+        return registration;
+    }
+
+    @Transactional
+    public void cancelClassBooking(String principal, Integer bookingId, com.swp391.beswp.dto.RefundDtos.CancelConfirmation confirmation) {
         User user = findMemberUser(principal);
 
         Integer classId = classBookingRepository.findOwnedClassId(bookingId, user.getId())
@@ -588,23 +658,18 @@ public class MemberClassBookingService {
         ClassBooking booking = classBookingRepository.findByIdAndUser_Id(bookingId, user.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin đăng ký lớp học này"));
 
-        if (ClassSchedule.expired(booking.getSession().getClassEntity(), LocalDate.now(paymentClock))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp học đã kết thúc");
-        }
-
-        if ("Cancelled".equalsIgnoreCase(booking.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp học này đã được hủy trước đó");
-        }
-
-        if ("Completed".equalsIgnoreCase(booking.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buổi học đã hoàn thành, không thể hủy");
-        }
-
-        List<ClassBooking> registration = reservationService.registrationBookings(booking);
+        List<ClassBooking> registration = cancellableRegistration(booking);
         ClassBooking root = registration.getFirst();
         LocalDateTime now = LocalDateTime.now(paymentClock);
-        if (registration.stream().noneMatch(b -> b.getSession().getDate().atTime(b.getSession().getStartTime()).isAfter(now))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không còn buổi tương lai có thể hủy");
+        Set<Integer> cancelledIds = registration.stream().filter(b -> ("Booked".equals(b.getStatus()) || "Pending".equals(b.getStatus()))
+                && b.getSession().getDate().atTime(b.getSession().getStartTime()).isAfter(now))
+                .map(ClassBooking::getId).collect(java.util.stream.Collectors.toSet());
+        List<Payment> attempts = paymentRepository.findAllByBooking_IdOrderByIdDesc(root.getId());
+        if (confirmation != null) {
+            var preview = refunds.preview(bookingId, registration, attempts);
+            if (confirmation.estimatedRefund().compareTo(preview.estimatedRefund()) != 0 || confirmation.cancelSessions() != preview.cancelSessions()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Số buổi hoặc số tiền đã thay đổi. Vui lòng đóng và mở lại xác nhận hủy.");
+            }
         }
         for (ClassBooking item : registration) {
             if ("Booked".equals(item.getStatus()) || "Pending".equals(item.getStatus())) {
@@ -616,19 +681,10 @@ public class MemberClassBookingService {
         String className = booking.getSession() != null && booking.getSession().getClassEntity() != null
                 ? booking.getSession().getClassEntity().getName() : "lớp học";
 
-        for (Payment payment : paymentRepository.findAllByBooking_IdOrderByIdDesc(root.getId())) {
+        for (Payment payment : attempts) {
             if ("Pending".equals(payment.getStatus())) payment.setStatus("Failed");
             if ("Paid".equals(payment.getStatus())) {
-                payment.setRequiresReview(true);
-                logActivity(
-                        user,
-                        "REFUND_PAYMENT",
-                        "Payment",
-                        String.format("Yêu cầu hoàn tiền thanh toán #PAY-%s số tiền %s VND do hủy đăng ký lớp '%s'",
-                                payment.getId(),
-                                formatCurrency(payment.getAmount()),
-                                className)
-                );
+                refunds.createForCancellation(payment, registration, cancelledIds, user);
             }
         }
 
@@ -660,7 +716,9 @@ public class MemberClassBookingService {
                 sub.getStartDate().atStartOfDay(),
                 sub.getEndDate().atTime(23, 59, 59)
         );
-        int remaining = Math.max(0, total - (int) used);
+        long held = classBookingRepository.countHeldPackageSessions(user.getId(), sub.getStartDate().atStartOfDay(),
+                sub.getEndDate().atTime(23, 59, 59), LocalDateTime.now(paymentClock));
+        int remaining = Math.max(0, total - (int) used - (int) held);
 
         String packageName = sub.getMembershipPackage() != null ? sub.getMembershipPackage().getName() : "Gói hội viên";
         String banner = String.format("Gói hội viên khả dụng: %s (Còn %d buổi)", packageName, remaining);
@@ -672,11 +730,19 @@ public class MemberClassBookingService {
                 .packageName(packageName)
                 .totalSessions(total)
                 .usedSessions((int) used)
+                .heldSessions((int) held)
                 .remainingSessions(remaining)
                 .startDate(sub.getStartDate())
                 .endDate(sub.getEndDate())
                 .displayBanner(banner)
                 .build();
+    }
+
+    private boolean hasPackageSport(User user, ClassEntity course) {
+        Integer subjectId = course.getSubject() == null ? null : course.getSubject().getId();
+        LocalDate today = LocalDate.now(paymentClock);
+        return subjectId != null && (membershipIncludedSports.hasActiveIncludedEntitlement(user.getId(), subjectId, today)
+                || membershipSelections.hasActiveSelectedEntitlement(user.getId(), subjectId, today));
     }
 
     User findMemberUser(String principal) {
@@ -708,6 +774,9 @@ public class MemberClassBookingService {
     }
 
     private List<ClassSession> remainingSessions(ClassEntity classEntity, LocalDateTime now) {
+        if (!ClassSchedule.notStarted(classEntity, now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp đã bắt đầu hoặc chưa có lịch bắt đầu hợp lệ, không thể đăng ký");
+        }
         List<ClassSession> sessions = classSessionRepository.findUpcomingScheduledSessions(classEntity.getId(), now.toLocalDate())
                 .stream().filter(s -> ClassSchedule.bookable(classEntity, s, now))
                 .sorted(Comparator.comparing(ClassSession::getDate).thenComparing(ClassSession::getStartTime)).toList();

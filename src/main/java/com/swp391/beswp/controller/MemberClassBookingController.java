@@ -117,9 +117,10 @@ public class MemberClassBookingController {
     @PostMapping("/cancel/{bookingId}")
     public ResponseEntity<Map<String, Object>> cancelBooking(
             Authentication authentication,
-            @PathVariable Integer bookingId
+            @PathVariable Integer bookingId,
+            @Valid @RequestBody(required = false) com.swp391.beswp.dto.RefundDtos.CancelConfirmation confirmation
     ) {
-        bookingService.cancelClassBooking(authentication.getName(), bookingId);
+        bookingService.cancelClassBooking(authentication.getName(), bookingId, confirmation);
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Hủy đăng ký lớp học thành công"
@@ -129,12 +130,19 @@ public class MemberClassBookingController {
     @PostMapping("/bookings/{bookingId}/cancel")
     public ResponseEntity<Map<String, Object>> cancelBookingAlias(
             Authentication authentication,
-            @PathVariable Integer bookingId
+            @PathVariable Integer bookingId,
+            @Valid @RequestBody(required = false) com.swp391.beswp.dto.RefundDtos.CancelConfirmation confirmation
     ) {
-        bookingService.cancelClassBooking(authentication.getName(), bookingId);
+        bookingService.cancelClassBooking(authentication.getName(), bookingId, confirmation);
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Hủy đăng ký lớp học thành công"
         ));
+    }
+
+    @GetMapping("/bookings/{bookingId}/cancel-preview")
+    public com.swp391.beswp.dto.RefundDtos.Result<com.swp391.beswp.dto.RefundDtos.CancellationPreview> cancelPreview(
+            Authentication authentication, @PathVariable Integer bookingId) {
+        return com.swp391.beswp.dto.RefundDtos.Result.ok(bookingService.cancellationPreview(authentication.getName(), bookingId));
     }
 }

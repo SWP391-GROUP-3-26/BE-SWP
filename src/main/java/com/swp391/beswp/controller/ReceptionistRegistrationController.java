@@ -93,13 +93,13 @@ public class ReceptionistRegistrationController {
         return ResponseEntity.ok(registrationService.previewPackageRenewal(authentication, memberId, request));
     }
 
-    @Operation(summary = "Xac nhan gia han Package tai quay", description = "Cash only")
+    @Operation(summary = "Xác nhận gia hạn gói tại quầy", description = "Cash ghi nhận đã thu; Card và E_Wallet chờ xác nhận từ cổng thanh toán.")
     @PostMapping("/members/{memberId}/packages/renewal")
     public ResponseEntity<MemberPackageSubscriptionResponse> renewPackage(
             Authentication authentication, @PathVariable Integer memberId,
-            @Valid @RequestBody ReceptionistPackageRegistrationRequest request) {
+            @Valid @RequestBody ReceptionistPackageRegistrationRequest request, jakarta.servlet.http.HttpServletRequest servletRequest) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(registrationService.renewPackage(authentication, memberId, request));
+                .body(registrationService.renewPackage(authentication, memberId, request, servletRequest.getRemoteAddr()));
     }
 
     @Operation(summary = "Đăng ký hội viên vào toàn bộ các buổi còn lại của lớp",
@@ -132,8 +132,14 @@ public class ReceptionistRegistrationController {
     }
 
     @PostMapping("/members/{memberId}/classes/bookings/{bookingId}/cancel")
-    public Object cancelClass(Authentication auth, @PathVariable Integer memberId, @PathVariable Integer bookingId) {
-        return registrationService.cancelClass(auth, memberId, bookingId);
+    public Object cancelClass(Authentication auth, @PathVariable Integer memberId, @PathVariable Integer bookingId,
+                              @Valid @RequestBody(required = false) com.swp391.beswp.dto.RefundDtos.CancelConfirmation confirmation) {
+        return registrationService.cancelClass(auth, memberId, bookingId, confirmation);
+    }
+
+    @GetMapping("/members/{memberId}/classes/bookings/{bookingId}/cancel-preview")
+    public Object cancelPreview(Authentication auth, @PathVariable Integer memberId, @PathVariable Integer bookingId) {
+        return registrationService.cancellationPreview(auth, memberId, bookingId);
     }
 
     @PostMapping("/members/{memberId}/payments/{paymentId}/cancel")

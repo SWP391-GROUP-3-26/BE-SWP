@@ -53,6 +53,10 @@ public class ClassConfirmationDetailResponse {
         private String subtitle;
         private Integer remainingSessions;
         private Integer requiredSessions;
+        private Integer packageSessions;
+        private Integer payableSessions;
+        private BigDecimal additionalAmount;
+        private boolean mixedEligible;
         private String packageName;
         private String note;
     }

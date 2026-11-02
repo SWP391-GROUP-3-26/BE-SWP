@@ -21,7 +21,59 @@ class MemberPaymentServiceTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-13T01:00:00Z"), VnpayService.OFFSET);
     private final ClassReservationService reservations = new ClassReservationService(bookings, payments);
     private final OnlineSubscriptionPaymentService subscriptionPayments = mock(OnlineSubscriptionPaymentService.class);
-    private final MemberPaymentService service = new MemberPaymentService(payments, classes, bookings, reservations, memberBookings, vnpay, mock(SepayService.class), clock, subscriptionPayments);
+    private final SepayService sepay = mock(SepayService.class);
+    private final MemberPaymentService service = new MemberPaymentService(payments, classes, bookings, reservations, memberBookings, vnpay, sepay, clock, subscriptionPayments);
+    @Test void resumeCardReusesIdAmountAndOriginalDeadlineWithoutCreatingAnotherPayment() {
+        payment.setPaymentDate(LocalDateTime.now(clock).minusMinutes(4));
+        var originalDate = payment.getPaymentDate();
+        var originalExpiry = payment.getExpiresAt();
+        var result = service.resumePayment("1", 105, "127.0.0.1");
+        assertTrue(result.isCanResumePayment()); assertEquals("Card", result.getPaymentMethod());
+        assertTrue(result.getPaymentUrl().contains("vnp_TxnRef=105"));
+        assertTrue(result.getPaymentUrl().contains("vnp_Amount=10000000"));
+        assertTrue(result.getPaymentUrl().contains("vnp_ExpireDate=20261013081500"));
+        assertEquals(result.getPaymentUrl(), service.resumePayment("1", 105, "127.0.0.1").getPaymentUrl());
+        assertEquals(originalDate, payment.getPaymentDate()); assertEquals(originalExpiry, payment.getExpiresAt());
+        assertEquals(originalExpiry, booking.getPaymentExpiresAt());
+        verify(payments, never()).save(any()); verify(bookings, never()).save(any());
+    }
+
+    @Test void resumeQrKeepsPaymentIdAndDoesNotCreateCardUrl() {
+        payment.setMethod("E_Wallet");
+        var result = service.resumePayment("1", 105, "127.0.0.1");
+        assertTrue(result.isCanResumePayment()); assertEquals(105, result.getPaymentId());
+        assertEquals("E_Wallet", result.getPaymentMethod()); assertNull(result.getPaymentUrl());
+        verify(sepay).requireConfigured(); verify(payments, never()).save(any());
+    }
+
+    @Test void resumeRejectsOtherMembersAndDoesNotExposeGatewayUrl() {
+        User other = new User(); other.setId(2);
+        when(memberBookings.findMemberUser("2")).thenReturn(other);
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.resumePayment("2", 105, "127.0.0.1")).getStatusCode().value());
+        assertEquals("Pending", payment.getStatus()); assertEquals("Pending", booking.getStatus());
+    }
+
+    @Test void resumeExpiredCancelledOrPaidTransactionNeverReopensPayment() {
+        payment.setExpiresAt(LocalDateTime.now(clock));
+        var result = service.resumePayment("1", 105, "127.0.0.1");
+        assertFalse(result.isCanResumePayment()); assertNull(result.getPaymentUrl());
+        assertEquals("Failed", result.getPaymentStatus()); assertEquals("Cancelled", booking.getStatus());
+        payment.setStatus("Paid");
+        assertFalse(service.resumePayment("1", 105, "127.0.0.1").isCanResumePayment());
+        payment.setStatus("Pending"); payment.setExpiresAt(LocalDateTime.now(clock).plusMinutes(15));
+        assertFalse(service.resumePayment("1", 105, "127.0.0.1").isCanResumePayment());
+        assertEquals("Failed", payment.getStatus());
+    }
+
+    @Test void resumingOldPendingAttemptCannotCancelNewerAttempt() {
+        var newer = Payment.builder().id(106).booking(booking).status("Pending").build();
+        when(payments.findAllByBooking_IdOrderByIdDesc(42)).thenReturn(List.of(newer, payment));
+        var result = service.resumePayment("1", 105, "127.0.0.1");
+        assertFalse(result.isCanResumePayment()); assertNull(result.getPaymentUrl());
+        assertEquals("Pending", booking.getStatus()); assertEquals("Pending", newer.getStatus());
+    }
+
     private ClassEntity classEntity;
     private ClassBooking booking;
     private Payment payment;

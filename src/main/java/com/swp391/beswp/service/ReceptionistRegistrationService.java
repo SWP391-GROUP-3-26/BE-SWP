@@ -112,15 +112,23 @@ public class ReceptionistRegistrationService {
     @Transactional
     public MemberPackageSubscriptionResponse renewPackage(
             Authentication authentication, Integer memberId, ReceptionistPackageRegistrationRequest request) {
+        return renewPackage(authentication, memberId, request, null);
+    }
+
+    @Transactional
+    public MemberPackageSubscriptionResponse renewPackage(
+            Authentication authentication, Integer memberId, ReceptionistPackageRegistrationRequest request, String ipAddress) {
         User receptionist = requireReceptionist(authentication);
         User member = requireMember(memberId);
-        if (!"Cash".equals(normalizePaymentChannel(request.paymentMethod()))) {
+        String channel = normalizePaymentChannel(request.paymentMethod());
+        if (!List.of("Cash", "Card", "E_Wallet").contains(channel)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Gia han tai quay hien chi ho tro Cash; Card va E_Wallet can thanh toan online");
+                    "Gia hạn chỉ hỗ trợ tiền mặt, VNPay hoặc QR SePay");
         }
         userRepository.findByIdForUpdate(member.getId()).orElseThrow();
-        MemberPackageSubscriptionResponse response = memberPackages.renewPackage(member.getId().toString(),
-                toMemberPackageRequest(request));
+        MemberPackageSubscriptionResponse response = "Cash".equals(channel)
+                ? memberPackages.renewPackage(member.getId().toString(), toMemberPackageRequest(request))
+                : memberPackages.registerOnlinePackage(member.getId().toString(), toMemberPackageRequest(request), ipAddress, true);
         Integer paymentId = response.getData().getPaymentId();
         Payment payment = paymentRepository.findById(paymentId).orElseThrow();
         payment.setReceptionist(receptionist);
@@ -170,17 +178,23 @@ public class ReceptionistRegistrationService {
         int usedPackageClasses = activeSubscription == null ? 0 : safeInt(classBookingRepository.countUsedPackageSessions(
                 member.getId(), activeSubscription.getStartDate().atStartOfDay(),
                 activeSubscription.getEndDate().atTime(23, 59, 59)));
-        int remainingPackageClasses = Math.max(0, totalPackageClasses - usedPackageClasses);
+        int heldPackageClasses = activeSubscription == null ? 0 : safeInt(classBookingRepository.countHeldPackageSessions(
+                member.getId(), activeSubscription.getStartDate().atStartOfDay(),
+                activeSubscription.getEndDate().atTime(23, 59, 59), now));
+        int remainingPackageClasses = Math.max(0, totalPackageClasses - usedPackageClasses - heldPackageClasses);
         boolean packageTermCoversCourse = activeSubscription != null && !sessions.isEmpty()
                 && !sessions.getLast().getDate().isAfter(activeSubscription.getEndDate());
         boolean canPayWithPackage = activeSubscription != null && packageTermCoversCourse
                 && remainingPackageClasses >= sessions.size();
         boolean seatsAvailable = !sessions.isEmpty() && sessionOptions.stream().allMatch(s -> s.availableSeats() > 0);
         boolean canRegister = ClassSchedule.isOpen(course) && !ClassSchedule.expired(course, now.toLocalDate())
+                && ClassSchedule.notStarted(course, now)
                 && seatsAvailable && !alreadyRegistered;
 
         String message;
-        if (!ClassSchedule.isOpen(course) || ClassSchedule.expired(course, now.toLocalDate())) {
+        if (!ClassSchedule.notStarted(course, now)) {
+            message = "Lớp đã bắt đầu hoặc chưa có lịch bắt đầu hợp lệ, không thể đăng ký";
+        } else if (!ClassSchedule.isOpen(course) || ClassSchedule.expired(course, now.toLocalDate())) {
             message = "Lớp hiện không mở đăng ký";
         } else if (sessions.isEmpty()) {
             message = "Lớp không còn buổi học tương lai có thể đăng ký";
@@ -304,6 +318,9 @@ public class ReceptionistRegistrationService {
         ClassEntity course = classRepository.findByIdForUpdate(request.classId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học"));
         LocalDateTime registeredAt = now();
+        if (!ClassSchedule.notStarted(course, registeredAt)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp đã bắt đầu hoặc chưa có lịch bắt đầu hợp lệ, không thể đăng ký");
+        }
         if (!ClassSchedule.isOpen(course) || ClassSchedule.expired(course, registeredAt.toLocalDate())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp hiện không mở đăng ký");
         }
@@ -343,7 +360,9 @@ public class ReceptionistRegistrationService {
             long used = classBookingRepository.countUsedPackageSessions(member.getId(),
                     activeSubscription.getStartDate().atStartOfDay(),
                     activeSubscription.getEndDate().atTime(23, 59, 59));
-            int remaining = Math.max(0, total - safeInt(used));
+            long held = classBookingRepository.countHeldPackageSessions(member.getId(),
+                    activeSubscription.getStartDate().atStartOfDay(), activeSubscription.getEndDate().atTime(23, 59, 59), registeredAt);
+            int remaining = Math.max(0, total - safeInt(used) - safeInt(held));
             if (remaining < sessions.size() || sessions.getLast().getDate().isAfter(activeSubscription.getEndDate())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Gói hội viên không đủ số buổi hoặc hết hạn trước buổi cuối của lớp");
@@ -528,13 +547,25 @@ public class ReceptionistRegistrationService {
 
     @Transactional
     public Object cancelClass(Authentication authentication, Integer memberId, Integer bookingId) {
+        return cancelClass(authentication, memberId, bookingId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Object cancellationPreview(Authentication authentication, Integer memberId, Integer bookingId) {
+        requireReceptionist(authentication);
+        User member = requireMember(memberId);
+        return com.swp391.beswp.dto.RefundDtos.Result.ok(memberBookings.cancellationPreview(member.getId().toString(), bookingId));
+    }
+
+    @Transactional
+    public Object cancelClass(Authentication authentication, Integer memberId, Integer bookingId, com.swp391.beswp.dto.RefundDtos.CancelConfirmation confirmation) {
         User actor = requireReceptionist(authentication);
         User member = requireMember(memberId);
         userRepository.findByIdForUpdate(memberId).orElseThrow();
-        memberBookings.cancelClassBooking(member.getId().toString(), bookingId);
+        memberBookings.cancelClassBooking(member.getId().toString(), bookingId, confirmation);
         auditLogService.recordLog(actor, "CANCEL_BOOKING", "Class_Booking",
                 "Hủy đăng ký #" + bookingId + " của hội viên #" + memberId + " - " + member.getFullName());
-        return Map.of("success", true, "message", "Đã hủy các buổi tương lai. Tiền đã thu cần đối soát, chưa được tự động hoàn.");
+        return Map.of("success", true, "message", "Đã hủy các buổi tương lai. Khoản đủ điều kiện hoàn đã được gửi duyệt.");
     }
 
     private User requireReceptionist(Authentication authentication) {
@@ -589,7 +620,7 @@ public class ReceptionistRegistrationService {
                 ClassSchedule.effectiveStatus(course, now.toLocalDate()), unitPrice(course), course.getMaxCapacity(),
                 course.getDate(), course.getDurationWeeks(), course.getEndDate(), course.getDaysOfWeek(),
                 course.getStartTime(), course.getEndTime(), sessions.size(), seats,
-                !sessions.isEmpty() && seats > 0);
+                ClassSchedule.notStarted(course, now) && !sessions.isEmpty() && seats > 0);
     }
 
     private List<ClassSession> futureBookableSessions(ClassEntity course, LocalDateTime now) {

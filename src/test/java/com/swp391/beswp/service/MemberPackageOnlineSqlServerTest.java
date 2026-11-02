@@ -123,4 +123,44 @@ class MemberPackageOnlineSqlServerTest {
         mvc.perform(get("/api/member/payments/" + payment.getId()).with(user(member.getId().toString()).authorities(() -> "ROLE_Member")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.bookingStatus").value("Chờ bắt đầu"));
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"Cash,IMMEDIATE", "Cash,AFTER_CURRENT", "Card,IMMEDIATE", "Card,AFTER_CURRENT", "E_Wallet,IMMEDIATE", "E_Wallet,AFTER_CURRENT"})
+    void receptionistRenewalCheckoutConfirmsOnlyAfterCashOrGatewayPayment(String method, String start) throws Exception {
+        var previous = current();
+        String unique = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        User actor = new User(); actor.setRole(roles.findByRoleNameIgnoreCase("Receptionist").orElseThrow());
+        actor.setUsername("renew_" + unique); actor.setEmail(unique + "@example.test");
+        actor.setPassword("test-only"); actor.setFullName("Renewal test receptionist"); actor.setStatus("Active");
+        actor = users.saveAndFlush(actor);
+        String body = mvc.perform(post("/api/receptionist/registrations/members/" + member.getId() + "/packages/renewal")
+                .with(user(actor.getId().toString()).authorities(() -> "ROLE_Receptionist"))
+                .contentType("application/json").content(json.writeValueAsString(Map.of("packageId", pack.getId(),
+                        "renewalStart", start, "choiceGroups", List.of(), "paymentMethod", method))))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        var data = json.readTree(body).path("data");
+        Payment payment = payments.findById(data.path("paymentId").asInt()).orElseThrow();
+        assertEquals(actor.getId(), payment.getReceptionist().getId());
+        assertEquals(member.getId(), payment.getSubscription().getUser().getId());
+        assertEquals(0, new BigDecimal("90000").compareTo(payment.getAmount()));
+        if (!"Cash".equals(method)) {
+            assertEquals("Pending", payment.getStatus()); assertEquals("Active", previous.getStatus());
+            assertEquals("Pending", payment.getSubscription().getStatus());
+            if ("E_Wallet".equals(method)) sepay(payment);
+            else {
+                assertTrue(data.path("paymentUrl").asText().startsWith("https://sandbox.vnpayment.vn/"));
+                var callback = new HashMap<>(Map.of("vnp_TmnCode", "TESTCODE", "vnp_TxnRef", payment.getId().toString(),
+                        "vnp_Amount", "9000000", "vnp_ResponseCode", "00", "vnp_TransactionStatus", "00",
+                        "vnp_TransactionNo", "123456", "vnp_PayDate", "20261102100000"));
+                callback.put("vnp_SecureHash", vnpay.sign(callback));
+                var request = get("/api/payments/vnpay/ipn"); callback.forEach(request::param);
+                mvc.perform(request).andExpect(status().isOk()).andExpect(jsonPath("$.RspCode").value("00"));
+            }
+        }
+        em.flush(); em.refresh(payment); em.refresh(previous); em.refresh(payment.getSubscription());
+        assertEquals("Paid", payment.getStatus()); assertFalse(payment.isRequiresReview());
+        assertEquals("IMMEDIATE".equals(start) ? "Expired" : "Active", previous.getStatus());
+        assertEquals("IMMEDIATE".equals(start) ? "Active" : "Pending", payment.getSubscription().getStatus());
+        if ("AFTER_CURRENT".equals(start)) assertEquals(previous.getEndDate().plusDays(1), payment.getSubscription().getStartDate());
+    }
 }

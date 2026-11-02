@@ -11,6 +11,26 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ClassScheduleTest {
     @ParameterizedTest
+    @CsvSource({"2026-10-12T23:00:00,true", "2026-10-13T07:29:59,true", "2026-10-13T07:30:00,false",
+            "2026-10-13T07:30:01,false", "2026-10-15T07:00:00,false"})
+    void classStartsAtFirstSessionEvenWhenLaterSessionsRemain(String now, boolean expected) {
+        ClassEntity course = ClassEntity.builder().date(LocalDate.of(2026, 10, 13))
+                .startTime(LocalTime.of(7, 30)).build();
+        assertEquals(expected, ClassSchedule.notStarted(course, LocalDateTime.parse(now)));
+    }
+
+    @Test
+    void legacyTimeIsSupportedAndMissingStartScheduleDoesNotAllowRegistrationOrCancellation() {
+        ClassEntity course = ClassEntity.builder().date(LocalDate.of(2026, 10, 13)).time(LocalTime.of(8, 0)).build();
+        LocalDateTime now = LocalDateTime.of(2026, 10, 13, 7, 0);
+        assertTrue(ClassSchedule.notStarted(course, now));
+        course.setTime(null);
+        assertFalse(ClassSchedule.notStarted(course, now));
+        course.setStartTime(LocalTime.of(8, 0)); course.setDate(null);
+        assertFalse(ClassSchedule.notStarted(course, now));
+    }
+
+    @ParameterizedTest
     @CsvSource({"2026-10-13,1,2026-10-18", "2026-10-18,1,2026-10-18", "2026-10-18,2,2026-10-25",
             "2026-10-30,2,2026-11-08", "2026-12-31,2,2027-01-10", "2027-01-01,1,2027-01-03"})
     void calendarWeeksEndOnSunday(String start, int weeks, String end) {

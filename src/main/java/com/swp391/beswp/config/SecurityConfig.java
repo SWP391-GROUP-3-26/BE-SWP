@@ -3,6 +3,7 @@ package com.swp391.beswp.config;
 import com.swp391.beswp.dto.ErrorResponse;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,6 +30,9 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler;
     private final GoogleOAuth2FailureHandler googleOAuth2FailureHandler;
+
+    @Value("${app.cors.allowed-origins}")
+    private String[] allowedOrigins;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -71,6 +75,7 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/chat/**").hasAnyAuthority("ROLE_Member", "ROLE_Coach")
                         .requestMatchers(HttpMethod.GET, "/api/member/payments/**").hasAuthority("ROLE_Member")
+                        .requestMatchers(HttpMethod.POST, "/api/member/payments/*/resume").hasAuthority("ROLE_Member")
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/error").permitAll()
@@ -84,6 +89,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/packages/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers(HttpMethod.DELETE, "/api/packages/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
                         .requestMatchers("/api/center-manager/memberships/**").hasAnyAuthority("ROLE_Center Manager", "ROLE_Admin")
+                        .requestMatchers("/api/center-manager/refunds/**").hasAuthority("ROLE_Center Manager")
+                        .requestMatchers("/api/receptionist/refunds/**").hasAuthority("ROLE_Receptionist")
                         .requestMatchers(HttpMethod.GET, "/api/packages/**").authenticated()
                         .requestMatchers("/api/receptionist/registrations/**").hasAuthority("ROLE_Receptionist")
                         .requestMatchers("/api/member/**").hasAnyAuthority("ROLE_Member", "ROLE_Admin")
@@ -114,7 +121,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedOrigins(List.of(allowedOrigins));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setExposedHeaders(List.of("Authorization"));

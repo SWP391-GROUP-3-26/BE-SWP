@@ -16,4 +16,10 @@ public class MemberPaymentController {
     public MemberPaymentResponse getPayment(Authentication authentication, @PathVariable Integer paymentId) {
         return payments.getPayment(authentication.getName(), paymentId);
     }
+
+    @PostMapping("/{paymentId}/resume")
+    public MemberPaymentResponse resumePayment(Authentication authentication, @PathVariable Integer paymentId,
+                                               jakarta.servlet.http.HttpServletRequest request) {
+        return payments.resumePayment(authentication.getName(), paymentId, request.getRemoteAddr());
+    }
 }

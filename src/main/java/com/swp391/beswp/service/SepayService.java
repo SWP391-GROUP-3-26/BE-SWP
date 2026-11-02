@@ -111,6 +111,7 @@ public class SepayService {
         payment.setSepayTransactionId(request.id());
         payment.setPaymentDate(now);
         payment.setStatus("Paid");
+        if (payment.getPaidAt() == null) payment.setPaidAt(now);
         payment.setRequiresReview(!canConfirm);
         if (canConfirm) {
             registration.forEach(item -> { item.setStatus("Booked"); item.setPaymentExpiresAt(null); });

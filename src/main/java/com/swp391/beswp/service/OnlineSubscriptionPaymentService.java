@@ -67,6 +67,7 @@ public class OnlineSubscriptionPaymentService {
                 && payment.getExpiresAt().isAfter(now()) && "Active".equalsIgnoreCase(member.getStatus())
                 && membershipEligible && subscription.getEndDate().compareTo(today) >= 0;
         payment.setStatus(success ? "Paid" : "Failed");
+        if (success && payment.getPaidAt() == null) payment.setPaidAt(now());
         payment.setRequiresReview(success && !eligible);
         if (success && eligible) {
             if (previous != null && "IMMEDIATE".equals(payment.getRenewalStart())) previous.setStatus("Expired");

@@ -20,6 +20,7 @@ public class MemberSubscriptionInfoResponse {
     private Integer remainingSessions;
     private Integer totalSessions;
     private Integer usedSessions;
+    private Integer heldSessions;
     private LocalDate startDate;
     private LocalDate endDate;
     private String displayBanner;

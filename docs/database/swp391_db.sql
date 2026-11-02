@@ -54,6 +54,8 @@ DROP TABLE IF EXISTS Training_Exercise_Result;
 DROP TABLE IF EXISTS Training_Plan_Recipient;
 DROP TABLE IF EXISTS Training_Exercise;
 DROP TABLE IF EXISTS Training_Plan;
+DROP TABLE IF EXISTS Refund_Session;
+DROP TABLE IF EXISTS Refund_Request;
 DROP TABLE IF EXISTS Payment;
 DROP TABLE IF EXISTS Voucher;
 DROP TABLE IF EXISTS Class_Booking;
@@ -288,6 +290,9 @@ CREATE TABLE Payment (
     Vnp_Pay_Date    NVARCHAR(14)      NULL,
     Sepay_Transaction_ID BIGINT       NULL,
     Requires_Review BIT              NOT NULL CONSTRAINT DF_Payment_Requires_Review DEFAULT 0,
+    Item_Name_At_Payment NVARCHAR(200) NULL,
+    Created_At DATETIME2(7) NULL,
+    Paid_At DATETIME2(7) NULL,
     CONSTRAINT PK_Payment PRIMARY KEY (Payment_ID),
     CONSTRAINT FK_Payment_Subscription FOREIGN KEY (Subscription_ID)
         REFERENCES Member_Subscription (Subscription_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
@@ -502,3 +507,64 @@ GO
      hoặc đổi vai trò các bảng/cột còn lại.
    - Class.Max_Capacity chưa được so với Room.Max_Capacity.
    ===================================================================== */
+
+/* ---------- Class refund workflow ---------- */
+IF OBJECT_ID('dbo.Refund_Request', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Refund_Request (
+        Refund_ID INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Refund_Request PRIMARY KEY,
+        Payment_ID INT NOT NULL CONSTRAINT UQ_Refund_Payment UNIQUE REFERENCES dbo.Payment(Payment_ID),
+        Requested_By INT NOT NULL REFERENCES dbo.[User](User_ID),
+        Item_Name NVARCHAR(150) NOT NULL,
+        Paid_Amount DECIMAL(12,2) NOT NULL,
+        Estimated_Amount DECIMAL(12,2) NOT NULL,
+        Approved_Amount DECIMAL(12,2) NULL,
+        Total_Sessions INT NOT NULL,
+        Cancelled_Sessions INT NOT NULL,
+        Status VARCHAR(20) NOT NULL,
+        Reason NVARCHAR(2000) NOT NULL,
+        Review_Note NVARCHAR(2000) NULL,
+        Reviewed_By INT NULL REFERENCES dbo.[User](User_ID),
+        Reviewed_At DATETIME2(7) NULL,
+        Payout_Method VARCHAR(20) NULL,
+        Pickup_Code VARCHAR(22) NULL,
+        Bank_Name NVARCHAR(100) NULL,
+        Account_Number VARCHAR(40) NULL,
+        Account_Holder NVARCHAR(100) NULL,
+        Payout_Reference NVARCHAR(150) NULL,
+        Payout_Note NVARCHAR(1000) NULL,
+        Paid_By INT NULL REFERENCES dbo.[User](User_ID),
+        Paid_At DATETIME2(7) NULL,
+        Created_At DATETIME2(7) NOT NULL,
+        Updated_At DATETIME2(7) NOT NULL,
+        Notification_Revision INT NOT NULL,
+        Read_Revision INT NOT NULL,
+        Version BIGINT NOT NULL,
+        CONSTRAINT CK_Refund_Status CHECK (Status IN ('PENDING','APPROVED','REJECTED','PAID')),
+        CONSTRAINT CK_Refund_Amount CHECK (Paid_Amount > 0 AND Estimated_Amount > 0 AND Estimated_Amount <= Paid_Amount
+            AND (Approved_Amount IS NULL OR (Approved_Amount > 0 AND Approved_Amount <= Paid_Amount))),
+        CONSTRAINT CK_Refund_Sessions CHECK (Total_Sessions > 0 AND Cancelled_Sessions > 0 AND Cancelled_Sessions <= Total_Sessions),
+        CONSTRAINT CK_Refund_Method CHECK (Payout_Method IS NULL OR Payout_Method IN ('CASH','BANK')),
+        CONSTRAINT CK_Refund_Review CHECK (Status = 'PENDING' OR (Reviewed_By IS NOT NULL AND Reviewed_At IS NOT NULL
+            AND (Status = 'REJECTED' OR Approved_Amount IS NOT NULL))),
+        CONSTRAINT CK_Refund_Paid CHECK (Status <> 'PAID' OR (Paid_By IS NOT NULL AND Paid_At IS NOT NULL
+            AND Payout_Reference IS NOT NULL AND Payout_Method IS NOT NULL)),
+        CONSTRAINT CK_Refund_Read CHECK (Read_Revision >= 0 AND Notification_Revision >= Read_Revision)
+    );
+    CREATE INDEX IX_Refund_Status ON dbo.Refund_Request(Status, Updated_At DESC);
+    CREATE UNIQUE INDEX UX_Refund_Pickup_Code ON dbo.Refund_Request(Pickup_Code) WHERE Pickup_Code IS NOT NULL;
+END;
+IF OBJECT_ID('dbo.Refund_Session', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Refund_Session (
+        Refund_ID INT NOT NULL REFERENCES dbo.Refund_Request(Refund_ID),
+        Position INT NOT NULL,
+        Session_ID INT NOT NULL,
+        Session_Date DATE NOT NULL,
+        Start_Time TIME(7) NOT NULL,
+        Refundable BIT NOT NULL,
+        CONSTRAINT PK_Refund_Session PRIMARY KEY (Refund_ID, Position)
+    );
+END;
+
+GO

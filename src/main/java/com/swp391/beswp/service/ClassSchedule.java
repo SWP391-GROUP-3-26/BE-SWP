@@ -67,6 +67,11 @@ public final class ClassSchedule {
         return c.getEndDate() != null && today.isAfter(c.getEndDate());
     }
 
+    public static boolean notStarted(ClassEntity c, LocalDateTime now) {
+        LocalTime start = c.getStartTime() != null ? c.getStartTime() : c.getTime();
+        return c.getDate() != null && start != null && c.getDate().atTime(start).isAfter(now);
+    }
+
     public static String effectiveStatus(ClassEntity c, LocalDate today) {
         String status = "Complete".equalsIgnoreCase(c.getStatus()) ? "Completed" : c.getStatus();
         return expired(c, today) && isOpen(c) ? "Completed" : status;

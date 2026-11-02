@@ -80,8 +80,9 @@ class SepayServiceTest {
 
     @Test
     void confirmsWholeRegistrationOnlyOnceAndLocksBeforeLoading() {
+        booking.setPaymentMethod("PACKAGE");
         var second = ClassBooking.builder().id(43).session(booking.getSession()).status("Pending")
-                .registrationCode("registration").paymentExpiresAt(booking.getPaymentExpiresAt()).build();
+                .registrationCode("registration").paymentMethod("DIRECT").paymentExpiresAt(booking.getPaymentExpiresAt()).build();
         booking.setRegistrationCode("registration");
         when(bookings.findByRegistrationCodeOrderByIdAsc("registration")).thenReturn(List.of(booking, second));
         service.processWebhook(auth, valid());

@@ -45,6 +45,12 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.fail("Du lieu da ton tai"));
     }
 
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleConcurrentUpdate() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.fail("Dữ liệu đã thay đổi. Vui lòng tải lại trước khi lưu."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unexpected backend exception", ex);

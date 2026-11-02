@@ -18,14 +18,19 @@ public class MemberClassBookingRequest {
      * Hình thức thanh toán:
      * - "PACKAGE" hoặc "Trừ gói hội viên"
      * - "DIRECT" hoặc "Thanh toán trực tiếp"
+     * - "MIXED": dùng tối đa lượt gói còn lại, thanh toán phần thiếu qua Card/E_Wallet
      */
     @NotBlank(message = "Vui lòng chọn hình thức thanh toán ('PACKAGE' hoặc 'DIRECT')")
     private String paymentMethod;
 
     /**
-     * Kênh thanh toán trực tiếp (nếu paymentMethod là DIRECT):
+     * Kênh thanh toán (DIRECT hoặc MIXED):
      * "Bank_Transfer", "Cash", "Card", "E_Wallet"
      * Card: VNPay; E_Wallet: SePay QR (Pending until authenticated webhook).
      */
     private String paymentChannel;
+
+    // The displayed split must still match when the member confirms a mixed payment.
+    private Integer packageSessions;
+    private java.math.BigDecimal paymentAmount;
 }

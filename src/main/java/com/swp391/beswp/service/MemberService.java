@@ -51,7 +51,9 @@ public class MemberService {
                     Integer included = subscription.getMembershipPackage().getIncludedClasses();
                     long used = bookingRepository.countUsedPackageSessions(id, subscription.getStartDate().atStartOfDay(),
                             subscription.getEndDate().atTime(23, 59, 59));
-                    int remaining = (int) Math.max(0L, (included == null ? 0L : included.longValue()) - used);
+                    long held = bookingRepository.countHeldPackageSessions(id, subscription.getStartDate().atStartOfDay(),
+                            subscription.getEndDate().atTime(23, 59, 59), now);
+                    int remaining = (int) Math.max(0L, (included == null ? 0L : included.longValue()) - used - held);
                     return MemberResponse.PackageData.fromEntity(subscription, remaining);
                 }).toList();
 

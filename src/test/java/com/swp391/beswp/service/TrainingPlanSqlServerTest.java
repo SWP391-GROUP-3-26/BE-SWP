@@ -39,10 +39,12 @@ class TrainingPlanSqlServerTest {
     @Autowired ClassSessionRepository sessions;
     @Autowired ClassBookingRepository bookings;
     @Autowired TrainingPlanRepository plans;
+    @Autowired PaymentRepository payments;
     @Autowired Clock paymentClock;
     @Autowired TrainingPlanService training;
     @MockitoBean MembershipLifecycleService lifecycle;
     @MockitoBean ClassCompletionService completion;
+    @MockitoBean VnpayService gateway;
     User coach, member, outsider;
     ClassEntity classroom;
     LocalDate today;
@@ -67,6 +69,64 @@ class TrainingPlanSqlServerTest {
         person.setUsername("tp_" + unique); person.setEmail(unique + "@example.test"); person.setPassword("test-only");
         person.setFullName("Kế hoạch " + role); person.setStatus("Active");
         return users.saveAndFlush(person);
+    }
+
+    @Test void packageQuotaCountsOnlyUnexpiredHoldsAndConfirmedPackageSessions() {
+        LocalDateTime now = LocalDateTime.now(paymentClock).withNano(0);
+        ClassBooking booking = bookings.findMyBookings(member.getId(), null, null).getFirst();
+        booking.setPaymentMethod("PACKAGE"); booking.setStatus("Pending");
+        booking.setBookingDatetime(now); booking.setPaymentExpiresAt(now.plusMinutes(15));
+        em.flush();
+        var start = today.atStartOfDay(); var end = today.atTime(23, 59, 59);
+        assertEquals(1, bookings.countHeldPackageSessions(member.getId(), start, end, now));
+        assertEquals(0, bookings.countUsedPackageSessions(member.getId(), start, end));
+        assertEquals(0, bookings.countHeldPackageSessions(outsider.getId(), start, end, now));
+        assertEquals(0, bookings.countHeldPackageSessions(member.getId(), start, end, now.plusMinutes(15)));
+        booking.setPaymentMethod("DIRECT"); em.flush();
+        assertEquals(0, bookings.countHeldPackageSessions(member.getId(), start, end, now));
+        booking.setPaymentMethod("PACKAGE"); booking.setStatus("Booked"); booking.setPaymentExpiresAt(null); em.flush();
+        assertEquals(0, bookings.countHeldPackageSessions(member.getId(), start, end, now));
+        assertEquals(1, bookings.countUsedPackageSessions(member.getId(), start, end));
+        booking.setStatus("Cancelled"); em.flush();
+        assertEquals(0, bookings.countUsedPackageSessions(member.getId(), start, end));
+    }
+
+    @Test void memberResumesSamePaymentWithOwnershipRoleAndExpiryChecks() throws Exception {
+        LocalDateTime now = LocalDateTime.now(paymentClock).withNano(0);
+        LocalDate start = today.plusDays(1);
+        classroom.setDate(start); classroom.setEndDate(ClassSchedule.endDate(start, 2));
+        classroom.setDaysOfWeek(ClassSchedule.code(start.getDayOfWeek()));
+        ClassBooking booking = bookings.findMyBookings(member.getId(), null, null).getFirst();
+        booking.getSession().setDate(start);
+        booking.setStatus("Pending"); booking.setPaymentMethod("PACKAGE"); booking.setBookingDatetime(now);
+        booking.setPaymentExpiresAt(now.plusMinutes(15)); booking.setRegistrationCode(UUID.randomUUID().toString());
+        ClassSession second = sessions.saveAndFlush(ClassSession.builder().classEntity(classroom).date(start.plusDays(7))
+                .startTime(LocalTime.of(8, 0)).endTime(LocalTime.of(9, 0)).status("Scheduled").build());
+        bookings.saveAndFlush(ClassBooking.builder().user(member).session(second).status("Pending").paymentMethod("DIRECT")
+                .bookingDatetime(now).paymentExpiresAt(booking.getPaymentExpiresAt()).registrationCode(booking.getRegistrationCode()).build());
+        Payment payment = payments.saveAndFlush(Payment.builder().booking(booking).paymentType("Class_Booking").method("Card")
+                .amount(new BigDecimal("100000")).status("Pending").paymentDate(now).expiresAt(booking.getPaymentExpiresAt()).build());
+        String url = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=" + payment.getId();
+        org.mockito.Mockito.when(gateway.createPaymentUrl(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenReturn(url);
+        String endpoint = "/api/member/payments/" + payment.getId() + "/resume";
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(post(endpoint).with(user(member.getId().toString()).authorities(() -> "ROLE_Member")))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.paymentId").value(payment.getId()))
+                    .andExpect(jsonPath("$.paymentUrl").value(url)).andExpect(jsonPath("$.canResumePayment").value(true))
+                    .andExpect(jsonPath("$.packageSessions").value(1)).andExpect(jsonPath("$.payableSessions").value(1));
+        }
+        assertEquals(1, payments.findAllByBooking_IdOrderByIdDesc(booking.getId()).size());
+        assertEquals(now.plusMinutes(15), payment.getExpiresAt());
+        assertEquals(1, bookings.countHeldPackageSessions(member.getId(), today.atStartOfDay(), classroom.getEndDate().atTime(23, 59, 59), now));
+        mvc.perform(post(endpoint).with(user(outsider.getId().toString()).authorities(() -> "ROLE_Member")))
+                .andExpect(status().isNotFound());
+        mvc.perform(post(endpoint).with(user(coach.getId().toString()).authorities(() -> "ROLE_Coach")))
+                .andExpect(status().isForbidden());
+        payment.setExpiresAt(now.minusMinutes(1)); em.flush();
+        mvc.perform(post(endpoint).with(user(member.getId().toString()).authorities(() -> "ROLE_Member")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.canResumePayment").value(false))
+                .andExpect(jsonPath("$.paymentStatus").value("Failed"));
+        assertEquals("Cancelled", booking.getStatus());
     }
 
     Map<String, Object> body(boolean publish, long version, Integer exerciseId) {

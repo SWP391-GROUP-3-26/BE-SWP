@@ -49,6 +49,7 @@ class MemberClassBookingServiceTest {
         when(users.findById(anyInt())).thenAnswer(i -> Optional.of(member(i.getArgument(0))));
         when(users.findByIdForUpdate(anyInt())).thenAnswer(i -> Optional.of(member(i.getArgument(0))));
         classEntity = ClassEntity.builder().id(10).status("Active").name("Yoga").maxCapacity(1).price(new BigDecimal("100000.00")).build();
+        classEntity.setDate(LocalDate.of(2026, 10, 14)); classEntity.setStartTime(LocalTime.of(8, 0));
         session = ClassSession.builder().id(20).classEntity(classEntity).status("Scheduled")
                 .date(LocalDate.of(2026, 10, 14)).startTime(LocalTime.of(8, 0)).endTime(LocalTime.of(9, 0)).build();
         when(classes.findByIdForUpdate(10)).thenReturn(Optional.of(classEntity));
@@ -85,7 +86,7 @@ class MemberClassBookingServiceTest {
     private MemberClassBookingService newService(VnpayService vnpay) {
         return new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, logs, users, subjects,
                 vnpay, mock(SepayService.class), new ClassReservationService(bookings, payments), clock,
-                attendance);
+                new RefundService(mock(RefundRequestRepository.class), payments, classes, bookings, users, logs, clock), attendance);
     }
     private User member(int id) {
         Role role = new Role(); role.setRoleName("Member");
@@ -131,7 +132,7 @@ class MemberClassBookingServiceTest {
         var sepay = new SepayService(new com.swp391.beswp.config.SepayConfig(), payments, classes, bookings,
                 new ClassReservationService(bookings, payments), clock, mock(OnlineSubscriptionPaymentService.class));
         var unconfigured = new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, logs, users,
-                subjects, VnpayServiceTest.configured(), sepay, new ClassReservationService(bookings, payments), clock, attendance);
+                subjects, VnpayServiceTest.configured(), sepay, new ClassReservationService(bookings, payments), clock, mock(RefundService.class), attendance);
         var error = assertThrows(ResponseStatusException.class, () -> unconfigured.registerClass("1", 10,
                 MemberClassBookingRequest.builder().paymentMethod("DIRECT").paymentChannel("E_Wallet").build(), "127.0.0.1"));
         assertEquals(503, error.getStatusCode().value()); assertTrue(bookingRows.isEmpty()); assertTrue(paymentRows.isEmpty());
@@ -141,9 +142,10 @@ class MemberClassBookingServiceTest {
     void cardCannotCreateShortenedPaymentWindowNearSessionStart() {
         session.setDate(LocalDate.now(clock));
         session.setStartTime(LocalTime.now(clock).plusMinutes(10));
+        classEntity.setDate(session.getDate()); classEntity.setStartTime(session.getStartTime());
         var error = assertThrows(ResponseStatusException.class, () -> service.registerClass("1", 10, card, "127.0.0.1"));
         assertEquals(400, error.getStatusCode().value());
-        assertTrue(error.getReason().contains("15 phút"));
+        assertTrue(error.getReason().contains("15 phút"), error.getReason());
         assertTrue(bookingRows.isEmpty()); assertTrue(paymentRows.isEmpty());
     }
 
@@ -248,6 +250,7 @@ class MemberClassBookingServiceTest {
     }
 
     private void boundedCourse() {
+        instant.set(Instant.parse("2026-10-13T00:00:00Z"));
         classEntity.setDate(LocalDate.of(2026, 10, 13)); classEntity.setDurationWeeks(1);
         classEntity.setEndDate(LocalDate.of(2026, 10, 18)); classEntity.setDaysOfWeek("Thứ 3, Thứ 5");
         session.setDate(LocalDate.of(2026, 10, 15));
@@ -278,14 +281,13 @@ class MemberClassBookingServiceTest {
     }
 
     @Test
-    void lastDayStillAllowsFutureSessionAndReturnsActualSessionAndTerm() {
+    void lastDayRejectsRegistrationEvenWhenAnotherSessionIsStillInFuture() {
         boundedCourse(); classEntity.setDaysOfWeek("T3, CN"); session.setDate(LocalDate.of(2026, 10, 18));
         session.setStartTime(LocalTime.of(9, 0)); session.setEndTime(LocalTime.of(10, 0));
         instant.set(Instant.parse("2026-10-18T01:00:00Z"));
-        var response = service.registerClass("1", 10, card, "127.0.0.1");
-        assertEquals("Pending", response.getPaymentStatus()); assertEquals(1, response.getDurationWeeks());
-        assertEquals(LocalDate.of(2026, 10, 18), response.getEndDate());
-        assertEquals(session.getDate(), response.getSessionDate()); assertEquals(session.getStartTime(), response.getSessionStartTime());
+        var error = assertThrows(ResponseStatusException.class, () -> service.registerClass("1", 10, card, "127.0.0.1"));
+        assertTrue(error.getReason().contains("Lớp đã bắt đầu"));
+        verify(bookings, never()).save(any()); verify(payments, never()).save(any());
         verify(sessions, never()).save(any());
     }
 

@@ -49,6 +49,9 @@ public class MemberPaymentService {
             return MemberPaymentResponse.builder().success(true).paymentId(payment.getId())
                     .memberId(user.getId()).memberName(user.getFullName()).itemName(payment.getSubscription().getMembershipPackage().getName())
                     .paymentType("Subscription").paymentStatus(payment.getStatus()).bookingStatus(subscriptionDisplayStatus(payment))
+                    .paymentMethod(payment.getMethod())
+                    .canResumePayment("Pending".equals(payment.getStatus()) && "Pending".equals(payment.getSubscription().getStatus())
+                            && !payment.isRequiresReview() && payment.getExpiresAt().isAfter(now()))
                     .paymentAmount(payment.getAmount()).expiresAt(payment.getExpiresAt().atOffset(VnpayService.OFFSET))
                     .requiresReview(payment.isRequiresReview()).qrPayment(sepay.qrPayment(payment)).build();
         }
@@ -57,16 +60,49 @@ public class MemberPaymentService {
         Payment payment = payments.findById(paymentId).orElseThrow(this::notFound);
         if (!Objects.equals(payment.getBooking().getUser().getId(), user.getId())) throw notFound();
         reservations.expirePending(classId, now());
-        if (ClassSchedule.expired(payment.getBooking().getSession().getClassEntity(), now().toLocalDate())) {
+        var registration = reservations.registrationBookings(payment.getBooking());
+        boolean canResume = resumableClassPayment(payment, registration);
+        if (ClassSchedule.expired(payment.getBooking().getSession().getClassEntity(), now().toLocalDate())
+                || ("Pending".equals(payment.getStatus()) && !canResume)) {
             if ("Pending".equals(payment.getStatus())) payment.setStatus("Failed");
-            reservations.cancelPendingRegistration(payment.getBooking());
+            var attempts = payments.findAllByBooking_IdOrderByIdDesc(payment.getBooking().getId());
+            if (!attempts.isEmpty() && Objects.equals(attempts.getFirst().getId(), payment.getId())) {
+                reservations.cancelPendingRegistration(payment.getBooking());
+            }
         }
         return MemberPaymentResponse.builder().success(true)
                 .paymentId(payment.getId()).bookingId(payment.getBooking().getId())
                 .memberId(user.getId()).memberName(user.getFullName()).itemName(payment.getBooking().getSession().getClassEntity().getName())
                 .paymentStatus(payment.getStatus()).bookingStatus(displayStatus(ClassSchedule.bookingStatus(payment.getBooking(), now().toLocalDate())))
+                .paymentMethod(payment.getMethod()).canResumePayment(canResume)
                 .paymentAmount(payment.getAmount()).expiresAt(payment.getExpiresAt().atOffset(VnpayService.OFFSET))
+                .packageSessions((int) registration.stream()
+                        .filter(b -> "PACKAGE".equals(b.getPaymentMethod())).count())
+                .payableSessions((int) registration.stream()
+                        .filter(b -> !"PACKAGE".equals(b.getPaymentMethod())).count())
                 .requiresReview(payment.isRequiresReview()).qrPayment(sepay.qrPayment(payment)).build();
+    }
+
+    @Transactional
+    public MemberPaymentResponse resumePayment(String principal, Integer paymentId, String ipAddress) {
+        // Reuse ownership checks, locks and expiry processing; keep the original amount and deadline.
+        MemberPaymentResponse result = getPayment(principal, paymentId);
+        if (!result.isCanResumePayment()) return result;
+        Payment payment = payments.findById(paymentId).orElseThrow(this::notFound);
+        if ("Card".equals(payment.getMethod())) result.setPaymentUrl(vnpay.createPaymentUrl(payment, ipAddress));
+        else if ("E_Wallet".equals(payment.getMethod())) sepay.requireConfigured();
+        return result;
+    }
+
+    private boolean resumableClassPayment(Payment payment, java.util.List<ClassBooking> registration) {
+        if (!"Pending".equals(payment.getStatus()) || payment.isRequiresReview()
+                || payment.getExpiresAt() == null || !payment.getExpiresAt().isAfter(now())) return false;
+        var attempts = payments.findAllByBooking_IdOrderByIdDesc(payment.getBooking().getId());
+        return !attempts.isEmpty() && Objects.equals(attempts.getFirst().getId(), payment.getId())
+                && !registration.isEmpty() && registration.stream().allMatch(b -> "Pending".equals(b.getStatus())
+                && b.getPaymentExpiresAt() != null && b.getPaymentExpiresAt().isAfter(now())
+                && ClassSchedule.bookable(b.getSession().getClassEntity(), b.getSession(), now())
+                && bookings.countReservedMembersBySessionId(b.getSession().getId(), now()) <= b.getSession().getClassEntity().getMaxCapacity());
     }
 
     @Transactional(readOnly = true)
@@ -143,6 +179,7 @@ public class MemberPaymentService {
         payment.setVnpTransactionStatus(params.get("vnp_TransactionStatus"));
         payment.setVnpPayDate(params.get("vnp_PayDate"));
         payment.setStatus(success ? "Paid" : "Failed");
+        if (success && payment.getPaidAt() == null) payment.setPaidAt(now);
         payment.setRequiresReview(success && !canConfirm);
         if (success && canConfirm) {
             for (ClassBooking item : registration) {

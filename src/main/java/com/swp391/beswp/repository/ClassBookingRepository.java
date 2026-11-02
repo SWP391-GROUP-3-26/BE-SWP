@@ -107,6 +107,12 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
             @Param("end") LocalDateTime end
     );
 
+    @Query("SELECT COUNT(b) FROM ClassBooking b WHERE b.user.id = :userId " +
+           "AND b.paymentMethod = 'PACKAGE' AND b.status = 'Pending' " +
+           "AND b.paymentExpiresAt > :now AND b.bookingDatetime >= :start AND b.bookingDatetime <= :end")
+    long countHeldPackageSessions(@Param("userId") Integer userId, @Param("start") LocalDateTime start,
+                                 @Param("end") LocalDateTime end, @Param("now") LocalDateTime now);
+
     Optional<ClassBooking> findByIdAndUser_Id(Integer bookingId, Integer userId);
 
     @Query("SELECT b FROM ClassBooking b " +

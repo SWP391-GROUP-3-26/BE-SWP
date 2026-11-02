@@ -20,6 +20,9 @@ public class MyClassItemResponse {
     private String paymentStatus;
     private java.math.BigDecimal paymentAmount;
     private boolean requiresReview;
+    private boolean canResumePayment;
+    private java.time.OffsetDateTime paymentExpiresAt;
+    private Integer heldPackageSessions;
 
     private java.time.LocalDate startDate;
     private Integer durationWeeks;

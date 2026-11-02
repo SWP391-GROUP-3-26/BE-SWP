@@ -93,4 +93,22 @@ public class Payment {
     @Column(name = "Requires_Review", nullable = false)
     @Builder.Default
     private boolean requiresReview = false;
+
+    @Column(name = "Item_Name_At_Payment", length = 200)
+    private String itemNameAtPayment;
+    @Column(name = "Created_At")
+    private LocalDateTime createdAt;
+    @Column(name = "Paid_At")
+    private LocalDateTime paidAt;
+
+    @jakarta.persistence.PrePersist
+    void snapshotReceipt() {
+        if (createdAt == null) createdAt = paymentDate;
+        if ("Paid".equals(status) && paidAt == null) paidAt = paymentDate;
+        if (itemNameAtPayment == null) {
+            if (booking != null) itemNameAtPayment = booking.getSession().getClassEntity().getName();
+            else if (subscription != null) itemNameAtPayment = subscription.getPackageNameAtPurchase() != null
+                    ? subscription.getPackageNameAtPurchase() : subscription.getMembershipPackage().getName();
+        }
+    }
 }

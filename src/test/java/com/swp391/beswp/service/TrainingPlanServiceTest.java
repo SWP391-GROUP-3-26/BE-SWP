@@ -22,7 +22,8 @@ class TrainingPlanServiceTest {
     ClassBookingRepository bookings = mock(ClassBookingRepository.class);
     UserRepository users = mock(UserRepository.class);
     Clock clock = Clock.fixed(Instant.parse("2026-10-30T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
-    TrainingPlanService service = new TrainingPlanService(plans, classes, bookings, users, clock);
+    MemberNotificationService notifications = mock(MemberNotificationService.class);
+    TrainingPlanService service = new TrainingPlanService(plans, classes, bookings, users, clock, notifications);
     User coach, member;
     ClassEntity classroom;
     TrainingPlan saved;

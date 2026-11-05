@@ -76,6 +76,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/chat/**").hasAnyAuthority("ROLE_Member", "ROLE_Coach")
                         .requestMatchers(HttpMethod.GET, "/api/member/payments/**").hasAuthority("ROLE_Member")
                         .requestMatchers(HttpMethod.POST, "/api/member/payments/*/resume").hasAuthority("ROLE_Member")
+                        .requestMatchers("/api/member/notifications/**").hasAuthority("ROLE_Member")
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/error").permitAll()

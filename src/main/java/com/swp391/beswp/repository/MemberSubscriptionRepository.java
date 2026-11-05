@@ -28,4 +28,16 @@ public interface MemberSubscriptionRepository extends JpaRepository<MemberSubscr
         List<MemberSubscription> list = findActiveSubscriptionsByUserId(userId, today);
         return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
     }
+
+    @Query("SELECT s FROM MemberSubscription s " +
+           "JOIN FETCH s.membershipPackage p " +
+           "WHERE s.user.id = :userId " +
+           "AND LOWER(s.status) = 'active' " +
+           "AND s.endDate BETWEEN :today AND :cutoff " +
+           "ORDER BY s.endDate ASC")
+    List<MemberSubscription> findExpiringSubscriptions(
+            @Param("userId") Integer userId,
+            @Param("today") LocalDate today,
+            @Param("cutoff") LocalDate cutoff
+    );
 }

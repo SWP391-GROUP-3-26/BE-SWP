@@ -25,6 +25,7 @@ public class TrainingPlanService {
     private final ClassBookingRepository bookings;
     private final UserRepository users;
     private final Clock paymentClock;
+    private final MemberNotificationService memberNotifications;
 
     public List<PlanView> coachPlans(Authentication auth) {
         User coach = actor(auth, "Coach");
@@ -61,7 +62,11 @@ public class TrainingPlanService {
         plan.setCreatedBy(coach);
         plan.setCreatedAt(now());
         apply(plan, input);
-        return view(plans.saveAndFlush(plan), true);
+        TrainingPlan saved = plans.saveAndFlush(plan);
+        if (saved.getPublishedRevision() > 0) {
+            memberNotifications.notifyTrainingPlan(saved, notificationRecipients(saved));
+        }
+        return view(saved, true);
     }
 
     @Transactional
@@ -80,8 +85,12 @@ public class TrainingPlanService {
         if (plan.getPublishedRevision() > 0 && !input.publish()) {
             throw error(HttpStatus.BAD_REQUEST, "Kế hoạch đã giao không thể chuyển về bản nháp");
         }
+        int previousRevision = plan.getPublishedRevision();
         apply(plan, input);
         plans.flush();
+        if (plan.getPublishedRevision() > previousRevision) {
+            memberNotifications.notifyTrainingPlan(plan, notificationRecipients(plan));
+        }
         return view(plan, true);
     }
 
@@ -159,8 +168,9 @@ public class TrainingPlanService {
         authorize(plan, coach, true); checkVersion(plan, input.version()); requireMutable(plan);
         if (!isClass(plan) || !"ASSIGNED".equals(plan.getStatus()) || today().isAfter(plan.getEndDate()))
             throw error(HttpStatus.CONFLICT, "Chỉ bổ sung học viên vào kế hoạch cả lớp đã giao và chưa hết hạn");
-        addCurrentMembers(plan);
+        List<User> newRecipients = addCurrentMembers(plan);
         plan.setUpdatedAt(now()); plans.flush();
+        memberNotifications.notifyTrainingPlan(plan, newRecipients);
         return view(plan, true);
     }
 
@@ -339,13 +349,22 @@ public class TrainingPlanService {
                 .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Học viên chưa được giao kế hoạch này"));
     }
 
-    private void addCurrentMembers(TrainingPlan p) {
+    private List<User> addCurrentMembers(TrainingPlan p) {
         Set<Integer> existing = p.getRecipients().stream().map(r -> r.getMember().getId()).collect(Collectors.toSet());
+        List<User> added = new ArrayList<>();
         for (User member : bookings.findTrainingPlanMembers(p.getClassEntity().getId())) {
             if (!existing.add(member.getId())) continue;
             TrainingPlanRecipient recipient = new TrainingPlanRecipient();
             recipient.setPlan(p); recipient.setMember(member); p.getRecipients().add(recipient);
+            added.add(member);
         }
+        return added;
+    }
+
+    private List<User> notificationRecipients(TrainingPlan plan) {
+        return isClass(plan)
+                ? plan.getRecipients().stream().map(TrainingPlanRecipient::getMember).toList()
+                : List.of(plan.getMember());
     }
 
     private boolean hasResults(TrainingPlan p, TrainingExercise e) {

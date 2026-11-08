@@ -155,7 +155,7 @@ class RefundSqlServerTest {
 
     @Test void historyIncludesClassAndPackagePaymentsAndSupportsFilters() throws Exception {
         MembershipPackage pack = MembershipPackage.builder().name("Refund history package " + UUID.randomUUID()).price(new BigDecimal("100000"))
-                .discount(BigDecimal.ZERO).duration(30).includedClasses(10).status("Active").build(); em.persist(pack);
+                .discount(BigDecimal.ZERO).duration(30).status("Active").build(); em.persist(pack);
         MemberSubscription sub = MemberSubscription.builder().user(member).membershipPackage(pack).packageNameAtPurchase(pack.getName())
                 .priceAtPurchase(pack.getPrice()).durationAtPurchase(30).startDate(today).endDate(today.plusDays(29)).status("Active").build(); em.persist(sub);
         payments.saveAndFlush(Payment.builder().subscription(sub).paymentType("Subscription").method("Cash").amount(pack.getPrice()).status("Paid").build());

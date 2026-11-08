@@ -71,26 +71,6 @@ class TrainingPlanSqlServerTest {
         return users.saveAndFlush(person);
     }
 
-    @Test void packageQuotaCountsOnlyUnexpiredHoldsAndConfirmedPackageSessions() {
-        LocalDateTime now = LocalDateTime.now(paymentClock).withNano(0);
-        ClassBooking booking = bookings.findMyBookings(member.getId(), null, null).getFirst();
-        booking.setPaymentMethod("PACKAGE"); booking.setStatus("Pending");
-        booking.setBookingDatetime(now); booking.setPaymentExpiresAt(now.plusMinutes(15));
-        em.flush();
-        var start = today.atStartOfDay(); var end = today.atTime(23, 59, 59);
-        assertEquals(1, bookings.countHeldPackageSessions(member.getId(), start, end, now));
-        assertEquals(0, bookings.countUsedPackageSessions(member.getId(), start, end));
-        assertEquals(0, bookings.countHeldPackageSessions(outsider.getId(), start, end, now));
-        assertEquals(0, bookings.countHeldPackageSessions(member.getId(), start, end, now.plusMinutes(15)));
-        booking.setPaymentMethod("DIRECT"); em.flush();
-        assertEquals(0, bookings.countHeldPackageSessions(member.getId(), start, end, now));
-        booking.setPaymentMethod("PACKAGE"); booking.setStatus("Booked"); booking.setPaymentExpiresAt(null); em.flush();
-        assertEquals(0, bookings.countHeldPackageSessions(member.getId(), start, end, now));
-        assertEquals(1, bookings.countUsedPackageSessions(member.getId(), start, end));
-        booking.setStatus("Cancelled"); em.flush();
-        assertEquals(0, bookings.countUsedPackageSessions(member.getId(), start, end));
-    }
-
     @Test void memberResumesSamePaymentWithOwnershipRoleAndExpiryChecks() throws Exception {
         LocalDateTime now = LocalDateTime.now(paymentClock).withNano(0);
         LocalDate start = today.plusDays(1);
@@ -98,7 +78,7 @@ class TrainingPlanSqlServerTest {
         classroom.setDaysOfWeek(ClassSchedule.code(start.getDayOfWeek()));
         ClassBooking booking = bookings.findMyBookings(member.getId(), null, null).getFirst();
         booking.getSession().setDate(start);
-        booking.setStatus("Pending"); booking.setPaymentMethod("PACKAGE"); booking.setBookingDatetime(now);
+        booking.setStatus("Pending"); booking.setPaymentMethod("DIRECT"); booking.setBookingDatetime(now);
         booking.setPaymentExpiresAt(now.plusMinutes(15)); booking.setRegistrationCode(UUID.randomUUID().toString());
         ClassSession second = sessions.saveAndFlush(ClassSession.builder().classEntity(classroom).date(start.plusDays(7))
                 .startTime(LocalTime.of(8, 0)).endTime(LocalTime.of(9, 0)).status("Scheduled").build());
@@ -113,11 +93,10 @@ class TrainingPlanSqlServerTest {
             mvc.perform(post(endpoint).with(user(member.getId().toString()).authorities(() -> "ROLE_Member")))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.paymentId").value(payment.getId()))
                     .andExpect(jsonPath("$.paymentUrl").value(url)).andExpect(jsonPath("$.canResumePayment").value(true))
-                    .andExpect(jsonPath("$.packageSessions").value(1)).andExpect(jsonPath("$.payableSessions").value(1));
+                    .andExpect(jsonPath("$.packageSessions").value(0)).andExpect(jsonPath("$.payableSessions").value(2));
         }
         assertEquals(1, payments.findAllByBooking_IdOrderByIdDesc(booking.getId()).size());
         assertEquals(now.plusMinutes(15), payment.getExpiresAt());
-        assertEquals(1, bookings.countHeldPackageSessions(member.getId(), today.atStartOfDay(), classroom.getEndDate().atTime(23, 59, 59), now));
         mvc.perform(post(endpoint).with(user(outsider.getId().toString()).authorities(() -> "ROLE_Member")))
                 .andExpect(status().isNotFound());
         mvc.perform(post(endpoint).with(user(coach.getId().toString()).authorities(() -> "ROLE_Coach")))
@@ -127,6 +106,26 @@ class TrainingPlanSqlServerTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.canResumePayment").value(false))
                 .andExpect(jsonPath("$.paymentStatus").value("Failed"));
         assertEquals("Cancelled", booking.getStatus());
+    }
+
+
+    @Test void scheduleQueryIncludesLiveHoldsAndExcludesReleasedBookings() {
+        LocalDateTime now = LocalDateTime.now(paymentClock);
+        ClassBooking booking = bookings.findMyBookings(member.getId(), null, null).getFirst();
+        booking.setStatus("Pending"); booking.setPaymentExpiresAt(now.plusMinutes(15)); em.flush();
+        assertTrue(bookings.findOtherReservedBookings(member.getId(), -1, now).contains(booking));
+        assertFalse(bookings.findOtherReservedBookings(member.getId(), classroom.getId(), now).contains(booking));
+        assertFalse(bookings.findOtherReservedBookings(outsider.getId(), -1, now).contains(booking));
+        booking.setPaymentExpiresAt(now); em.flush();
+        assertFalse(bookings.findOtherReservedBookings(member.getId(), -1, now).contains(booking));
+        for (String status : List.of("Cancelled", "Completed")) {
+            booking.setStatus(status); em.flush();
+            assertFalse(bookings.findOtherReservedBookings(member.getId(), -1, now).contains(booking));
+        }
+        booking.setStatus("Booked"); em.flush();
+        assertTrue(bookings.findOtherReservedBookings(member.getId(), -1, now).contains(booking));
+        booking.getSession().setStatus("Cancelled"); em.flush();
+        assertFalse(bookings.findOtherReservedBookings(member.getId(), -1, now).contains(booking));
     }
 
     Map<String, Object> body(boolean publish, long version, Integer exerciseId) {

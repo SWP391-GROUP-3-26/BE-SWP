@@ -24,7 +24,7 @@ class MemberServiceTest {
     @Test
     void detailUsesSelectedMemberAndVietnamDateAndKeepsPackagesEndingToday() {
         givenMember();
-        var pack = MembershipPackage.builder().id(3).name("Gói tháng").includedClasses(12).build();
+        var pack = MembershipPackage.builder().id(3).name("Gói tháng").build();
         var current = MemberSubscription.builder().id(1).membershipPackage(pack)
                 .startDate(today.minusDays(29)).endDate(today).build();
         var future = MemberSubscription.builder().id(2).membershipPackage(pack)

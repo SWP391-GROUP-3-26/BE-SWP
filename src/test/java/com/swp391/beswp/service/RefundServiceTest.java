@@ -61,20 +61,19 @@ class RefundServiceTest {
     }
     @Test void previewOnlyRefundsUnstartedBookingsAndUsesNetNotOriginalPrice() {
         CancellationPreview result = service.preview(20, registration, List.of(payment));
-        assertEquals(2, result.cancelSessions()); assertEquals(new BigDecimal("666666"), result.estimatedRefund());
+        assertEquals(2, result.cancelSessions()); assertEquals(new BigDecimal("500000"), result.estimatedRefund());
         assertEquals(new BigDecimal("1000000"), result.paidAmount());
     }
-    @Test void mixedCancellationReturnsOnlyPackageRowsAndRefundsOnlyCashRows() {
+    @Test void legacyMixedCancellationRefundsOnlyDirectlyPaidRows() {
         registration.getFirst().setPaymentMethod("PACKAGE");
         registration.get(1).setPaymentMethod("PACKAGE");
         CancellationPreview preview = service.preview(20, registration, List.of(payment));
-        assertEquals(1, preview.packageSessionsReturned());
-        assertEquals(new BigDecimal("1000000"), preview.estimatedRefund());
+        assertEquals(new BigDecimal("500000"), preview.estimatedRefund());
         service.createForCancellation(payment, registration, Set.of(21, 22), member);
         assertEquals(1, request.getTotalSessions()); assertEquals(1, request.getCancelledSessions());
         assertEquals(1, request.getSessions().size());
         assertEquals(32, request.getSessions().getFirst().getSessionId());
-        assertEquals(new BigDecimal("1000000"), request.getEstimatedAmount());
+        assertEquals(new BigDecimal("500000"), request.getEstimatedAmount());
     }
     @Test void snapshotsSessionsAndCreatesOnlyOneRequestPerPayment() {
         create(); assertEquals("Tên lúc mua", request.getItemName()); assertTrue(payment.isRequiresReview());
@@ -91,8 +90,8 @@ class RefundServiceTest {
         create(); error(403, () -> service.review(auth(member), 60, new Review("APPROVED", BigDecimal.TEN, "", 0L)));
         manager.setStatus("Locked"); error(403, () -> service.review(auth(manager), 60, new Review("APPROVED", BigDecimal.TEN, "", 0L)));
     }
-    @Test void approvalCannotExceedPaymentAndAdjustmentRequiresReason() {
-        create(); error(400, () -> service.review(auth(manager), 60, new Review("APPROVED", new BigDecimal("1000001"), "", 0L)));
+    @Test void legacyApprovalCannotExceedPaymentAndAdjustmentRequiresReason() {
+        create(); request.setRefundPolicy(null); error(400, () -> service.review(auth(manager), 60, new Review("APPROVED", new BigDecimal("1000001"), "", 0L)));
         error(400, () -> service.review(auth(manager), 60, new Review("APPROVED", new BigDecimal("700000"), "", 0L)));
         assertEquals(new BigDecimal("700000"), service.review(auth(manager), 60, new Review("APPROVED", new BigDecimal("700000"), "Điều chỉnh theo chính sách", 0L)).approvedAmount());
     }

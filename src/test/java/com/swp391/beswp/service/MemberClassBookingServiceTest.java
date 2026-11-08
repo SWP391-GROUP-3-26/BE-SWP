@@ -181,17 +181,16 @@ class MemberClassBookingServiceTest {
     }
 
     @Test
-    void packageConfirmsWithoutGatewayAndCountsOnlyPackageBookings() {
+    void packageConfirmsWithoutGatewayOrQuota() {
         classEntity.setSubject(Subject.builder().id(1).name("Yoga").build());
         when(includedSports.hasActiveIncludedEntitlement(eq(1), eq(1), any())).thenReturn(true);
-        MembershipPackage pkg = new MembershipPackage(); pkg.setIncludedClasses(5); pkg.setName("Test package");
+        MembershipPackage pkg = new MembershipPackage(); pkg.setName("Test package");
         MemberSubscription sub = MemberSubscription.builder().membershipPackage(pkg).startDate(LocalDate.of(2026, 10, 1))
                 .endDate(LocalDate.of(2026, 10, 31)).build();
         when(subscriptions.findCurrentActiveSubscription(eq(1), any())).thenReturn(Optional.of(sub));
-        when(bookings.countUsedPackageSessions(eq(1), any(), any())).thenReturn(2L);
         var response = service.registerClass("1", 10, MemberClassBookingRequest.builder().paymentMethod("PACKAGE").build(), "127.0.0.1");
         assertEquals("Booked", bookingRows.getFirst().getStatus()); assertEquals("PACKAGE", bookingRows.getFirst().getPaymentMethod());
-        assertEquals(2, response.getRemainingPackageSessions()); assertNull(response.getPaymentUrl());
+        assertNull(response.getPaymentUrl());
         assertNull(response.getPaymentId()); assertTrue(paymentRows.isEmpty());
     }
 
@@ -209,6 +208,7 @@ class MemberClassBookingServiceTest {
 
     @Test
     void cancelVnpayPaidBookingDoesNotPretendRefundWasCompleted() {
+        instant.set(Instant.parse("2026-10-09T01:00:00Z"));
         service.registerClass("1", 10, card, "127.0.0.1");
         ClassBooking booking = bookingRows.getFirst(); Payment payment = paymentRows.getFirst();
         booking.setStatus("Booked"); payment.setStatus("Paid");
@@ -333,4 +333,23 @@ class MemberClassBookingServiceTest {
         verify(attendance, times(3)).findByUser_IdAndSession_IdIn(1, List.of(20, 21));
         verify(attendance, never()).findBySession_IdIn(any());
     }
+    @Test
+    void scheduleConflictBlocksAllPaymentMethodsBeforeAnyBookingOrPayment() {
+        classEntity.setSubject(Subject.builder().id(1).build());
+        var other = ClassEntity.builder().id(11).name("Existing class").subject(Subject.builder().id(1).build())
+                .date(classEntity.getDate()).endDate(classEntity.getDate().plusDays(10)).status("Active").build();
+        var otherSession = ClassSession.builder().classEntity(other).date(session.getDate())
+                .startTime(LocalTime.of(18, 0)).endTime(LocalTime.of(19, 0)).status("Scheduled").build();
+        when(bookings.findOtherReservedBookings(eq(1), eq(10), any())).thenReturn(List.of(
+                ClassBooking.builder().session(otherSession).status("Booked").build()));
+        for (String method : List.of("PACKAGE", "DIRECT")) {
+            assertEquals(409, assertThrows(ResponseStatusException.class, () -> service.registerClass("1", 10,
+                    MemberClassBookingRequest.builder().paymentMethod(method).paymentChannel("Card").build(), "127.0.0.1")).getStatusCode().value());
+        }
+        verify(bookings, never()).save(any()); verify(payments, never()).save(any());
+        var order = inOrder(users, bookings);
+        order.verify(users).findByIdForUpdate(1);
+        order.verify(bookings).findOtherReservedBookings(eq(1), eq(10), any());
+    }
+
 }

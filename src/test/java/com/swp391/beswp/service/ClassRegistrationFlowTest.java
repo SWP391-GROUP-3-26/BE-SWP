@@ -31,7 +31,7 @@ class ClassRegistrationFlowTest {
     final List<ClassSession> sessionRows = new ArrayList<>();
     final List<ClassBooking> bookingRows = new ArrayList<>();
     final List<Payment> paymentRows = new ArrayList<>();
-    final AtomicReference<Instant> current = new AtomicReference<>(Instant.parse("2026-10-13T00:00:00Z"));
+    final AtomicReference<Instant> current = new AtomicReference<>(Instant.parse("2026-10-08T00:00:00Z"));
     final Clock clock = mock(Clock.class);
     final VnpayService vnpay = VnpayServiceTest.configured();
     MemberClassBookingService service;
@@ -88,6 +88,11 @@ class ClassRegistrationFlowTest {
         when(bookings.findOwnedClassId(anyInt(), eq(1))).thenReturn(Optional.of(10));
         when(bookings.findByIdAndUser_Id(anyInt(), eq(1))).thenAnswer(i -> bookingRows.stream()
                 .filter(b -> b.getId().equals(i.getArgument(0))).findFirst());
+        when(bookings.findPendingMixedByClassId(eq(10))).thenAnswer(i -> bookingRows.stream()
+                .filter(b -> "Pending".equals(b.getStatus()) && b.getRegistrationCode() != null
+                        && bookingRows.stream().anyMatch(p -> Objects.equals(p.getRegistrationCode(), b.getRegistrationCode()) && "PACKAGE".equals(p.getPaymentMethod()))
+                        && bookingRows.stream().anyMatch(d -> Objects.equals(d.getRegistrationCode(), b.getRegistrationCode()) && "DIRECT".equals(d.getPaymentMethod())))
+                .toList());
         ClassReservationService reservations = new ClassReservationService(bookings, payments);
         service = new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, mock(ActivityLogRepository.class),
                 users, subjects, vnpay, mock(SepayService.class), reservations, clock,
@@ -107,119 +112,89 @@ class ClassRegistrationFlowTest {
         params.put("vnp_SecureHash", vnpay.sign(params)); return params;
     }
 
-    MemberSubscription mixedPackage() {
+    MemberSubscription unlimitedPackage() {
         MemberSubscription sub = MemberSubscription.builder().id(90).status("Active")
-                .membershipPackage(MembershipPackage.builder().name("3 lượt").includedClasses(3).build())
+                .membershipPackage(MembershipPackage.builder().name("Gói theo thời hạn").build())
                 .startDate(LocalDate.of(2026, 10, 1)).endDate(LocalDate.of(2026, 10, 31)).build();
         when(subscriptions.findCurrentActiveSubscription(eq(1), any())).thenReturn(Optional.of(sub));
         when(includedSports.hasActiveIncludedEntitlement(eq(1), eq(1), any())).thenReturn(true);
-        when(bookings.countUsedPackageSessions(eq(1), any(), any())).thenAnswer(i -> bookingRows.stream()
-                .filter(b -> "PACKAGE".equals(b.getPaymentMethod()) && List.of("Booked", "Completed").contains(b.getStatus())).count());
-        when(bookings.countHeldPackageSessions(eq(1), any(), any(), any())).thenAnswer(i -> bookingRows.stream()
-                .filter(b -> "PACKAGE".equals(b.getPaymentMethod()) && "Pending".equals(b.getStatus())
-                        && b.getPaymentExpiresAt().isAfter(i.getArgument(3))).count());
         return sub;
     }
 
-    MemberClassBookingResponse mixed(String channel) {
-        return service.registerClass("1", 10, MemberClassBookingRequest.builder().paymentMethod("MIXED").paymentChannel(channel)
-                .packageSessions(3).paymentAmount(new BigDecimal("100000")).build(), "127.0.0.1");
+    Payment legacyMixed(String status) {
+        String code = UUID.randomUUID().toString();
+        LocalDateTime now = LocalDateTime.now(clock);
+        for (int i = 0; i < sessionRows.size(); i++) {
+            bookings.save(ClassBooking.builder().user(users.findById(1).orElseThrow()).session(sessionRows.get(i))
+                    .registrationCode(code).bookingDatetime(now).status(status)
+                    .paymentMethod(i < 3 ? "PACKAGE" : "DIRECT").paymentExpiresAt(now.plusMinutes(15)).build());
+        }
+        return payments.save(Payment.builder().booking(bookingRows.getFirst()).paymentType("Class_Booking")
+                .method("Card").status(status.equals("Pending") ? "Pending" : "Paid")
+                .amount(new BigDecimal("100000")).expiresAt(now.plusMinutes(15)).paymentDate(now).build());
     }
 
-    @Test void mixedQuoteChargesOnlyMissingSessionsAndHonorsSportAndTerm() {
-        var sub = mixedPackage();
-        var quote = service.getClassConfirmationDetail("1", 10).getPackageOption();
-        assertFalse(quote.isEligible()); assertTrue(quote.isMixedEligible());
-        assertEquals(3, quote.getPackageSessions()); assertEquals(1, quote.getPayableSessions());
-        assertEquals(new BigDecimal("100000.00"), quote.getAdditionalAmount());
+    @Test void packageQuoteUsesSportAndTermWithoutQuota() {
+        var sub = unlimitedPackage();
+        assertTrue(service.getClassConfirmationDetail("1", 10).getPackageOption().isEligible());
         when(includedSports.hasActiveIncludedEntitlement(eq(1), eq(1), any())).thenReturn(false);
-        assertFalse(service.getClassConfirmationDetail("1", 10).getPackageOption().isMixedEligible());
-        assertEquals(403, assertThrows(ResponseStatusException.class, () -> mixed("Card")).getStatusCode().value());
-        when(includedSports.hasActiveIncludedEntitlement(eq(1), eq(1), any())).thenReturn(true);
+        assertFalse(service.getClassConfirmationDetail("1", 10).getPackageOption().isEligible());
+        assertEquals(403, assertThrows(ResponseStatusException.class, () -> register("PACKAGE", null)).getStatusCode().value());
+        when(selections.hasActiveSelectedEntitlement(eq(1), eq(1), any())).thenReturn(true);
+        assertTrue(service.getClassConfirmationDetail("1", 10).getPackageOption().isEligible());
         sub.setEndDate(LocalDate.of(2026, 10, 18));
-        assertFalse(service.getClassConfirmationDetail("1", 10).getPackageOption().isMixedEligible());
-        assertThrows(ResponseStatusException.class, () -> mixed("Card"));
+        assertFalse(service.getClassConfirmationDetail("1", 10).getPackageOption().isEligible());
+        assertThrows(ResponseStatusException.class, () -> register("PACKAGE", null));
         assertTrue(bookingRows.isEmpty()); assertTrue(paymentRows.isEmpty());
     }
 
-    @Test void mixedPaymentHoldsQuotaThenConfirmsExactlyOnceAndRefundsCashPartOnly() {
-        mixedPackage();
-        var result = mixed("Card");
-        assertEquals(new BigDecimal("100000.00"), result.getPaymentAmount());
-        assertNotNull(result.getPaymentUrl());
-        assertEquals(List.of("PACKAGE", "PACKAGE", "PACKAGE", "DIRECT"), bookingRows.stream().map(ClassBooking::getPaymentMethod).toList());
-        assertTrue(bookingRows.stream().allMatch(b -> "Pending".equals(b.getStatus())));
-        var info = service.getActiveSubscriptionInfo(users.findById(1).orElseThrow());
-        assertEquals(0, info.getUsedSessions()); assertEquals(3, info.getHeldSessions()); assertEquals(0, info.getRemainingSessions());
-        var listed = service.getMyClasses("1", "all", null).getClasses().getFirst();
-        assertTrue(listed.isCanResumePayment()); assertEquals(3, listed.getHeldPackageSessions());
-        assertEquals(result.getPaymentId(), listed.getPaymentId());
-        assertEquals(result.getExpiresAt(), listed.getPaymentExpiresAt());
-        assertEquals("Gói hội viên + thanh toán phần thiếu", listed.getPaymentMethod());
-        var resumed = paymentService.resumePayment("1", result.getPaymentId(), "127.0.0.1");
-        assertTrue(resumed.isCanResumePayment()); assertEquals(result.getPaymentUrl(), resumed.getPaymentUrl());
-        assertEquals(3, service.getActiveSubscriptionInfo(users.findById(1).orElseThrow()).getHeldSessions());
-        assertEquals(1, paymentRows.size()); assertEquals(4, bookingRows.size());
-        ClassEntity other = ClassEntity.builder().id(11).status("Active").date(course.getDate()).endDate(course.getEndDate())
-                .startTime(course.getStartTime()).subject(course.getSubject()).maxCapacity(10).price(course.getPrice()).build();
-        when(classes.findByIdForUpdate(11)).thenReturn(Optional.of(other));
-        when(sessions.findUpcomingScheduledSessions(eq(11), any())).thenReturn(sessionRows);
-        assertThrows(ResponseStatusException.class, () -> service.registerClass("1", 11,
-                MemberClassBookingRequest.builder().paymentMethod("PACKAGE").build(), "127.0.0.1"));
-        Payment payment = paymentRows.getFirst();
-        var params = callback(payment, "00");
-        assertEquals("00", paymentService.processIpn(params).get("RspCode"));
-        assertEquals("02", paymentService.processIpn(params).get("RspCode"));
+    @Test void membershipAllowsWholeCourseAndSubsequentCourses() {
+        unlimitedPackage();
+        assertEquals(4, register("PACKAGE", null).getSessionCount());
+        ClassEntity advanced = ClassEntity.builder().id(11).name("Bơi nâng cao").status("Active")
+                .date(course.getDate().plusDays(14)).endDate(course.getEndDate().plusDays(7))
+                .daysOfWeek(course.getDaysOfWeek()).startTime(course.getStartTime()).subject(course.getSubject()).maxCapacity(10).build();
+        ClassSession advancedSession = ClassSession.builder().id(50).classEntity(advanced).date(advanced.getDate())
+                .startTime(course.getStartTime()).endTime(course.getEndTime()).status("Scheduled").build();
+        when(classes.findByIdForUpdate(11)).thenReturn(Optional.of(advanced));
+        when(sessions.findUpcomingScheduledSessions(eq(11), any())).thenReturn(List.of(advancedSession));
+        assertEquals(1, service.registerClass("1", 11, MemberClassBookingRequest.builder().paymentMethod("PACKAGE").build(), "127.0.0.1").getSessionCount());
+        assertEquals(5, bookingRows.size());
+        assertTrue(bookingRows.stream().allMatch(b -> "Booked".equals(b.getStatus()) && "PACKAGE".equals(b.getPaymentMethod())));
+        assertTrue(paymentRows.isEmpty());
+    }
+
+    @Test void mixedNewPaymentsAreRejectedForAllChannelsWithoutWrites() {
+        for (String channel : List.of("Card", "E_Wallet", "Cash")) {
+            assertEquals(400, assertThrows(ResponseStatusException.class, () -> register("MIXED", channel)).getStatusCode().value());
+        }
+        assertTrue(bookingRows.isEmpty()); assertTrue(paymentRows.isEmpty());
+    }
+
+    @Test void pendingLegacyMixedCannotResumeAndReleasesEverySeat() {
+        Payment payment = legacyMixed("Pending");
+        var result = paymentService.resumePayment("1", payment.getId(), "127.0.0.1");
+        assertFalse(result.isCanResumePayment()); assertNull(result.getPaymentUrl());
+        assertEquals("Failed", payment.getStatus());
+        assertTrue(bookingRows.stream().allMatch(b -> "Cancelled".equals(b.getStatus())));
+    }
+
+    @Test void lateLegacyMixedSuccessRequiresReviewAndDoesNotConfirmBookings() {
+        Payment payment = legacyMixed("Pending");
+        assertEquals("00", paymentService.processIpn(callback(payment, "00")).get("RspCode"));
+        assertEquals("Paid", payment.getStatus()); assertTrue(payment.isRequiresReview());
+        assertTrue(bookingRows.stream().allMatch(b -> "Cancelled".equals(b.getStatus())));
+        assertEquals("02", paymentService.processIpn(callback(payment, "00")).get("RspCode"));
+    }
+
+    @Test void paidLegacyMixedKeepsHistoryAndMonetaryRefund() {
+        Payment payment = legacyMixed("Booked");
+        paymentService.getPayment("1", payment.getId());
+        assertEquals("Paid", payment.getStatus());
         assertTrue(bookingRows.stream().allMatch(b -> "Booked".equals(b.getStatus())));
-        info = service.getActiveSubscriptionInfo(users.findById(1).orElseThrow());
-        assertEquals(3, info.getUsedSessions()); assertEquals(0, info.getHeldSessions());
+        assertEquals(List.of("PACKAGE", "PACKAGE", "PACKAGE", "DIRECT"), bookingRows.stream().map(ClassBooking::getPaymentMethod).toList());
         var preview = service.cancellationPreview("1", bookingRows.getFirst().getId());
-        assertEquals(3, preview.packageSessionsReturned()); assertEquals(new BigDecimal("100000"), preview.estimatedRefund());
-    }
-
-    @Test void failedMixedPaymentReleasesAllHeldQuota() {
-        mixedPackage(); mixed("Card");
-        paymentService.processIpn(callback(paymentRows.getFirst(), "24"));
-        assertEquals("Failed", paymentRows.getFirst().getStatus());
-        assertTrue(bookingRows.stream().allMatch(b -> "Cancelled".equals(b.getStatus())));
-        var info = service.getActiveSubscriptionInfo(users.findById(1).orElseThrow());
-        assertEquals(3, info.getRemainingSessions()); assertEquals(0, info.getHeldSessions());
-    }
-
-    @Test void cancellingPendingMixedPaymentReleasesQuotaWithoutCreatingCashRefund() {
-        mixedPackage(); mixed("Card");
-        service.cancelClassBooking("1", bookingRows.getFirst().getId());
-        assertTrue(bookingRows.stream().allMatch(b -> "Cancelled".equals(b.getStatus())));
-        assertEquals("Failed", paymentRows.getFirst().getStatus());
-        assertEquals(3, service.getActiveSubscriptionInfo(users.findById(1).orElseThrow()).getRemainingSessions());
-        paymentService.processIpn(callback(paymentRows.getFirst(), "00"));
-        assertTrue(paymentRows.getFirst().isRequiresReview());
-        assertEquals(0, service.getActiveSubscriptionInfo(users.findById(1).orElseThrow()).getUsedSessions());
-    }
-
-    @Test void expiredMixedHoldReleasesQuotaAndLatePaymentRequiresReview() {
-        mixedPackage(); mixed("Card");
-        current.set(current.get().plusSeconds(16 * 60));
-        assertEquals(3, service.getActiveSubscriptionInfo(users.findById(1).orElseThrow()).getRemainingSessions());
-        var listed = service.getMyClasses("1", "all", null).getClasses().getFirst();
-        assertFalse(listed.isCanResumePayment()); assertTrue(listed.isCanRebook());
-        assertEquals(0, listed.getHeldPackageSessions());
-        paymentService.processIpn(callback(paymentRows.getFirst(), "00"));
-        assertEquals("Paid", paymentRows.getFirst().getStatus()); assertTrue(paymentRows.getFirst().isRequiresReview());
-        assertTrue(bookingRows.stream().allMatch(b -> "Cancelled".equals(b.getStatus())));
-        assertEquals(0, service.getActiveSubscriptionInfo(users.findById(1).orElseThrow()).getUsedSessions());
-    }
-
-    @Test void mixedQrCreatesOnlySupplementPaymentAndRejectsStaleQuoteOrCash() {
-        mixedPackage();
-        var stale = MemberClassBookingRequest.builder().paymentMethod("MIXED").paymentChannel("Card")
-                .packageSessions(2).paymentAmount(new BigDecimal("200000")).build();
-        assertEquals(409, assertThrows(ResponseStatusException.class, () -> service.registerClass("1", 10, stale, "127.0.0.1")).getStatusCode().value());
-        assertThrows(ResponseStatusException.class, () -> mixed("Cash"));
-        assertTrue(bookingRows.isEmpty()); assertTrue(paymentRows.isEmpty());
-        var result = mixed("E_Wallet");
-        assertNull(result.getPaymentUrl()); assertEquals("Pending", result.getPaymentStatus());
-        assertEquals(new BigDecimal("100000.00"), result.getPaymentAmount());
+        assertEquals(new BigDecimal("50000"), preview.estimatedRefund());
     }
 
     @Test
@@ -258,7 +233,7 @@ class ClassRegistrationFlowTest {
     void registrationIsAllowedImmediatelyBeforeFirstSession() {
         current.set(Instant.parse("2026-10-13T00:29:59Z"));
         assertEquals(4, register("DIRECT", "Cash").getSessionCount());
-        assertTrue(service.getMyClasses("1", "all", null).getClasses().getFirst().isCanCancel());
+        assertFalse(service.getMyClasses("1", "all", null).getClasses().getFirst().isCanCancel());
     }
 
     @Test
@@ -310,22 +285,20 @@ class ClassRegistrationFlowTest {
     }
 
     @Test
-    void insufficientPackageOrOneFullSessionWritesNoPartialRegistration() {
+    void packageTermOrOneFullSessionWritesNoPartialRegistration() {
         when(includedSports.hasActiveIncludedEntitlement(eq(1), eq(1), any())).thenReturn(true);
-        MembershipPackage pkg = new MembershipPackage(); pkg.setIncludedClasses(3);
+        MembershipPackage pkg = new MembershipPackage();
         MemberSubscription sub = MemberSubscription.builder().membershipPackage(pkg)
                 .startDate(LocalDate.of(2026, 10, 1)).endDate(LocalDate.of(2026, 10, 31)).build();
         when(subscriptions.findCurrentActiveSubscription(eq(1), any())).thenReturn(Optional.of(sub));
-        assertThrows(ResponseStatusException.class, () -> register("PACKAGE", null));
-        assertTrue(bookingRows.isEmpty());
-        pkg.setIncludedClasses(10); sub.setEndDate(LocalDate.of(2026, 10, 18));
+        sub.setEndDate(LocalDate.of(2026, 10, 18));
         assertThrows(ResponseStatusException.class, () -> register("PACKAGE", null));
         sub.setEndDate(LocalDate.of(2026, 10, 31));
         when(bookings.countReservedMembersBySessionId(eq(sessionRows.getLast().getId()), any())).thenReturn(10L);
         assertThrows(ResponseStatusException.class, () -> register("DIRECT", "Cash"));
         assertTrue(bookingRows.isEmpty()); assertTrue(paymentRows.isEmpty());
         when(bookings.countReservedMembersBySessionId(eq(sessionRows.getLast().getId()), any())).thenReturn(1L);
-        assertEquals(6, register("PACKAGE", null).getRemainingPackageSessions());
+        assertEquals(4, register("PACKAGE", null).getSessionCount());
         assertEquals(4, bookingRows.size()); assertTrue(paymentRows.isEmpty());
     }
 
@@ -342,7 +315,7 @@ class ClassRegistrationFlowTest {
         var error = assertThrows(ResponseStatusException.class, () -> service.cancelClassBooking("1", bookingId,
                 new RefundDtos.CancelConfirmation(preview.estimatedRefund(), preview.cancelSessions())));
         assertEquals(400, error.getStatusCode().value());
-        assertTrue(error.getReason().contains("Lớp đã bắt đầu"));
+        assertEquals(ApiMessages.text("class.cancel.window"), error.getReason());
         assertTrue(bookingRows.stream().allMatch(b -> "Booked".equals(b.getStatus())));
         assertEquals("Paid", paymentRows.getFirst().getStatus());
         assertFalse(paymentRows.getFirst().isRequiresReview());

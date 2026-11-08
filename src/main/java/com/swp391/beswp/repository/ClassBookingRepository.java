@@ -30,7 +30,22 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
 
     List<ClassBooking> findBySession_ClassEntity_Id(Integer classId);
 
+    @Query("SELECT b FROM ClassBooking b WHERE b.session.classEntity.id = :classId " +
+            "AND b.status = 'Pending' AND b.registrationCode IS NOT NULL " +
+            "AND EXISTS (SELECT p.id FROM ClassBooking p WHERE p.registrationCode = b.registrationCode AND p.paymentMethod = 'PACKAGE') " +
+            "AND EXISTS (SELECT d.id FROM ClassBooking d WHERE d.registrationCode = b.registrationCode AND d.paymentMethod = 'DIRECT')")
+    List<ClassBooking> findPendingMixedByClassId(@Param("classId") Integer classId);
+
     List<ClassBooking> findByRegistrationCodeOrderByIdAsc(String registrationCode);
+
+    @Query("SELECT b FROM ClassBooking b JOIN FETCH b.session s JOIN FETCH s.classEntity c " +
+            "LEFT JOIN FETCH c.subject WHERE b.user.id = :userId AND c.id <> :classId " +
+            "AND LOWER(c.status) IN ('active', 'open') AND LOWER(s.status) = 'scheduled' " +
+            "AND (LOWER(b.status) = 'booked' OR (LOWER(b.status) = 'pending' AND b.paymentExpiresAt > :now)) " +
+            "ORDER BY b.id")
+    List<ClassBooking> findOtherReservedBookings(@Param("userId") Integer userId,
+                                               @Param("classId") Integer classId,
+                                               @Param("now") LocalDateTime now);
 
     @Query("SELECT COUNT(DISTINCT b.user.id) FROM ClassBooking b WHERE b.session.id = :sessionId " +
            "AND (LOWER(b.status) = 'booked' OR (LOWER(b.status) = 'pending' AND b.paymentExpiresAt > :now))")
@@ -93,25 +108,6 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
 
     @Query("SELECT COUNT(b) FROM ClassBooking b WHERE b.user.id = :userId AND LOWER(b.status) <> 'pending'")
     long countByUser_Id(@Param("userId") Integer userId);
-
-    @Query("SELECT COUNT(b) FROM ClassBooking b " +
-           "WHERE b.user.id = :userId " +
-           "AND LOWER(b.status) IN ('booked', 'completed') " +
-           "AND b.bookingDatetime >= :start " +
-           "AND b.bookingDatetime <= :end " +
-           "AND (b.paymentMethod = 'PACKAGE' OR (b.paymentMethod IS NULL AND " +
-           "b.id NOT IN (SELECT p.booking.id FROM Payment p WHERE p.booking IS NOT NULL AND LOWER(p.status) = 'paid')))")
-    long countUsedPackageSessions(
-            @Param("userId") Integer userId,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
-    );
-
-    @Query("SELECT COUNT(b) FROM ClassBooking b WHERE b.user.id = :userId " +
-           "AND b.paymentMethod = 'PACKAGE' AND b.status = 'Pending' " +
-           "AND b.paymentExpiresAt > :now AND b.bookingDatetime >= :start AND b.bookingDatetime <= :end")
-    long countHeldPackageSessions(@Param("userId") Integer userId, @Param("start") LocalDateTime start,
-                                 @Param("end") LocalDateTime end, @Param("now") LocalDateTime now);
 
     Optional<ClassBooking> findByIdAndUser_Id(Integer bookingId, Integer userId);
 

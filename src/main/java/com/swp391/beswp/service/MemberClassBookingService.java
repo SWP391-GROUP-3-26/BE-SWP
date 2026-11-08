@@ -111,7 +111,7 @@ public class MemberClassBookingService {
                     && paymentRepository.existsByBooking_IdAndStatusIgnoreCase(b.getId(), "Paid"));
             boolean hasPackageSessions = group.stream().anyMatch(item -> "PACKAGE".equals(item.getPaymentMethod()));
             String paymentMethod = hasDirectPayment && hasPackageSessions ? "Gói hội viên + thanh toán phần thiếu"
-                    : hasDirectPayment ? "Thanh toán trực tiếp" : "Trừ gói hội viên";
+                    : hasDirectPayment ? "Thanh toán trực tiếp" : "Sử dụng gói hội viên";
 
             String rawStatus = registrationStatus(group, today);
             String displayStatus = mapBookingDisplayStatus(rawStatus);
@@ -142,12 +142,10 @@ public class MemberClassBookingService {
                     .paymentAmount(payment == null ? null : payment.getAmount())
                     .requiresReview(payment != null && payment.isRequiresReview())
                     .canResumePayment(payment != null && "Pending".equals(payment.getStatus()) && "Pending".equals(rawStatus)
+                            && !(hasDirectPayment && hasPackageSessions)
                             && !payment.isRequiresReview() && payment.getExpiresAt() != null && payment.getExpiresAt().isAfter(LocalDateTime.now(paymentClock))
                             && ("Card".equals(payment.getMethod()) || "E_Wallet".equals(payment.getMethod())))
                     .paymentExpiresAt(payment == null || payment.getExpiresAt() == null ? null : payment.getExpiresAt().atOffset(VnpayService.OFFSET))
-                    .heldPackageSessions((int) group.stream().filter(item -> "PACKAGE".equals(item.getPaymentMethod())
-                            && "Pending".equals(item.getStatus()) && item.getPaymentExpiresAt() != null
-                            && item.getPaymentExpiresAt().isAfter(LocalDateTime.now(paymentClock))).count())
                     .bookingId(b.getId())
                     .classId(classEntity.getId())
                     .classCode(String.format("CLS-%03d", classEntity.getId()))
@@ -269,7 +267,8 @@ public class MemberClassBookingService {
             int remainingSlots = upcoming.isEmpty() ? 0 : Math.max(0, c.getMaxCapacity() - (int) enrolledCount);
             boolean isEnrolled = classBookingRepository.existsActiveBookingByUserIdAndClassId(user.getId(), c.getId(), LocalDateTime.now(paymentClock));
             ClassSession nextSession = nextBookableSession(c, LocalDateTime.now(paymentClock)).orElse(null);
-            boolean canRegister = ClassSchedule.notStarted(c, now) && remainingSlots > 0 && !isEnrolled && nextSession != null;
+            boolean canRegister = ClassSchedule.notStarted(c, now) && remainingSlots > 0 && !isEnrolled && nextSession != null
+                    && reservationService.registrationConflict(user.getId(), c, upcoming, now) == null;
 
             String capacityUnit = resolveCapacityUnit(subjectName, subjectCategory);
             String remainingSlotsText = String.format("Còn %d %s", remainingSlots, capacityUnit);
@@ -345,6 +344,7 @@ public class MemberClassBookingService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ApiMessages.text("class.notFound", classId)));
 
         List<ClassSession> courseSessions = remainingSessions(classEntity, LocalDateTime.now(paymentClock));
+        reservationService.validateMemberSchedule(user.getId(), classEntity, courseSessions, LocalDateTime.now(paymentClock));
         ClassSession nextSession = courseSessions.getFirst();
 
         MemberSubscriptionInfoResponse subInfo = getActiveSubscriptionInfo(user);
@@ -364,25 +364,13 @@ public class MemberClassBookingService {
                 && !subInfo.getStartDate().isAfter(LocalDate.now(paymentClock)) && subInfo.getEndDate() != null
                 && !courseSessions.getLast().getDate().isAfter(subInfo.getEndDate())
                 && hasPackageSport(user, classEntity);
-        int packageSessions = packageCoversCourse ? Math.min(courseSessions.size(), subInfo.getRemainingSessions()) : 0;
-        int payableSessions = courseSessions.size() - packageSessions;
-        BigDecimal additionalAmount = price.multiply(BigDecimal.valueOf(payableSessions));
-        boolean eligiblePackage = packageSessions == courseSessions.size();
-        boolean mixedEligible = packageSessions > 0 && payableSessions > 0 && price.signum() > 0;
-        String packageSubtitle = packageSessions > 0
-                ? "Dùng " + packageSessions + " lượt gói" + (payableSessions > 0 ? " + trả thêm " + payableSessions + " buổi" : "; không thu thêm học phí")
-                : "Gói phải đúng môn, còn lượt và có hiệu lực đến buổi cuối";
-
         ClassConfirmationDetailResponse.PackagePaymentOption packageOption = ClassConfirmationDetailResponse.PackagePaymentOption.builder()
-                .eligible(eligiblePackage)
-                .title("Trừ gói hội viên")
-                .subtitle(packageSubtitle)
-                .remainingSessions(subInfo.getRemainingSessions())
-                .requiredSessions(courseSessions.size())
-                .packageSessions(packageSessions).payableSessions(payableSessions)
-                .additionalAmount(additionalAmount).mixedEligible(mixedEligible)
+                .eligible(packageCoversCourse)
+                .title("Sử dụng gói hội viên")
+                .subtitle(packageCoversCourse ? "Được học toàn bộ khóa, không giới hạn số buổi"
+                        : "Gói phải đúng môn và có hiệu lực đến buổi cuối")
                 .packageName(subInfo.getPackageName())
-                .note("Lượt được giữ trong khi chờ thanh toán; chỉ trừ chính thức khi thanh toán thành công. Hết hạn hoặc thất bại sẽ giải phóng lượt.")
+                .note("Không trừ lượt khi đăng ký hoặc tham gia lớp học.")
                 .build();
 
         ClassConfirmationDetailResponse.DirectPaymentOption directOption = ClassConfirmationDetailResponse.DirectPaymentOption.builder()
@@ -418,13 +406,13 @@ public class MemberClassBookingService {
 
     /**
      * Thực hiện Đăng ký lớp với 1 trong 2 hình thức thanh toán:
-     * - Trừ gói hội viên (PACKAGE)
+     * - Sử dụng gói hội viên (PACKAGE)
      * - Thanh toán trực tiếp (DIRECT)
      */
     @Transactional
     public MemberClassBookingResponse registerClass(String principal, Integer targetClassId, MemberClassBookingRequest request, String ipAddress) {
         User user = findMemberUser(principal);
-        // Serialize package quota checks across different classes for the same member.
+        // Serialize registration with membership purchases and renewals for this member.
         userRepository.findByIdForUpdate(user.getId()).orElseThrow();
 
         Integer classId = targetClassId != null ? targetClassId : request.getClassId();
@@ -452,6 +440,7 @@ public class MemberClassBookingService {
         }
 
         List<ClassSession> courseSessions = remainingSessions(classEntity, now);
+        reservationService.validateMemberSchedule(user.getId(), classEntity, courseSessions, now);
         for (ClassSession selected : courseSessions) {
             if (classBookingRepository.countReservedMembersBySessionId(selected.getId(), now) >= classEntity.getMaxCapacity()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.session.full", selected.getDate()));
@@ -463,9 +452,11 @@ public class MemberClassBookingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.required"));
         }
 
-        boolean isMixed = "MIXED".equalsIgnoreCase(rawMethod.trim());
-        boolean isPackage = isPackagePayment(rawMethod) || isMixed;
-        boolean isDirect = isDirectPayment(rawMethod) || isMixed;
+        if ("MIXED".equalsIgnoreCase(rawMethod.trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.mixed.unsupported"));
+        }
+        boolean isPackage = isPackagePayment(rawMethod);
+        boolean isDirect = isDirectPayment(rawMethod);
 
         if (!isPackage && !isDirect) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.method"));
@@ -475,15 +466,10 @@ public class MemberClassBookingService {
         boolean isCard = isDirect && "Card".equals(channel);
         boolean isQr = isDirect && "E_Wallet".equals(channel);
         boolean isOnline = isCard || isQr;
-        if (isMixed && !isOnline) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.mixed.channel"));
-        }
         BigDecimal unitPrice = classEntity.getPrice() == null ? BigDecimal.ZERO : classEntity.getPrice();
         BigDecimal paymentAmount = isDirect ? unitPrice.multiply(BigDecimal.valueOf(courseSessions.size())) : null;
 
         MemberSubscription activeSub = null;
-        Integer remainingSessionsAfter = null;
-        int packageSessions = 0;
 
         if (isPackage) {
             Optional<MemberSubscription> subOpt = memberSubscriptionRepository.findCurrentActiveSubscription(user.getId(), LocalDate.now(paymentClock));
@@ -495,31 +481,10 @@ public class MemberClassBookingService {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                         ApiMessages.text("class.package.noSport"));
             }
-            int total = activeSub.getMembershipPackage() != null ? activeSub.getMembershipPackage().getIncludedClasses() : 0;
-            long used = classBookingRepository.countUsedPackageSessions(
-                    user.getId(),
-                    activeSub.getStartDate().atStartOfDay(),
-                    activeSub.getEndDate().atTime(23, 59, 59)
-            );
-            long held = classBookingRepository.countHeldPackageSessions(user.getId(), activeSub.getStartDate().atStartOfDay(),
-                    activeSub.getEndDate().atTime(23, 59, 59), now);
-            int remaining = Math.max(0, total - (int) used - (int) held);
-            if ((!isMixed && remaining < courseSessions.size()) || remaining == 0
-                    || activeSub.getStartDate().isAfter(now.toLocalDate())
+            if (activeSub.getStartDate().isAfter(now.toLocalDate())
                     || courseSessions.getLast().getDate().isAfter(activeSub.getEndDate())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        ApiMessages.text("class.package.quota", courseSessions.size(), remaining));
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.package.term"));
             }
-            packageSessions = Math.min(remaining, courseSessions.size());
-            if (isMixed) {
-                paymentAmount = unitPrice.multiply(BigDecimal.valueOf(courseSessions.size() - packageSessions));
-                if (packageSessions == courseSessions.size() || request.getPackageSessions() == null
-                        || request.getPackageSessions() != packageSessions || request.getPaymentAmount() == null
-                        || request.getPaymentAmount().compareTo(paymentAmount) != 0) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text("class.package.changed"));
-                }
-            }
-            remainingSessionsAfter = remaining - packageSessions;
         }
 
         if (paymentAmount != null && (paymentAmount.signum() < 0 || paymentAmount.precision() - paymentAmount.scale() > 10)) {
@@ -546,7 +511,7 @@ public class MemberClassBookingService {
         for (ClassSession selected : courseSessions) {
             registration.add(classBookingRepository.save(ClassBooking.builder().user(user).session(selected)
                     .registrationCode(registrationCode).bookingDatetime(now).status(isOnline ? "Pending" : "Booked")
-                    .paymentMethod(registration.size() < packageSessions ? "PACKAGE" : "DIRECT").paymentExpiresAt(expiresAt).build()));
+                    .paymentMethod(isPackage ? "PACKAGE" : "DIRECT").paymentExpiresAt(expiresAt).build()));
         }
         ClassBooking savedBooking = registration.getFirst();
 
@@ -586,10 +551,10 @@ public class MemberClassBookingService {
                 String.format("Hội viên %s đặt lớp '%s' qua hình thức %s",
                         user.getFullName(),
                         classEntity.getName(),
-                        isPackage ? "Trừ gói hội viên" : "Thanh toán trực tiếp")
+                        isPackage ? "Sử dụng gói hội viên" : "Thanh toán trực tiếp")
         );
 
-        String paymentMethodDisplay = isMixed ? "Gói hội viên + thanh toán phần thiếu" : isPackage ? "Trừ gói hội viên" : "Thanh toán trực tiếp";
+        String paymentMethodDisplay = isPackage ? "Sử dụng gói hội viên" : "Thanh toán trực tiếp";
         String schedule = formatScheduleWithDays(classEntity.getStartTime(), classEntity.getEndTime(), classEntity.getDaysOfWeek());
 
         return MemberClassBookingResponse.builder()
@@ -610,7 +575,6 @@ public class MemberClassBookingService {
                 .roomName(classEntity.getRoom() != null ? classEntity.getRoom().getName() : "")
                 .coachName(classEntity.getCoach() != null ? classEntity.getCoach().getFullName() : "")
                 .paymentMethod(paymentMethodDisplay)
-                .remainingPackageSessions(remainingSessionsAfter)
                 .paymentAmount(paymentAmount)
                 .bookingStatus(isOnline ? "Chờ thanh toán" : "Đang diễn ra")
                 .paymentId(savedPayment != null ? savedPayment.getId() : null)
@@ -735,35 +699,21 @@ public class MemberClassBookingService {
         }
 
         MemberSubscription sub = subOpt.get();
-        int total = sub.getMembershipPackage() != null ? sub.getMembershipPackage().getIncludedClasses() : 0;
-        long used = classBookingRepository.countUsedPackageSessions(
-                user.getId(),
-                sub.getStartDate().atStartOfDay(),
-                sub.getEndDate().atTime(23, 59, 59)
-        );
-        long held = classBookingRepository.countHeldPackageSessions(user.getId(), sub.getStartDate().atStartOfDay(),
-                sub.getEndDate().atTime(23, 59, 59), LocalDateTime.now(paymentClock));
-        int remaining = Math.max(0, total - (int) used - (int) held);
-
         String packageName = sub.getMembershipPackage() != null ? sub.getMembershipPackage().getName() : "Gói hội viên";
-        String banner = String.format("Gói hội viên khả dụng: %s (Còn %d buổi)", packageName, remaining);
+        String banner = String.format("Gói hội viên khả dụng: %s (Không giới hạn số buổi)", packageName);
 
         return MemberSubscriptionInfoResponse.builder()
                 .hasActivePackage(true)
                 .subscriptionId(sub.getId())
                 .packageId(sub.getMembershipPackage() != null ? sub.getMembershipPackage().getId() : null)
                 .packageName(packageName)
-                .totalSessions(total)
-                .usedSessions((int) used)
-                .heldSessions((int) held)
-                .remainingSessions(remaining)
                 .startDate(sub.getStartDate())
                 .endDate(sub.getEndDate())
                 .displayBanner(banner)
                 .build();
     }
 
-    private boolean hasPackageSport(User user, ClassEntity course) {
+    boolean hasPackageSport(User user, ClassEntity course) {
         Integer subjectId = course.getSubject() == null ? null : course.getSubject().getId();
         LocalDate today = LocalDate.now(paymentClock);
         return subjectId != null && (membershipIncludedSports.hasActiveIncludedEntitlement(user.getId(), subjectId, today)

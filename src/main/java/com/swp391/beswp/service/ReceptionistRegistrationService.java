@@ -88,7 +88,7 @@ public class ReceptionistRegistrationService {
         String keyword = normalize(search);
         List<PackageOption> data = packageRepository.searchPackages(keyword, "Active").stream()
                 .map(p -> new PackageOption(p.getId(), p.getName(), p.getDescription(), p.getPrice(),
-                        p.getDuration(), p.getIncludedClasses(), p.getBenefits(), p.getTermConditions()))
+                        p.getDuration(), p.getBenefits(), p.getTermConditions()))
                 .toList();
         return new PackageCatalogResponse(true, "Lấy danh sách gói tập thành công", data);
     }
@@ -173,23 +173,15 @@ public class ReceptionistRegistrationService {
                 member.getId(), course.getId(), now);
         MemberSubscription activeSubscription = memberSubscriptionRepository
                 .findCurrentActiveSubscription(member.getId(), now.toLocalDate()).orElse(null);
-        int totalPackageClasses = activeSubscription == null || activeSubscription.getMembershipPackage() == null
-                ? 0 : safeInt(activeSubscription.getMembershipPackage().getIncludedClasses());
-        int usedPackageClasses = activeSubscription == null ? 0 : safeInt(classBookingRepository.countUsedPackageSessions(
-                member.getId(), activeSubscription.getStartDate().atStartOfDay(),
-                activeSubscription.getEndDate().atTime(23, 59, 59)));
-        int heldPackageClasses = activeSubscription == null ? 0 : safeInt(classBookingRepository.countHeldPackageSessions(
-                member.getId(), activeSubscription.getStartDate().atStartOfDay(),
-                activeSubscription.getEndDate().atTime(23, 59, 59), now));
-        int remainingPackageClasses = Math.max(0, totalPackageClasses - usedPackageClasses - heldPackageClasses);
-        boolean packageTermCoversCourse = activeSubscription != null && !sessions.isEmpty()
-                && !sessions.getLast().getDate().isAfter(activeSubscription.getEndDate());
-        boolean canPayWithPackage = activeSubscription != null && packageTermCoversCourse
-                && remainingPackageClasses >= sessions.size();
+        boolean canPayWithPackage = activeSubscription != null && !sessions.isEmpty()
+                && !activeSubscription.getStartDate().isAfter(now.toLocalDate())
+                && !sessions.getLast().getDate().isAfter(activeSubscription.getEndDate())
+                && memberBookings.hasPackageSport(member, course);
         boolean seatsAvailable = !sessions.isEmpty() && sessionOptions.stream().allMatch(s -> s.availableSeats() > 0);
+        String scheduleConflict = classReservationService.registrationConflict(member.getId(), course, sessions, now);
         boolean canRegister = ClassSchedule.isOpen(course) && !ClassSchedule.expired(course, now.toLocalDate())
                 && ClassSchedule.notStarted(course, now)
-                && seatsAvailable && !alreadyRegistered;
+                && seatsAvailable && !alreadyRegistered && scheduleConflict == null;
 
         String message;
         if (!ClassSchedule.notStarted(course, now)) {
@@ -202,8 +194,10 @@ public class ReceptionistRegistrationService {
             message = "Có buổi học trong lớp đã hết chỗ";
         } else if (alreadyRegistered) {
             message = "Hội viên đã có đăng ký còn hiệu lực cho lớp này";
+        } else if (scheduleConflict != null) {
+            message = scheduleConflict;
         } else if (!canPayWithPackage) {
-            message = "Có thể đăng ký và thanh toán tại quầy; gói hiện tại không đủ buổi hoặc không bao phủ hết khóa";
+            message = "Có thể đăng ký và thanh toán tại quầy; gói hiện tại không bao gồm môn học hoặc không bao phủ hết khóa";
         } else {
             message = "Hội viên đủ điều kiện đăng ký bằng gói hoặc thanh toán tại quầy";
         }
@@ -214,10 +208,7 @@ public class ReceptionistRegistrationService {
                 activeSubscription == null ? null : activeSubscription.getId(),
                 activeSubscription == null || activeSubscription.getMembershipPackage() == null
                         ? null : activeSubscription.getMembershipPackage().getName(),
-                activeSubscription == null ? null : totalPackageClasses,
-                activeSubscription == null ? null : usedPackageClasses,
-                activeSubscription == null ? null : remainingPackageClasses,
-                sessions.size(), directAmount, COUNTER_PAYMENT_CHANNELS);
+                directAmount, COUNTER_PAYMENT_CHANNELS);
     }
 
     @Transactional
@@ -334,6 +325,7 @@ public class ReceptionistRegistrationService {
         if (sessions.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp không còn buổi học tương lai có thể đăng ký");
         }
+        classReservationService.validateMemberSchedule(member.getId(), course, sessions, registeredAt);
         List<SessionOption> beforeRegistration = toSessionOptions(sessions, registeredAt, false);
         SessionOption fullSession = beforeRegistration.stream().filter(s -> s.availableSeats() <= 0).findFirst().orElse(null);
         if (fullSession != null) {
@@ -345,7 +337,6 @@ public class ReceptionistRegistrationService {
         boolean packagePayment = "PACKAGE".equals(method);
         String paymentChannel = null;
         MemberSubscription activeSubscription = null;
-        Integer packageClassesRemaining = null;
         if (packagePayment) {
             if (StringUtils.hasText(request.paymentChannel())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -355,19 +346,13 @@ public class ReceptionistRegistrationService {
                     .findCurrentActiveSubscription(member.getId(), registeredAt.toLocalDate())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "Hội viên không có gói tập đang hoạt động"));
-            int total = activeSubscription.getMembershipPackage() == null ? 0
-                    : safeInt(activeSubscription.getMembershipPackage().getIncludedClasses());
-            long used = classBookingRepository.countUsedPackageSessions(member.getId(),
-                    activeSubscription.getStartDate().atStartOfDay(),
-                    activeSubscription.getEndDate().atTime(23, 59, 59));
-            long held = classBookingRepository.countHeldPackageSessions(member.getId(),
-                    activeSubscription.getStartDate().atStartOfDay(), activeSubscription.getEndDate().atTime(23, 59, 59), registeredAt);
-            int remaining = Math.max(0, total - safeInt(used) - safeInt(held));
-            if (remaining < sessions.size() || sessions.getLast().getDate().isAfter(activeSubscription.getEndDate())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Gói hội viên không đủ số buổi hoặc hết hạn trước buổi cuối của lớp");
+            if (!memberBookings.hasPackageSport(member, course)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, ApiMessages.text("class.package.noSport"));
             }
-            packageClassesRemaining = remaining - sessions.size();
+            if (activeSubscription.getStartDate().isAfter(registeredAt.toLocalDate())
+                    || sessions.getLast().getDate().isAfter(activeSubscription.getEndDate())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.package.term"));
+            }
         } else {
             paymentChannel = normalizePaymentChannel(request.paymentChannel());
             if (!"Cash".equals(paymentChannel)) {
@@ -430,7 +415,7 @@ public class ReceptionistRegistrationService {
                 activeSubscription == null ? null : activeSubscription.getId(),
                 activeSubscription == null || activeSubscription.getMembershipPackage() == null
                         ? null : activeSubscription.getMembershipPackage().getName(),
-                packageClassesRemaining, payment == null ? null : payment.getId(), paymentAmount,
+                payment == null ? null : payment.getId(), paymentAmount,
                 payment == null ? null : payment.getStatus(), registeredAt);
     }
 
@@ -691,10 +676,6 @@ public class ReceptionistRegistrationService {
 
     private int safeInt(long value) {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, value));
-    }
-
-    private int safeInt(Integer value) {
-        return value == null ? 0 : Math.max(0, value);
     }
 
     private LocalDateTime now() {

@@ -50,7 +50,6 @@ public class PackageResponse {
          */
         private Integer durationMonths;
 
-        private Integer includedClasses;
         private String benefits;
         private String termConditions;
         private String status;
@@ -77,7 +76,6 @@ public class PackageResponse {
                     .discount(pkg.getDiscount())
                     .durationDays(days)
                     .durationMonths(months)
-                    .includedClasses(pkg.getIncludedClasses())
                     .benefits(pkg.getBenefits())
                     .termConditions(pkg.getTermConditions())
                     .status(pkg.getStatus())

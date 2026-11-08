@@ -80,7 +80,7 @@ class SepayServiceTest {
 
     @Test
     void confirmsWholeRegistrationOnlyOnceAndLocksBeforeLoading() {
-        booking.setPaymentMethod("PACKAGE");
+        booking.setPaymentMethod("DIRECT");
         var second = ClassBooking.builder().id(43).session(booking.getSession()).status("Pending")
                 .registrationCode("registration").paymentMethod("DIRECT").paymentExpiresAt(booking.getPaymentExpiresAt()).build();
         booking.setRegistrationCode("registration");
@@ -94,6 +94,20 @@ class SepayServiceTest {
         verify(bookings, times(1)).findExpiredByClassId(eq(10), any());
         var order = inOrder(classes, payments);
         order.verify(classes).findByIdForUpdate(10); order.verify(payments).findById(105);
+    }
+
+    @Test
+    void pendingLegacyMixedIsCancelledAndLateMoneyRequiresReview() {
+        booking.setPaymentMethod("PACKAGE"); booking.setRegistrationCode("legacy-mixed");
+        var second = ClassBooking.builder().id(43).session(booking.getSession()).status("Pending")
+                .registrationCode("legacy-mixed").paymentMethod("DIRECT").paymentExpiresAt(booking.getPaymentExpiresAt()).build();
+        when(bookings.findByRegistrationCodeOrderByIdAsc("legacy-mixed")).thenReturn(List.of(booking, second));
+        when(bookings.findPendingMixedByClassId(10)).thenReturn(List.of(booking, second));
+        service.processWebhook(auth, valid());
+        assertEquals("Paid", payment.getStatus()); assertTrue(payment.isRequiresReview());
+        assertEquals("Cancelled", booking.getStatus()); assertEquals("Cancelled", second.getStatus());
+        service.processWebhook(auth, valid());
+        assertEquals("Cancelled", booking.getStatus());
     }
 
     @Test

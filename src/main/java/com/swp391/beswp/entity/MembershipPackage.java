@@ -51,11 +51,6 @@ public class MembershipPackage {
     @Builder.Default
     private BigDecimal discount = BigDecimal.ZERO;
 
-    /** Legacy display metadata; sport entitlements are defined by Included Sports/Choice Groups. */
-    @Column(name = "Included_Classes", nullable = false)
-    @Builder.Default
-    private Integer includedClasses = 0;
-
     /** Optional marketing copy. It is not used to authorize a membership. */
     @Column(name = "Benefits", columnDefinition = "NVARCHAR(MAX)")
     private String benefits;

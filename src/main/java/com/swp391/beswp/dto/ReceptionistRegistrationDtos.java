@@ -16,7 +16,6 @@ public final class ReceptionistRegistrationDtos {
             String description,
             BigDecimal price,
             Integer durationDays,
-            Integer includedClasses,
             String benefits,
             String termConditions
     ) {
@@ -97,10 +96,6 @@ public final class ReceptionistRegistrationDtos {
             boolean canPayWithPackage,
             Integer subscriptionId,
             String packageName,
-            Integer totalPackageClasses,
-            Integer usedPackageClasses,
-            Integer remainingPackageClasses,
-            Integer requiredPackageClasses,
             BigDecimal directPaymentAmount,
             List<String> paymentChannels
     ) {
@@ -121,7 +116,6 @@ public final class ReceptionistRegistrationDtos {
             List<SessionOption> sessions,
             Integer subscriptionId,
             String packageName,
-            Integer remainingPackageClasses,
             Integer paymentId,
             BigDecimal paymentAmount,
             String paymentStatus,

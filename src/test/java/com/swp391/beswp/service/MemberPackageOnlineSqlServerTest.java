@@ -53,7 +53,7 @@ class MemberPackageOnlineSqlServerTest {
         member.setPassword("integration-only-no-login"); member.setFullName("Online package rollback test"); member.setStatus("Active");
         member = users.saveAndFlush(member);
         pack = packages.saveAndFlush(MembershipPackage.builder().name("Online rollback " + unique)
-                .price(new BigDecimal("100000")).discount(new BigDecimal("10")).duration(30).includedClasses(12).status("Active").build());
+                .price(new BigDecimal("100000")).discount(new BigDecimal("10")).duration(30).status("Active").build());
     }
 
     Payment order(String method, String renewalStart, boolean renewal) throws Exception {

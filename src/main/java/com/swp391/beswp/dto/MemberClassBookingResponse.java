@@ -39,7 +39,6 @@ public class MemberClassBookingResponse {
     private String roomName;
     private String coachName;
     private String paymentMethod;
-    private Integer remainingPackageSessions;
     private BigDecimal paymentAmount;
     private String bookingStatus;
     private LocalDateTime bookingDatetime;

@@ -445,7 +445,7 @@ public class MemberPackageService {
         return PackageResponse.PackageData.builder()
                 .code(base.getCode()).id(base.getId()).name(base.getName()).description(base.getDescription())
                 .price(base.getPrice()).discount(base.getDiscount()).durationDays(base.getDurationDays())
-                .durationMonths(base.getDurationMonths()).includedClasses(base.getIncludedClasses())
+                .durationMonths(base.getDurationMonths())
                 .benefits(base.getBenefits()).termConditions(base.getTermConditions()).status(base.getStatus())
                 .statusLabel(base.getStatusLabel()).includedSports(included).choiceGroups(groups).build();
     }

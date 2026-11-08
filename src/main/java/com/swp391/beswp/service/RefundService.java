@@ -36,8 +36,7 @@ public class RefundService {
             if (!paidSessions.isEmpty() && cancelledPaid > 0) expected = expected.add(halfAmount(p.getAmount()));
         }
         return new CancellationPreview(bookingId, registration.size(), cancelled.size(), paid, expected,
-                registration.stream().anyMatch(b -> "PACKAGE".equals(b.getPaymentMethod())), sessionViews(registration, cancelled),
-                (int) registration.stream().filter(b -> "PACKAGE".equals(b.getPaymentMethod()) && cancelled.contains(b.getId())).count());
+                registration.stream().anyMatch(b -> "PACKAGE".equals(b.getPaymentMethod())), sessionViews(registration, cancelled));
     }
 
     public Set<Integer> futureBookings(List<ClassBooking> registration) {
@@ -68,7 +67,7 @@ public class RefundService {
 
     private RefundRequest create(Payment payment, List<ClassBooking> registration, Set<Integer> cancelled, User actor,
                                 String reason, boolean fixedHalfRefund) {
-        // Only cash-funded sessions enter the monetary refund; package rows release their own quota.
+        // Only directly paid sessions enter the monetary refund, including historical mixed payments.
         registration = paidSessions(registration);
         Set<Integer> paidIds = registration.stream().map(ClassBooking::getId).collect(java.util.stream.Collectors.toSet());
         cancelled = cancelled.stream().filter(paidIds::contains).collect(java.util.stream.Collectors.toSet());

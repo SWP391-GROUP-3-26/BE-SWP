@@ -56,7 +56,7 @@ class ReceptionistRegistrationSqlServerTest {
     @BeforeEach void fixture() {
         member = fixtureUser("Member"); actor = fixtureUser("Receptionist");
         pack = packages.saveAndFlush(MembershipPackage.builder().name("Rollback " + UUID.randomUUID()).price(new BigDecimal("100000"))
-                .duration(30).includedClasses(10).status("Active").build());
+                .duration(30).status("Active").build());
         base = "/api/receptionist/registrations/members/" + member.getId();
     }
 
@@ -67,13 +67,13 @@ class ReceptionistRegistrationSqlServerTest {
         return json.readTree(result.getResponse().getContentAsString()).get("paymentId").asInt();
     }
 
-    @Test void cashIsPaidForSelectedMemberAndProfileShowsQuota() throws Exception {
+    @Test void cashIsPaidForSelectedMemberAndProfileOmitsQuota() throws Exception {
         int id = purchase("Cash"); em.flush();
         assertEquals("Paid", jdbc.queryForObject("SELECT Status FROM dbo.Payment WHERE Payment_ID=?", String.class, id));
         assertEquals(actor.getId(), jdbc.queryForObject("SELECT Receptionist_ID FROM dbo.Payment WHERE Payment_ID=?", Integer.class, id));
         assertEquals(member.getId(), jdbc.queryForObject("SELECT s.User_ID FROM dbo.Payment p JOIN dbo.Member_Subscription s ON p.Subscription_ID=s.Subscription_ID WHERE p.Payment_ID=?", Integer.class, id));
         mvc.perform(get("/api/receptionist/members/" + member.getId()).with(user(actor.getId().toString()).roles("Receptionist")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.activePackages[0].remainingClasses").value(10));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.activePackages[0].remainingClasses").doesNotExist());
     }
 
     @Test void cancelledQrThenLateDuplicateWebhookRequiresReviewAndKeepsSubscriptionCancelled() throws Exception {

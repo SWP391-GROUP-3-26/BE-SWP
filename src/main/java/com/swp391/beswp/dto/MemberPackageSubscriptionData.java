@@ -22,7 +22,6 @@ public class MemberPackageSubscriptionData {
     private String packageName;
     private BigDecimal packagePrice;
     private Integer durationDays;
-    private Integer includedClasses;
     private LocalDate startDate;
     private LocalDate endDate;
     private String subscriptionStatus;
@@ -42,7 +41,6 @@ public class MemberPackageSubscriptionData {
                 .packageName(subscription.getPackageNameAtPurchase())
                 .packagePrice(subscription.getPriceAtPurchase())
                 .durationDays(subscription.getDurationAtPurchase())
-                .includedClasses(subscription.getMembershipPackage().getIncludedClasses())
                 .startDate(subscription.getStartDate())
                 .endDate(subscription.getEndDate())
                 .subscriptionStatus(subscription.getStatus())

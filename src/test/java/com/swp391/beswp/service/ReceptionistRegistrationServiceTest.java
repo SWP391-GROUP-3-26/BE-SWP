@@ -208,18 +208,30 @@ class ReceptionistRegistrationServiceTest {
         verify(classBookingRepository, never()).save(any()); verify(paymentRepository, never()).save(any());
     }
 
-    @Test void packageClassRequiresQuotaAndCoverageThroughLastSession() {
+    @Test void packageClassRequiresSportAndCoverageButNotQuota() {
         classFixture();
-        var pack = MembershipPackage.builder().includedClasses(0).build();
+        var pack = MembershipPackage.builder().build();
         var sub = MemberSubscription.builder().id(10).membershipPackage(pack).startDate(LocalDate.now(paymentClock))
                 .endDate(LocalDate.now(paymentClock).plusDays(30)).build();
         when(memberSubscriptionRepository.findCurrentActiveSubscription(eq(7), any())).thenReturn(Optional.of(sub));
         assertThrows(ResponseStatusException.class, () -> service.registerClass(auth, 7, new ReceptionistClassRegistrationRequest(11, "PACKAGE", null)));
-        pack.setIncludedClasses(10); sub.setEndDate(LocalDate.now(paymentClock));
+        when(memberBookings.hasPackageSport(eq(member), any())).thenReturn(true); sub.setEndDate(LocalDate.now(paymentClock));
         assertThrows(ResponseStatusException.class, () -> service.registerClass(auth, 7, new ReceptionistClassRegistrationRequest(11, "PACKAGE", null)));
         sub.setEndDate(LocalDate.now(paymentClock).plusDays(30));
         var result = service.registerClass(auth, 7, new ReceptionistClassRegistrationRequest(11, "PACKAGE", null));
-        assertEquals(9, result.remainingPackageClasses()); assertNull(result.paymentId()); assertNull(result.paymentChannel());
+        assertNull(result.paymentId()); assertNull(result.paymentChannel());
         verify(paymentRepository, never()).save(any());
     }
+    @Test void counterRegistrationChecksScheduleBeforeWrites() {
+        classFixture();
+        doThrow(new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT, "Schedule conflict"))
+                .when(classReservationService).validateMemberSchedule(eq(7), any(), anyList(), any());
+        assertEquals(409, assertThrows(ResponseStatusException.class, () -> service.registerClass(auth, 7,
+                new ReceptionistClassRegistrationRequest(11, "DIRECT", "Cash"))).getStatusCode().value());
+        verify(classBookingRepository, never()).save(any()); verify(paymentRepository, never()).save(any());
+        var order = inOrder(userRepository, classReservationService);
+        order.verify(userRepository).findByIdForUpdate(7);
+        order.verify(classReservationService).validateMemberSchedule(eq(7), any(), anyList(), any());
+    }
+
 }

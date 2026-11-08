@@ -15,8 +15,7 @@ public final class RefundDtos {
     }
     public record SessionView(Integer sessionId, LocalDate date, LocalTime startTime, boolean refundable) { }
     public record CancellationPreview(Integer bookingId, int totalSessions, int cancelSessions, BigDecimal paidAmount,
-                                      BigDecimal estimatedRefund, boolean usesPackage, List<SessionView> sessions,
-                                      int packageSessionsReturned) { }
+                                      BigDecimal estimatedRefund, boolean usesPackage, List<SessionView> sessions) { }
     public record CancelConfirmation(
             @NotNull(message = "{class.cancel.refund.required}")
             @PositiveOrZero(message = "{class.cancel.refund.minimum}") BigDecimal estimatedRefund,

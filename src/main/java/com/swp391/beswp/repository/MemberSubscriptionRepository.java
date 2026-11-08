@@ -17,7 +17,7 @@ public interface MemberSubscriptionRepository extends JpaRepository<MemberSubscr
            "JOIN FETCH s.membershipPackage p " +
            "WHERE s.user.id = :userId " +
            "AND LOWER(s.status) = 'active' " +
-           "AND s.endDate >= :today " +
+           "AND s.startDate <= :today AND s.endDate >= :today " +
            "ORDER BY s.endDate DESC")
     List<MemberSubscription> findActiveSubscriptionsByUserId(
             @Param("userId") Integer userId,

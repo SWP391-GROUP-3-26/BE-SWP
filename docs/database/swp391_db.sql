@@ -120,7 +120,6 @@ CREATE TABLE Membership_Package (
     Description      NVARCHAR(MAX)     NULL,
     Price            DECIMAL(12,2)     NOT NULL,
     Duration         INT               NOT NULL,   -- số ngày
-    Included_Classes INT               NOT NULL CONSTRAINT DF_Package_Classes DEFAULT 0,   -- số buổi học
     Benefits         NVARCHAR(MAX)     NULL,
     Term_Conditions  NVARCHAR(MAX)     NULL,
     Status           NVARCHAR(20)      NOT NULL CONSTRAINT DF_Package_Status DEFAULT N'Active',
@@ -128,7 +127,6 @@ CREATE TABLE Membership_Package (
     CONSTRAINT UQ_Package_Name UNIQUE (Name),
     CONSTRAINT CK_Package_Price    CHECK (Price >= 0),
     CONSTRAINT CK_Package_Duration CHECK (Duration > 0),
-    CONSTRAINT CK_Package_Classes  CHECK (Included_Classes >= 0),
     CONSTRAINT CK_Package_Status   CHECK (Status IN (N'Active', N'Inactive'))
 );
 GO

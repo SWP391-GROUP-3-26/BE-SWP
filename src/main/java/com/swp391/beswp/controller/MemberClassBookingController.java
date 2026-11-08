@@ -73,7 +73,7 @@ public class MemberClassBookingController {
     /**
      * Màn hình 3: Pop-up xác nhận thông tin đặt lớp
      */
-    @Operation(summary = "Chi tiết xác nhận đặt lớp (Pop-up)", description = "Lấy thông tin chi tiết lớp học và kiểm tra tính khả dụng của 2 hình thức thanh toán (Trừ gói hội viên / Thanh toán trực tiếp).")
+    @Operation(summary = "Chi tiết xác nhận đặt lớp (Pop-up)", description = "Lấy thông tin chi tiết lớp học và kiểm tra tính khả dụng của 2 hình thức thanh toán (Sử dụng gói hội viên / Thanh toán trực tiếp).")
     @GetMapping("/{classId}/confirm")
     public ResponseEntity<ClassConfirmationDetailResponse> getClassConfirmationDetail(
             Authentication authentication,
@@ -85,7 +85,7 @@ public class MemberClassBookingController {
     /**
      * Màn hình 3: Thực hiện đăng ký lớp
      */
-    @Operation(summary = "Tiến hành đăng ký lớp học", description = "Đăng ký lớp học và chọn hình thức thanh toán (PACKAGE - Trừ gói hội viên hoặc DIRECT - Thanh toán trực tiếp).")
+    @Operation(summary = "Tiến hành đăng ký lớp học", description = "Đăng ký lớp học và chọn hình thức thanh toán (PACKAGE - Sử dụng gói hội viên hoặc DIRECT - Thanh toán trực tiếp).")
     @PostMapping("/{classId}/register")
     public ResponseEntity<MemberClassBookingResponse> registerClassWithPathVariable(
             Authentication authentication,

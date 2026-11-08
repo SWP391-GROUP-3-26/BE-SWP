@@ -221,7 +221,7 @@ class ReceptionistMemberControllerTest {
     void detailSerializesActiveRegistrationsForSelectedMember() throws Exception {
         when(users.findByIdAndRoleRoleNameIgnoreCase(42, "Member")).thenReturn(Optional.of(member()));
         var today = java.time.LocalDate.of(2026, 10, 16);
-        var pack = com.swp391.beswp.entity.MembershipPackage.builder().id(3).name("Gói tháng").includedClasses(12).build();
+        var pack = com.swp391.beswp.entity.MembershipPackage.builder().id(3).name("Gói tháng").build();
         when(subscriptions.findActiveSubscriptionsByUserId(42, today)).thenReturn(List.of(
                 com.swp391.beswp.entity.MemberSubscription.builder().id(7).membershipPackage(pack)
                         .startDate(today.minusDays(10)).endDate(today).build()));

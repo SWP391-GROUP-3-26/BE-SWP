@@ -103,7 +103,7 @@ public class ReceptionistRegistrationController {
     }
 
     @Operation(summary = "Đăng ký hội viên vào toàn bộ các buổi còn lại của lớp",
-            description = "DIRECT/Cash ghi Paid sau xác nhận nhận tiền; DIRECT/Card hoặc E_Wallet giữ chỗ Pending qua cổng thanh toán. PACKAGE trừ lượt gói, không gửi paymentChannel.")
+            description = "DIRECT/Cash ghi Paid sau xác nhận nhận tiền; DIRECT/Card hoặc E_Wallet giữ chỗ Pending qua cổng thanh toán. PACKAGE sử dụng quyền lợi gói, không giới hạn số buổi, không gửi paymentChannel.")
     @PostMapping("/members/{memberId}/classes")
     public ResponseEntity<Object> registerClass(
             Authentication authentication,

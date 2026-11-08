@@ -88,15 +88,15 @@ GO
    3. Membership_Package   (Duration: số ngày)
    --------------------------------------------------------------------- */
 SET IDENTITY_INSERT Membership_Package ON;
-INSERT INTO Membership_Package (Package_ID, Name, Description, Price, Duration, Included_Classes, Benefits, Term_Conditions, Status) VALUES
-(1, N'Basic 1 tháng',    N'Gói cơ bản dành cho người mới bắt đầu',            500000.00,   30,   8,
-    N'Sử dụng phòng tập tự do; 8 buổi lớp nhóm',
+INSERT INTO Membership_Package (Package_ID, Name, Description, Price, Duration, Benefits, Term_Conditions, Status) VALUES
+(1, N'Basic 1 tháng',    N'Gói cơ bản dành cho người mới bắt đầu',            500000.00,   30,
+    N'Sử dụng phòng tập tự do; lớp nhóm trong thời hạn gói',
     N'Không hoàn tiền; không bảo lưu', N'Active'),
-(2, N'Standard 3 tháng', N'Gói tiêu chuẩn tiết kiệm hơn so với gói tháng',   1300000.00,  90,  30,
-    N'Phòng tập tự do; 30 buổi lớp nhóm; 1 buổi tư vấn dinh dưỡng',
+(2, N'Standard 3 tháng', N'Gói tiêu chuẩn tiết kiệm hơn so với gói tháng',   1300000.00,  90,
+    N'Phòng tập tự do; lớp nhóm trong thời hạn gói; 1 buổi tư vấn dinh dưỡng',
     N'Được bảo lưu tối đa 7 ngày', N'Active'),
-(3, N'Premium 12 tháng', N'Gói cao cấp cho hội viên gắn bó lâu dài',          4500000.00, 365, 150,
-    N'Phòng tập tự do; 150 buổi lớp nhóm; 4 buổi huấn luyện cá nhân',
+(3, N'Premium 12 tháng', N'Gói cao cấp cho hội viên gắn bó lâu dài',          4500000.00, 365,
+    N'Phòng tập tự do; lớp nhóm trong thời hạn gói; 4 buổi huấn luyện cá nhân',
     N'Được bảo lưu tối đa 30 ngày; được chuyển nhượng 1 lần', N'Active');
 SET IDENTITY_INSERT Membership_Package OFF;
 GO

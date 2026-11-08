@@ -120,9 +120,9 @@ The detail response additionally includes `data.activePackages` and `data.active
 Both are arrays (empty when no matching registrations exist). Search results retain
 only the profile fields. The receptionist frontend renders these arrays below the profile.
 
-- `activePackages`: `subscriptionId`, `packageId`, `packageName`, `includedClasses`,
+- `activePackages`: `subscriptionId`, `packageId`, `packageName`,
   `startDate`, `endDate`. Subscriptions must be Active with startDate <= today <= endDate.
-  `includedClasses` is the package allowance, not the remaining session balance.
+  Membership access is based on its term and sport entitlements, without a session allowance.
 - `activeClasses`: `classId`, `className`, `subjectName`, `coachName`, `roomName`,
   `daysOfWeek`, `startDate`, `endDate`, `startTime`, `endTime`. Only confirmed Booked
   registrations in Active/Open classes are included. Classes must not be expired and

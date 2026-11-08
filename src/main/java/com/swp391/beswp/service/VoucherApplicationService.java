@@ -98,7 +98,7 @@ public class VoucherApplicationService {
                 authentication.getName(), purchase.getClassId(), purchase, ipAddress);
         if (result.getPaymentId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Voucher chỉ áp dụng cho thanh toán trực tiếp, không áp dụng khi dùng toàn bộ lượt gói hội viên");
+                    "Voucher chỉ áp dụng cho thanh toán trực tiếp, không áp dụng khi sử dụng gói hội viên");
         }
         Payment payment = ownedPayment(result.getPaymentId(), member.getId());
         AppliedVoucher applied = applyVoucher(payment, request.voucherCode(), false);
@@ -346,10 +346,10 @@ public class VoucherApplicationService {
     private void requireMemberOnlineClassPayment(MemberClassBookingRequest purchase) {
         String method = purchase.getPaymentMethod() == null ? "" : purchase.getPaymentMethod().trim();
         String channel = purchase.getPaymentChannel() == null ? "" : purchase.getPaymentChannel().trim();
-        if (!("DIRECT".equalsIgnoreCase(method) || "MIXED".equalsIgnoreCase(method))
+        if (!"DIRECT".equalsIgnoreCase(method)
                 || !("Card".equalsIgnoreCase(channel) || "E_Wallet".equalsIgnoreCase(channel))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Thanh toán lớp có voucher chỉ hỗ trợ VNPay hoặc QR SePay; không áp dụng cho lượt PACKAGE");
+                    "Thanh toán lớp có voucher chỉ hỗ trợ VNPay hoặc QR SePay; không áp dụng khi sử dụng gói hội viên");
         }
     }
 
@@ -364,7 +364,7 @@ public class VoucherApplicationService {
     private String requireReceptionistClassChannel(ReceptionistClassRegistrationRequest purchase) {
         if (!"DIRECT".equalsIgnoreCase(purchase.paymentMethod())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Voucher không áp dụng cho đăng ký lớp bằng lượt gói hội viên");
+                    "Voucher không áp dụng cho đăng ký lớp bằng gói hội viên");
         }
         String channel = normalizedChannel(purchase.paymentChannel());
         if (!List.of("Cash", "Card", "E_Wallet").contains(channel)) {

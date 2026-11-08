@@ -47,15 +47,7 @@ public class MemberService {
         LocalDate today = now.toLocalDate();
         var packages = subscriptionRepository.findActiveSubscriptionsByUserId(id, today).stream()
                 .filter(subscription -> !subscription.getStartDate().isAfter(today))
-                .map(subscription -> {
-                    Integer included = subscription.getMembershipPackage().getIncludedClasses();
-                    long used = bookingRepository.countUsedPackageSessions(id, subscription.getStartDate().atStartOfDay(),
-                            subscription.getEndDate().atTime(23, 59, 59));
-                    long held = bookingRepository.countHeldPackageSessions(id, subscription.getStartDate().atStartOfDay(),
-                            subscription.getEndDate().atTime(23, 59, 59), now);
-                    int remaining = (int) Math.max(0L, (included == null ? 0L : included.longValue()) - used - held);
-                    return MemberResponse.PackageData.fromEntity(subscription, remaining);
-                }).toList();
+                .map(MemberResponse.PackageData::fromEntity).toList();
 
         var classes = new LinkedHashMap<Integer, MemberResponse.ClassData>();
         for (var booking : bookingRepository.findMyBookings(id, "Booked", null)) {

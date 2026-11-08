@@ -14,7 +14,8 @@ import static org.mockito.Mockito.*;
 
 class MemberRegistrationScheduleTest {
     final ClassBookingRepository bookings = mock(ClassBookingRepository.class);
-    final ClassReservationService service = new ClassReservationService(bookings, mock(PaymentRepository.class));
+    final MemberPackageSubscriptionRepository subscriptions = mock(MemberPackageSubscriptionRepository.class);
+    final ClassReservationService service = new ClassReservationService(bookings, mock(PaymentRepository.class), subscriptions);
     final LocalDateTime now = LocalDateTime.of(2026, 11, 8, 10, 0);
     final LocalDate day = now.toLocalDate().plusDays(5);
 
@@ -84,4 +85,14 @@ class MemberRegistrationScheduleTest {
         reserved(session(other, day.plusDays(11), "18:00", "19:00"));
         assertNull(service.registrationConflict(7, target, List.of(session(target, day.plusDays(11), "18:00", "19:00")), now));
     }
+    @Test void frozenMembershipBlocksNewSessionsDuringFreezeButNotAfterReturn() {
+        var frozen = MemberSubscription.builder().status("Frozen").freezeStartedAt(now).freezeEndsAt(now.plusMonths(1)).build();
+        when(subscriptions.findFrozenSubscriptions(7)).thenReturn(List.of(frozen));
+        var target = course(10, 1, day, day.plusDays(60));
+        assertEquals(ApiMessages.text("class.registration.frozen"), service.registrationConflict(7, target,
+                List.of(session(target, day, "18:00", "19:00")), now));
+        assertNull(service.registrationConflict(7, target,
+                List.of(session(target, day.plusMonths(1), "18:00", "19:00")), now));
+    }
+
 }

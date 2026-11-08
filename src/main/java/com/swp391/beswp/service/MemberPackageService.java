@@ -51,7 +51,7 @@ import java.util.Map;
 public class MemberPackageService {
 
     private static final int MAX_PAGE_SIZE = 100;
-    private static final List<String> SUBSCRIPTION_STATUSES = List.of("Active", "Pending", "Expired", "Cancelled");
+    private static final List<String> SUBSCRIPTION_STATUSES = List.of("Active", "Pending", "Frozen", "Expired", "Cancelled");
 
     private final MembershipPackageRepository packageRepository;
     private final MemberPackageSubscriptionRepository subscriptionRepository;
@@ -175,6 +175,9 @@ public class MemberPackageService {
         User member = requireMember(principal);
         userRepository.findByIdForUpdate(member.getId()).orElseThrow();
         subscriptionPayments.expirePending(member.getId());
+        if (subscriptionRepository.existsByUser_IdAndStatusIgnoreCase(member.getId(), "Frozen")) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Vui lòng tham gia lại trước khi mua hoặc gia hạn gói");
+        }
         MembershipPackage membershipPackage = findActivePackage(request.getPackageId());
         String paymentMethod = normalizePaymentMethod(request.getPaymentMethod());
         if (online) {
@@ -236,7 +239,8 @@ public class MemberPackageService {
                 .membershipPackage(membershipPackage)
                 .priceAtPurchase(priceAtPurchase)
                 .durationAtPurchase(membershipPackage.getDuration())
-                .termsAtPurchase(membershipPackage.getTermConditions())
+                .termsAtPurchase(MembershipFreezePolicy.purchaseTerms(membershipPackage.getTermConditions(), membershipPackage.getFreezeMonths()))
+                .freezeMonthsAtPurchase(membershipPackage.getFreezeMonths())
                 .packageNameAtPurchase(membershipPackage.getName())
                 .startDate(startDate)
                 .endDate(endDate)
@@ -445,7 +449,7 @@ public class MemberPackageService {
         return PackageResponse.PackageData.builder()
                 .code(base.getCode()).id(base.getId()).name(base.getName()).description(base.getDescription())
                 .price(base.getPrice()).discount(base.getDiscount()).durationDays(base.getDurationDays())
-                .durationMonths(base.getDurationMonths())
+                .durationMonths(base.getDurationMonths()).freezeMonths(base.getFreezeMonths()).freezeTerms(base.getFreezeTerms())
                 .benefits(base.getBenefits()).termConditions(base.getTermConditions()).status(base.getStatus())
                 .statusLabel(base.getStatusLabel()).includedSports(included).choiceGroups(groups).build();
     }
@@ -514,7 +518,7 @@ public class MemberPackageService {
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "status chỉ nhận Active, Pending, Expired, Cancelled hoặc all"
+                        "status chỉ nhận Active, Pending, Frozen, Expired, Cancelled hoặc all"
                 ));
     }
 

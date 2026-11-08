@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
  * <h3>Trạng thái (Section 21)</h3>
  * <pre>
  * PENDING  → ACTIVE    (khi đến start_date hoặc ngay lập tức nếu Start Immediately)
+ * ACTIVE   → FROZEN → ACTIVE (bảo lưu / tham gia lại)
  * ACTIVE   → EXPIRED   (khi đến end_date, do system tự động)
  * ACTIVE   → CANCELLED (do Center Manager "Ngừng cung cấp dịch vụ / Hủy hợp đồng")
  * </pre>
@@ -76,6 +77,20 @@ public class MemberSubscription {
     @Column(name = "Package_Name_At_Purchase", nullable = false, length = 200)
     private String packageNameAtPurchase;
 
+    @Column(name = "Freeze_Months_At_Purchase", nullable = false)
+    @Builder.Default
+    private Integer freezeMonthsAtPurchase = 0;
+
+    @Column(name = "Freeze_Months_Used", nullable = false)
+    @Builder.Default
+    private Integer freezeMonthsUsed = 0;
+
+    @Column(name = "Freeze_Started_At")
+    private LocalDateTime freezeStartedAt;
+
+    @Column(name = "Freeze_Ends_At")
+    private LocalDateTime freezeEndsAt;
+
     // ── Thời gian hiệu lực ──────────────────────────────────────────────────
 
     @Column(name = "Start_Date", nullable = false)
@@ -87,7 +102,7 @@ public class MemberSubscription {
     // ── Trạng thái ──────────────────────────────────────────────────────────
 
     /**
-     * Trạng thái Membership: PENDING | ACTIVE | EXPIRED | CANCELLED.
+     * Trạng thái Membership: PENDING | ACTIVE | FROZEN | EXPIRED | CANCELLED.
      * Được System quản lý — không chỉnh sửa trực tiếp ngoài service.
      */
     @Column(name = "Status", nullable = false, length = 20)

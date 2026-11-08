@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class ClassReservationService {
     private final ClassBookingRepository bookings;
     private final PaymentRepository payments;
+    private final com.swp391.beswp.repository.MemberPackageSubscriptionRepository subscriptions;
 
     // Registration callers hold the member write lock until all bookings have been created.
     public void validateMemberSchedule(Integer userId, ClassEntity course, List<ClassSession> sessions, LocalDateTime now) {
@@ -29,6 +30,12 @@ public class ClassReservationService {
 
     public String registrationConflict(Integer userId, ClassEntity course, List<ClassSession> sessions, LocalDateTime now) {
         if (sessions.isEmpty()) return null;
+        for (var sub : subscriptions.findFrozenSubscriptions(userId)) {
+            if (sessions.stream().anyMatch(s -> s.getDate().atTime(s.getStartTime()).isBefore(sub.getFreezeEndsAt())
+                    && s.getDate().atTime(s.getEndTime()).isAfter(sub.getFreezeStartedAt()))) {
+                return ApiMessages.text("class.registration.frozen");
+            }
+        }
         var start = course.getDate() != null ? course.getDate()
                 : sessions.stream().map(ClassSession::getDate).min(java.time.LocalDate::compareTo).orElseThrow();
         var end = course.getEndDate() != null ? course.getEndDate()

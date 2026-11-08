@@ -16,6 +16,8 @@ public final class ReceptionistRegistrationDtos {
             String description,
             BigDecimal price,
             Integer durationDays,
+            Integer freezeMonths,
+            String freezeTerms,
             String benefits,
             String termConditions
     ) {

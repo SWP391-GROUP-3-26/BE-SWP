@@ -93,7 +93,7 @@ class ClassRegistrationFlowTest {
                         && bookingRows.stream().anyMatch(p -> Objects.equals(p.getRegistrationCode(), b.getRegistrationCode()) && "PACKAGE".equals(p.getPaymentMethod()))
                         && bookingRows.stream().anyMatch(d -> Objects.equals(d.getRegistrationCode(), b.getRegistrationCode()) && "DIRECT".equals(d.getPaymentMethod())))
                 .toList());
-        ClassReservationService reservations = new ClassReservationService(bookings, payments);
+        ClassReservationService reservations = new ClassReservationService(bookings, payments, mock(MemberPackageSubscriptionRepository.class));
         service = new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, mock(ActivityLogRepository.class),
                 users, subjects, vnpay, mock(SepayService.class), reservations, clock,
                 new RefundService(mock(RefundRequestRepository.class), payments, classes, bookings, users, mock(ActivityLogRepository.class), clock),

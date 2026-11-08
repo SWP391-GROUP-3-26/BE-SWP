@@ -19,6 +19,7 @@ public class MembershipManagementService {
     private final MemberPackageSubscriptionRepository subscriptions;
     private final UserRepository users;
     private final AuditLogService audit;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Transactional
     public void terminate(String principal, Integer subscriptionId, String reason) {
@@ -26,10 +27,14 @@ public class MembershipManagementService {
         User manager = users.findById(parseUserId(principal)).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         MemberSubscription subscription = subscriptions.findById(subscriptionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy membership"));
-        if (!"Active".equalsIgnoreCase(subscription.getStatus()) && !"Pending".equalsIgnoreCase(subscription.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ có thể ngừng membership đang ACTIVE hoặc PENDING");
+        users.findByIdForUpdate(subscription.getUser().getId()).orElseThrow();
+        entityManager.refresh(subscription);
+        if (!"Active".equalsIgnoreCase(subscription.getStatus()) && !"Pending".equalsIgnoreCase(subscription.getStatus())
+                && !"Frozen".equalsIgnoreCase(subscription.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ có thể ngừng membership đang ACTIVE, PENDING hoặc FROZEN");
         }
         subscription.setStatus("Cancelled");
+        subscription.setFreezeStartedAt(null); subscription.setFreezeEndsAt(null);
         subscription.setCancellationReason(reason.trim());
         subscription.setCancelledAt(LocalDateTime.now());
         audit.recordLog(manager, "TERMINATE_MEMBERSHIP", "Member_Subscription",

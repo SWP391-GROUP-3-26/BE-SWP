@@ -41,9 +41,11 @@ public class PackageService {
         String name = required(request.getName(), "Tên gói dịch vụ không được để trống");
         if (packages.existsByNameIgnoreCase(name)) throw conflict("Tên gói dịch vụ đã tồn tại");
         validateStatus(request.getStatus());
+        int freezeMonths = request.getFreezeMonths() == null ? 0 : request.getFreezeMonths();
+        validateFreezePolicy(toDays(request.getDurationMonths()), freezeMonths);
         MembershipPackage pkg = packages.save(MembershipPackage.builder()
                 .name(name).description(request.getDescription()).price(request.getPrice())
-                .duration(toDays(request.getDurationMonths())).discount(discount(request.getDiscount()))
+                .duration(toDays(request.getDurationMonths())).discount(discount(request.getDiscount())).freezeMonths(freezeMonths)
                 .termConditions(request.getTermConditions()).status(status(request.getStatus())).build());
         replaceBenefits(pkg, request.getIncludedSportIds(), request.getChoiceGroups());
         return PackageResponse.success("Tạo mới gói dịch vụ thành công", pkg);
@@ -64,6 +66,8 @@ public class PackageService {
     @Transactional
     public PackageResponse updatePackage(Integer id, UpdatePackageRequest request) {
         MembershipPackage pkg = find(id);
+        validateFreezePolicy(request.getDurationMonths() == null ? pkg.getDuration() : toDays(request.getDurationMonths()),
+                request.getFreezeMonths() == null ? pkg.getFreezeMonths() : request.getFreezeMonths());
         if (StringUtils.hasText(request.getName())) {
             String name = required(request.getName(), "Tên gói dịch vụ không được để trống");
             if (!name.equalsIgnoreCase(pkg.getName()) && packages.existsByNameIgnoreCase(name)) throw conflict("Tên gói dịch vụ đã tồn tại");
@@ -72,6 +76,7 @@ public class PackageService {
         if (request.getDescription() != null) pkg.setDescription(request.getDescription());
         if (request.getPrice() != null) pkg.setPrice(request.getPrice());
         if (request.getDurationMonths() != null) pkg.setDuration(toDays(request.getDurationMonths()));
+        if (request.getFreezeMonths() != null) pkg.setFreezeMonths(request.getFreezeMonths());
         if (request.getDiscount() != null) pkg.setDiscount(discount(request.getDiscount()));
         if (request.getTermConditions() != null) pkg.setTermConditions(request.getTermConditions());
         if (StringUtils.hasText(request.getStatus())) { validateStatus(request.getStatus()); pkg.setStatus(request.getStatus().trim()); }
@@ -135,6 +140,13 @@ public class PackageService {
         if (ids.stream().anyMatch(id -> id == null || id <= 0) || new HashSet<>(ids).size() != ids.size())
             throw badRequest(label + " không được trùng hoặc không hợp lệ");
     }
+    private void validateFreezePolicy(Integer durationDays, Integer freezeMonths) {
+        if (freezeMonths == null || freezeMonths < 0) throw badRequest("Thời gian bảo lưu không được âm");
+        if (freezeMonths > 0 && (durationDays == null || durationDays < MembershipFreezePolicy.MINIMUM_DURATION_DAYS)) {
+            throw badRequest("Chỉ gói có thời hạn từ 6 tháng mới được cấu hình bảo lưu");
+        }
+    }
+
     private int toDays(Integer months) {
         if (months == null || months <= 0) throw badRequest("Thời gian hiệu lực phải lớn hơn 0 tháng");
         return switch (months) { case 12 -> 365; case 24 -> 730; default -> months * 30; };

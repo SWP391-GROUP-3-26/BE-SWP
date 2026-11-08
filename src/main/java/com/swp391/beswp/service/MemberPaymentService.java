@@ -241,6 +241,7 @@ public class MemberPaymentService {
         return switch (payment.getSubscription().getStatus()) {
             case "Active" -> "Đang diễn ra";
             case "Expired" -> "Đã hoàn thành";
+            case "Frozen" -> "Đang bảo lưu";
             case "Pending" -> "Paid".equals(payment.getStatus()) && !payment.isRequiresReview() ? "Chờ bắt đầu" : "Chờ thanh toán";
             default -> "Đã hủy";
         };

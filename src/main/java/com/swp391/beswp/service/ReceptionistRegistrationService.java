@@ -88,7 +88,8 @@ public class ReceptionistRegistrationService {
         String keyword = normalize(search);
         List<PackageOption> data = packageRepository.searchPackages(keyword, "Active").stream()
                 .map(p -> new PackageOption(p.getId(), p.getName(), p.getDescription(), p.getPrice(),
-                        p.getDuration(), p.getBenefits(), p.getTermConditions()))
+                        p.getDuration(), p.getFreezeMonths(), p.getFreezeMonths() > 0 ? MembershipFreezePolicy.TERMS : null,
+                        p.getBenefits(), p.getTermConditions()))
                 .toList();
         return new PackageCatalogResponse(true, "Lấy danh sách gói tập thành công", data);
     }
@@ -231,6 +232,9 @@ public class ReceptionistRegistrationService {
         }
         LocalDate today = LocalDate.now(paymentClock);
         subscriptionPayments.expirePending(member.getId());
+        if (packageSubscriptionRepository.existsByUser_IdAndStatusIgnoreCase(member.getId(), "Frozen")) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Hội viên cần tham gia lại trước khi mua gói");
+        }
 
         if (subscriptionPayments.hasPending(member.getId()) || packageSubscriptionRepository.hasActiveSubscription(member.getId(), today)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -263,7 +267,8 @@ public class ReceptionistRegistrationService {
                 .membershipPackage(membershipPackage)
                 .priceAtPurchase(amountAfterDiscount)
                 .durationAtPurchase(membershipPackage.getDuration())
-                .termsAtPurchase(membershipPackage.getTermConditions())
+                .termsAtPurchase(MembershipFreezePolicy.purchaseTerms(membershipPackage.getTermConditions(), membershipPackage.getFreezeMonths()))
+                .freezeMonthsAtPurchase(membershipPackage.getFreezeMonths())
                 .packageNameAtPurchase(membershipPackage.getName())
                 .startDate(today)
                 .endDate(endDate)
@@ -450,6 +455,9 @@ public class ReceptionistRegistrationService {
         }
         if ("Card".equals(channel)) vnpay.requireConfigured(); else sepay.requireConfigured();
         subscriptionPayments.expirePending(memberId);
+        if (packageSubscriptionRepository.existsByUser_IdAndStatusIgnoreCase(memberId, "Frozen")) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Hội viên cần tham gia lại trước khi mua gói");
+        }
         LocalDate today = LocalDate.now(paymentClock);
         if (packageSubscriptionRepository.hasActiveSubscription(memberId, today) || subscriptionPayments.hasPending(memberId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Hội viên đang có gói hoạt động hoặc giao dịch gói đang chờ thanh toán");
@@ -463,7 +471,9 @@ public class ReceptionistRegistrationService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Giá hoặc thời hạn gói không hợp lệ để thanh toán online");
         }
         var subscription = packageSubscriptionRepository.save(MemberSubscription.builder().user(member)
-                .membershipPackage(pack).startDate(today).endDate(today.plusDays(pack.getDuration() - 1L))
+                .membershipPackage(pack).priceAtPurchase(amount).durationAtPurchase(pack.getDuration())
+                .packageNameAtPurchase(pack.getName()).freezeMonthsAtPurchase(pack.getFreezeMonths())
+                .termsAtPurchase(MembershipFreezePolicy.purchaseTerms(pack.getTermConditions(), pack.getFreezeMonths())).startDate(today).endDate(today.plusDays(pack.getDuration() - 1L))
                 .status("Pending").build());
         Payment payment = paymentRepository.save(Payment.builder().subscription(subscription).receptionist(actor)
                 .paymentType("Subscription").amount(amount).method(channel).paymentDate(now())
@@ -488,6 +498,9 @@ public class ReceptionistRegistrationService {
         User member = requireMember(memberId);
         userRepository.findByIdForUpdate(memberId).orElseThrow();
         subscriptionPayments.expirePending(memberId);
+        if (packageSubscriptionRepository.existsByUser_IdAndStatusIgnoreCase(memberId, "Frozen")) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Hội viên cần tham gia lại trước khi mua gói");
+        }
         return memberPackages.getMySubscriptions(member.getId().toString(), null, 0, 100);
     }
 

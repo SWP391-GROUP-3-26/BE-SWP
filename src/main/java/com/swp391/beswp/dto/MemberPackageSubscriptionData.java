@@ -22,6 +22,12 @@ public class MemberPackageSubscriptionData {
     private String packageName;
     private BigDecimal packagePrice;
     private Integer durationDays;
+    private Integer totalFreezeMonths;
+    private Integer usedFreezeMonths;
+    private Integer remainingFreezeMonths;
+    private LocalDateTime freezeStartedAt;
+    private LocalDateTime freezeEndsAt;
+    private String freezeTerms;
     private LocalDate startDate;
     private LocalDate endDate;
     private String subscriptionStatus;
@@ -41,6 +47,11 @@ public class MemberPackageSubscriptionData {
                 .packageName(subscription.getPackageNameAtPurchase())
                 .packagePrice(subscription.getPriceAtPurchase())
                 .durationDays(subscription.getDurationAtPurchase())
+                .totalFreezeMonths(subscription.getFreezeMonthsAtPurchase())
+                .usedFreezeMonths(subscription.getFreezeMonthsUsed())
+                .remainingFreezeMonths(Math.max(0, subscription.getFreezeMonthsAtPurchase() - subscription.getFreezeMonthsUsed()))
+                .freezeStartedAt(subscription.getFreezeStartedAt()).freezeEndsAt(subscription.getFreezeEndsAt())
+                .freezeTerms(subscription.getFreezeMonthsAtPurchase() > 0 ? com.swp391.beswp.service.MembershipFreezePolicy.TERMS : null)
                 .startDate(subscription.getStartDate())
                 .endDate(subscription.getEndDate())
                 .subscriptionStatus(subscription.getStatus())

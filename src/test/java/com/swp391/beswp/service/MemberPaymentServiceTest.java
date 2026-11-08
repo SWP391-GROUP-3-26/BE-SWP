@@ -19,7 +19,7 @@ class MemberPaymentServiceTest {
     private final MemberClassBookingService memberBookings = mock(MemberClassBookingService.class);
     private final VnpayService vnpay = VnpayServiceTest.configured();
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-13T01:00:00Z"), VnpayService.OFFSET);
-    private final ClassReservationService reservations = new ClassReservationService(bookings, payments);
+    private final ClassReservationService reservations = new ClassReservationService(bookings, payments, mock(MemberPackageSubscriptionRepository.class));
     private final OnlineSubscriptionPaymentService subscriptionPayments = mock(OnlineSubscriptionPaymentService.class);
     private final SepayService sepay = mock(SepayService.class);
     private final MemberPaymentService service = new MemberPaymentService(payments, classes, bookings, reservations, memberBookings, vnpay, sepay, clock, subscriptionPayments);

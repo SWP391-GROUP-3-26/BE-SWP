@@ -83,4 +83,17 @@ public interface MemberPackageSubscriptionRepository extends JpaRepository<Membe
     List<MemberSubscription> findDuePendingSubscriptions(@Param("today") LocalDate today);
 
     boolean existsByMembershipPackage_Id(Integer packageId);
+
+    boolean existsByUser_IdAndStatusIgnoreCase(Integer userId, String status);
+
+    @Query("SELECT s FROM MemberSubscription s WHERE s.user.id = :userId AND LOWER(s.status) = 'frozen'")
+    List<MemberSubscription> findFrozenSubscriptions(@Param("userId") Integer userId);
+
+    @Query("SELECT s FROM MemberSubscription s WHERE LOWER(s.status) = 'frozen' AND s.freezeEndsAt <= :now ORDER BY s.user.id, s.id")
+    List<MemberSubscription> findDueFrozenSubscriptions(@Param("now") java.time.LocalDateTime now);
+
+    @Query("SELECT s FROM MemberSubscription s WHERE s.user.id = :userId AND LOWER(s.status) = 'pending' " +
+            "AND s.startDate > :after AND EXISTS (SELECT p.id FROM Payment p WHERE p.subscription.id = s.id " +
+            "AND p.status = 'Paid' AND p.requiresReview = false) ORDER BY s.startDate, s.id")
+    List<MemberSubscription> findPaidQueuedSubscriptions(@Param("userId") Integer userId, @Param("after") LocalDate after);
 }

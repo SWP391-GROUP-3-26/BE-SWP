@@ -26,6 +26,10 @@ public class UpdatePackageRequest {
     @Min(value = 1, message = "Thời gian hiệu lực tối thiểu là 1 tháng")
     private Integer durationMonths;
 
+    /** null = giữ nguyên; 0 = tắt bảo lưu. */
+    @Min(value = 0, message = "Thời gian bảo lưu không được âm")
+    private Integer freezeMonths;
+
     @DecimalMin(value = "0.0", inclusive = false, message = "Giá niêm yết phải lớn hơn 0")
     private BigDecimal price;
 

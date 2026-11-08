@@ -27,7 +27,8 @@ class BookingRepositoryQueryTest {
             }
             try (var factory = sources.buildMetadata().buildSessionFactory(); var session = factory.openSession()) {
                 for (Class<?> repository : new Class<?>[]{ClassBookingRepository.class, PaymentRepository.class, ClassRepository.class, UserRepository.class,
-                        RoomRepository.class, ClassSessionRepository.class, MemberSubscriptionRepository.class}) {
+                        RoomRepository.class, ClassSessionRepository.class, MemberSubscriptionRepository.class,
+                        MemberPackageSubscriptionRepository.class, MembershipIncludedSportRepository.class, MembershipSportSelectionRepository.class}) {
                     for (var method : repository.getDeclaredMethods()) {
                         Query query = method.getAnnotation(Query.class);
                         if (query != null) assertDoesNotThrow(() -> session.createQuery(query.value(), Object.class), method.toString());

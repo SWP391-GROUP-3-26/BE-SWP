@@ -98,4 +98,15 @@ class MemberPackageOnlinePaymentServiceTest {
                 service.registerOnlinePackage("7", request("Card", "IMMEDIATE"), "127.0.0.1", false)).getStatusCode().value());
         verify(subscriptionRepository, never()).save(any());
     }
+    @Test void purchaseSnapshotsFreezeBudgetAndTermsIndependentlyOfLaterPackageEdits() {
+        pack.setDuration(365); pack.setFreezeMonths(2);
+        var result = service.registerOnlinePackage("7", request("Card", "IMMEDIATE"), "127.0.0.1", false);
+        var subscription = savedPayment.getSubscription();
+        pack.setFreezeMonths(0); pack.setDuration(30);
+        assertEquals(2, subscription.getFreezeMonthsAtPurchase());
+        assertEquals(365, subscription.getDurationAtPurchase());
+        assertEquals(2, result.getData().getRemainingFreezeMonths());
+        assertTrue(subscription.getTermsAtPurchase().contains(MembershipFreezePolicy.TERMS));
+    }
+
 }

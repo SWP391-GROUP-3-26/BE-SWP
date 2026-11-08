@@ -37,4 +37,16 @@ class MembershipLifecycleServiceTest {
         assertEquals("Cancelled", next.getStatus());
         verify(subscriptions, never()).hasActiveSubscription(7, LocalDate.now(clock));
     }
+    @Test void paidQueuedMembershipDoesNotActivateOrExpireWhileCurrentPackageIsFrozen() {
+        User user = new User(); user.setId(7);
+        var queued = MemberSubscription.builder().id(2).user(user).status("Pending")
+                .endDate(LocalDate.now(clock).minusDays(1)).build();
+        when(subscriptions.findDuePendingSubscriptions(LocalDate.now(clock))).thenReturn(List.of(queued));
+        when(users.findByIdForUpdate(7)).thenReturn(Optional.of(user));
+        when(subscriptions.existsByUser_IdAndStatusIgnoreCase(7, "Frozen")).thenReturn(true);
+        service.updateStatuses();
+        assertEquals("Pending", queued.getStatus());
+        verify(subscriptions, never()).hasActiveSubscription(anyInt(), any());
+    }
+
 }

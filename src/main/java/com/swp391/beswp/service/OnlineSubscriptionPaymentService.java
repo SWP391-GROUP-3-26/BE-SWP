@@ -65,7 +65,8 @@ public class OnlineSubscriptionPaymentService {
         }
         boolean eligible = "Pending".equals(payment.getStatus()) && "Pending".equals(subscription.getStatus())
                 && payment.getExpiresAt().isAfter(now()) && "Active".equalsIgnoreCase(member.getStatus())
-                && membershipEligible && subscription.getEndDate().compareTo(today) >= 0;
+                && membershipEligible && !subscriptions.existsByUser_IdAndStatusIgnoreCase(member.getId(), "Frozen")
+                && subscription.getEndDate().compareTo(today) >= 0;
         payment.setStatus(success ? "Paid" : "Failed");
         if (success && payment.getPaidAt() == null) payment.setPaidAt(now());
         payment.setRequiresReview(success && !eligible);

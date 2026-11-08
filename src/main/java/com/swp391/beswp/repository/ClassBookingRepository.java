@@ -17,6 +17,7 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
     @Query("SELECT CASE WHEN COUNT(b) > 0 THEN TRUE ELSE FALSE END FROM ClassBooking b " +
             "WHERE b.user.id = :memberId AND b.session.classEntity.id = :classId " +
             "AND LOWER(b.status) = 'booked' AND LOWER(b.session.status) <> 'cancelled' " +
+            "AND NOT EXISTS (SELECT f.id FROM MemberSubscription f WHERE f.user.id = :memberId AND LOWER(f.status) = 'frozen') " +
             "AND (b.session.classEntity.date IS NULL OR b.session.date >= b.session.classEntity.date) " +
             "AND (b.session.classEntity.endDate IS NULL OR b.session.date <= b.session.classEntity.endDate)")
     boolean isTrainingPlanMember(@Param("classId") Integer classId, @Param("memberId") Integer memberId);
@@ -24,6 +25,7 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
     @Query("SELECT DISTINCT b.user FROM ClassBooking b WHERE b.session.classEntity.id = :classId " +
             "AND LOWER(b.status) = 'booked' AND LOWER(b.session.status) <> 'cancelled' " +
             "AND LOWER(b.user.status) = 'active' AND LOWER(b.user.role.roleName) = 'member' " +
+            "AND NOT EXISTS (SELECT f.id FROM MemberSubscription f WHERE f.user.id = b.user.id AND LOWER(f.status) = 'frozen') " +
             "AND (b.session.classEntity.date IS NULL OR b.session.date >= b.session.classEntity.date) " +
             "AND (b.session.classEntity.endDate IS NULL OR b.session.date <= b.session.classEntity.endDate)")
     List<com.swp391.beswp.entity.User> findTrainingPlanMembers(@Param("classId") Integer classId);
@@ -46,6 +48,11 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
     List<ClassBooking> findOtherReservedBookings(@Param("userId") Integer userId,
                                                @Param("classId") Integer classId,
                                                @Param("now") LocalDateTime now);
+
+    @Query("SELECT b FROM ClassBooking b JOIN FETCH b.session s JOIN FETCH s.classEntity c " +
+            "WHERE b.user.id = :userId AND LOWER(c.status) IN ('active', 'open') AND LOWER(s.status) = 'scheduled' " +
+            "AND (LOWER(b.status) = 'booked' OR (LOWER(b.status) = 'pending' AND b.paymentExpiresAt > :now))")
+    List<ClassBooking> findReservedBookingsForFreeze(@Param("userId") Integer userId, @Param("now") LocalDateTime now);
 
     @Query("SELECT COUNT(DISTINCT b.user.id) FROM ClassBooking b WHERE b.session.id = :sessionId " +
            "AND (LOWER(b.status) = 'booked' OR (LOWER(b.status) = 'pending' AND b.paymentExpiresAt > :now))")

@@ -50,6 +50,9 @@ public class PackageResponse {
          */
         private Integer durationMonths;
 
+        private Integer freezeMonths;
+        private String freezeTerms;
+
         private String benefits;
         private String termConditions;
         private String status;
@@ -76,6 +79,8 @@ public class PackageResponse {
                     .discount(pkg.getDiscount())
                     .durationDays(days)
                     .durationMonths(months)
+                    .freezeMonths(pkg.getFreezeMonths())
+                    .freezeTerms(pkg.getFreezeMonths() > 0 ? com.swp391.beswp.service.MembershipFreezePolicy.TERMS : null)
                     .benefits(pkg.getBenefits())
                     .termConditions(pkg.getTermConditions())
                     .status(pkg.getStatus())

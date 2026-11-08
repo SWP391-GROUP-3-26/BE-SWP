@@ -20,7 +20,7 @@ class SepayServiceTest {
     final ClassBookingRepository bookings = mock(ClassBookingRepository.class);
     final Clock clock = Clock.fixed(Instant.parse("2026-10-16T01:00:00Z"), VnpayService.OFFSET);
     final SepayConfig config = configured();
-    final ClassReservationService reservations = new ClassReservationService(bookings, payments);
+    final ClassReservationService reservations = new ClassReservationService(bookings, payments, mock(MemberPackageSubscriptionRepository.class));
     final OnlineSubscriptionPaymentService subscriptionPayments = mock(OnlineSubscriptionPaymentService.class);
     final SepayService service = new SepayService(config, payments, classes, bookings, reservations, clock, subscriptionPayments);
     final String auth = "Apikey " + config.getWebhookApiKey();

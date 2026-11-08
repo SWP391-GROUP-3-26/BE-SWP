@@ -31,6 +31,10 @@ public class CreatePackageRequest {
     @Min(value = 1, message = "Thời gian hiệu lực tối thiểu là 1 tháng")
     private Integer durationMonths;
 
+    /** Tổng số tháng được bảo lưu; 0 hoặc null = không cho bảo lưu. */
+    @Min(value = 0, message = "Thời gian bảo lưu không được âm")
+    private Integer freezeMonths;
+
     @NotNull(message = "Giá niêm yết không được để trống")
     @DecimalMin(value = "0.0", inclusive = false, message = "Giá niêm yết phải lớn hơn 0")
     private BigDecimal price;

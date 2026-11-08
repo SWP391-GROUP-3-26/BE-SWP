@@ -85,7 +85,7 @@ class MemberClassBookingServiceTest {
 
     private MemberClassBookingService newService(VnpayService vnpay) {
         return new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, logs, users, subjects,
-                vnpay, mock(SepayService.class), new ClassReservationService(bookings, payments), clock,
+                vnpay, mock(SepayService.class), new ClassReservationService(bookings, payments, mock(MemberPackageSubscriptionRepository.class)), clock,
                 new RefundService(mock(RefundRequestRepository.class), payments, classes, bookings, users, logs, clock), attendance);
     }
     private User member(int id) {
@@ -130,9 +130,9 @@ class MemberClassBookingServiceTest {
     @Test
     void unconfiguredWalletDoesNotCreateBookingOrPayment() {
         var sepay = new SepayService(new com.swp391.beswp.config.SepayConfig(), payments, classes, bookings,
-                new ClassReservationService(bookings, payments), clock, mock(OnlineSubscriptionPaymentService.class));
+                new ClassReservationService(bookings, payments, mock(MemberPackageSubscriptionRepository.class)), clock, mock(OnlineSubscriptionPaymentService.class));
         var unconfigured = new MemberClassBookingService(classes, sessions, bookings, subscriptions, includedSports, selections, payments, logs, users,
-                subjects, VnpayServiceTest.configured(), sepay, new ClassReservationService(bookings, payments), clock, mock(RefundService.class), attendance);
+                subjects, VnpayServiceTest.configured(), sepay, new ClassReservationService(bookings, payments, mock(MemberPackageSubscriptionRepository.class)), clock, mock(RefundService.class), attendance);
         var error = assertThrows(ResponseStatusException.class, () -> unconfigured.registerClass("1", 10,
                 MemberClassBookingRequest.builder().paymentMethod("DIRECT").paymentChannel("E_Wallet").build(), "127.0.0.1"));
         assertEquals(503, error.getStatusCode().value()); assertTrue(bookingRows.isEmpty()); assertTrue(paymentRows.isEmpty());

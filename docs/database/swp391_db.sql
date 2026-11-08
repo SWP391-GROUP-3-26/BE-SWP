@@ -120,6 +120,7 @@ CREATE TABLE Membership_Package (
     Description      NVARCHAR(MAX)     NULL,
     Price            DECIMAL(12,2)     NOT NULL,
     Duration         INT               NOT NULL,   -- số ngày
+    Freeze_Months    INT               NOT NULL CONSTRAINT DF_Package_Freeze_Months DEFAULT 0,
     Benefits         NVARCHAR(MAX)     NULL,
     Term_Conditions  NVARCHAR(MAX)     NULL,
     Status           NVARCHAR(20)      NOT NULL CONSTRAINT DF_Package_Status DEFAULT N'Active',
@@ -127,6 +128,7 @@ CREATE TABLE Membership_Package (
     CONSTRAINT UQ_Package_Name UNIQUE (Name),
     CONSTRAINT CK_Package_Price    CHECK (Price >= 0),
     CONSTRAINT CK_Package_Duration CHECK (Duration > 0),
+    CONSTRAINT CK_Package_Freeze CHECK (Freeze_Months >= 0 AND (Freeze_Months = 0 OR Duration >= 180)),
     CONSTRAINT CK_Package_Status   CHECK (Status IN (N'Active', N'Inactive'))
 );
 GO
@@ -139,13 +141,22 @@ CREATE TABLE Member_Subscription (
     Start_Date      DATE              NOT NULL,
     End_Date        DATE              NOT NULL,
     Status          NVARCHAR(20)      NOT NULL CONSTRAINT DF_Subscription_Status DEFAULT N'Active',
+    Freeze_Months_At_Purchase INT NOT NULL CONSTRAINT DF_Subscription_Freeze_Months DEFAULT 0,
+    Freeze_Months_Used INT NOT NULL CONSTRAINT DF_Subscription_Freeze_Used DEFAULT 0,
+    Freeze_Started_At DATETIME2(0) NULL,
+    Freeze_Ends_At DATETIME2(0) NULL,
     CONSTRAINT PK_Member_Subscription PRIMARY KEY (Subscription_ID),
     CONSTRAINT FK_Subscription_User FOREIGN KEY (User_ID)
         REFERENCES [User] (User_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
     CONSTRAINT FK_Subscription_Package FOREIGN KEY (Package_ID)
         REFERENCES Membership_Package (Package_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
     CONSTRAINT CK_Subscription_Dates  CHECK (End_Date >= Start_Date),
-    CONSTRAINT CK_Subscription_Status CHECK (Status IN (N'Pending', N'Active', N'Expired', N'Cancelled'))
+    CONSTRAINT CK_Subscription_Status CHECK (Status IN (N'Pending', N'Active', N'Frozen', N'Expired', N'Cancelled')),
+    CONSTRAINT CK_Subscription_Freeze_Budget CHECK (Freeze_Months_At_Purchase >= 0 AND Freeze_Months_Used >= 0
+        AND Freeze_Months_Used <= Freeze_Months_At_Purchase),
+    CONSTRAINT CK_Subscription_Freeze_State CHECK (
+        (Status = N'Frozen' AND Freeze_Started_At IS NOT NULL AND Freeze_Ends_At IS NOT NULL AND Freeze_Ends_At > Freeze_Started_At)
+        OR (Status <> N'Frozen' AND Freeze_Started_At IS NULL AND Freeze_Ends_At IS NULL))
 );
 GO
 

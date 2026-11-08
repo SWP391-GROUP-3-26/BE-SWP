@@ -39,7 +39,8 @@ public class MembershipLifecycleService {
             for (MemberSubscription pending : due) {
                 if (!memberId.equals(pending.getUser().getId())) continue;
                 entityManager.refresh(pending);
-                if (!"Pending".equals(pending.getStatus())) continue;
+                if (!"Pending".equals(pending.getStatus())
+                        || subscriptions.existsByUser_IdAndStatusIgnoreCase(memberId, "Frozen")) continue;
                 if (pending.getEndDate().isBefore(today)) pending.setStatus("Expired");
                 else if (!subscriptions.hasActiveSubscription(memberId, today)) pending.setStatus("Active");
             }

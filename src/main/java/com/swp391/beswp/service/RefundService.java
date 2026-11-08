@@ -33,7 +33,7 @@ public class RefundService {
         BigDecimal paid = BigDecimal.ZERO, expected = BigDecimal.ZERO;
         for (Payment p : attempts) if ("Paid".equals(p.getStatus())) {
             paid = paid.add(p.getAmount());
-            if (!paidSessions.isEmpty()) expected = expected.add(estimate(p.getAmount(), paidSessions.size(), cancelledPaid));
+            if (!paidSessions.isEmpty() && cancelledPaid > 0) expected = expected.add(halfAmount(p.getAmount()));
         }
         return new CancellationPreview(bookingId, registration.size(), cancelled.size(), paid, expected,
                 registration.stream().anyMatch(b -> "PACKAGE".equals(b.getPaymentMethod())), sessionViews(registration, cancelled),
@@ -50,18 +50,24 @@ public class RefundService {
 
     public static BigDecimal estimate(BigDecimal paid, int total, int cancelled) {
         if (paid == null || paid.signum() < 0 || total <= 0 || cancelled < 0 || cancelled > total) {
-            throw new IllegalArgumentException("Dữ liệu tính hoàn tiền không hợp lệ");
+            throw new IllegalArgumentException(ApiMessages.text("refund.invalid"));
         }
         return paid.multiply(BigDecimal.valueOf(cancelled)).divide(BigDecimal.valueOf(total), 0, RoundingMode.DOWN);
+    }
+
+    private static BigDecimal halfAmount(BigDecimal paid) {
+        if (paid == null || paid.signum() < 0) throw new IllegalArgumentException(ApiMessages.text("refund.invalid"));
+        return paid.divide(BigDecimal.valueOf(2), 0, RoundingMode.DOWN);
     }
 
     /** Caller holds the class lock and cancels the same booking ids in this transaction. */
     @Transactional
     public void createForCancellation(Payment payment, List<ClassBooking> registration, Set<Integer> cancelled, User actor) {
-        create(payment, registration, cancelled, actor, "Hủy các buổi tương lai của đăng ký lớp");
+        create(payment, registration, cancelled, actor, ApiMessages.text("refund.cancel.reason"), true);
     }
 
-    private RefundRequest create(Payment payment, List<ClassBooking> registration, Set<Integer> cancelled, User actor, String reason) {
+    private RefundRequest create(Payment payment, List<ClassBooking> registration, Set<Integer> cancelled, User actor,
+                                String reason, boolean fixedHalfRefund) {
         // Only cash-funded sessions enter the monetary refund; package rows release their own quota.
         registration = paidSessions(registration);
         Set<Integer> paidIds = registration.stream().map(ClassBooking::getId).collect(java.util.stream.Collectors.toSet());
@@ -70,15 +76,17 @@ public class RefundService {
         Optional<RefundRequest> existing = refunds.findByPayment_Id(payment.getId());
         if (existing.isPresent()) return existing.get();
         if (!"Paid".equals(payment.getStatus()) || payment.getBooking() == null || cancelled.isEmpty()) {
-            throw error(HttpStatus.CONFLICT, "Giao dịch không có khoản hoàn tiền hợp lệ");
+            throw error(HttpStatus.CONFLICT, ApiMessages.text("refund.notEligible"));
         }
-        BigDecimal expected = estimate(payment.getAmount(), registration.size(), cancelled.size());
+        BigDecimal expected = fixedHalfRefund ? halfAmount(payment.getAmount())
+                : estimate(payment.getAmount(), registration.size(), cancelled.size());
         if (expected.signum() == 0) return null;
         RefundRequest r = new RefundRequest();
         r.setPayment(payment); r.setRequestedBy(actor);
         r.setItemName(payment.getItemNameAtPayment() != null ? payment.getItemNameAtPayment() : payment.getBooking().getSession().getClassEntity().getName());
         r.setPaidAmount(payment.getAmount()); r.setEstimatedAmount(expected);
         r.setTotalSessions(registration.size()); r.setCancelledSessions(cancelled.size()); r.setReason(reason);
+        r.setRefundPolicy(fixedHalfRefund ? "CLASS_CANCEL_50" : null);
         r.setCreatedAt(now()); r.setUpdatedAt(now());
         for (ClassBooking b : registration) r.getSessions().add(new RefundSessionSnapshot(b.getSession().getId(),
                 b.getSession().getDate(), b.getSession().getStartTime(), cancelled.contains(b.getId())));
@@ -100,7 +108,7 @@ public class RefundService {
         List<ClassBooking> registration = registration(p.getBooking());
         Set<Integer> cancelled = cancelledIds(registration);
         RefundRequest r = create(p, registration, cancelled, manager,
-                "Khởi tạo từ giao dịch cũ cần đối soát. Số tiền được dựng lại theo các buổi đã hủy; quản lý cần kiểm tra trước khi duyệt.");
+                "Khởi tạo từ giao dịch cũ cần đối soát. Số tiền được dựng lại theo các buổi đã hủy; quản lý cần kiểm tra trước khi duyệt.", false);
         if (r == null) throw error(HttpStatus.CONFLICT, "Không có số tiền đủ điều kiện hoàn");
         return view(r, true);
     }
@@ -138,6 +146,10 @@ public class RefundService {
         } else {
             if (input.approvedAmount() == null || input.approvedAmount().signum() <= 0 || input.approvedAmount().compareTo(r.getPaidAmount()) > 0) {
                 throw error(HttpStatus.BAD_REQUEST, "Số tiền duyệt phải lớn hơn 0 và không vượt khoản thực thu");
+            }
+            if ("CLASS_CANCEL_50".equals(r.getRefundPolicy())
+                    && input.approvedAmount().compareTo(r.getEstimatedAmount()) != 0) {
+                throw error(HttpStatus.BAD_REQUEST, ApiMessages.text("refund.fixedAmount"));
             }
             if (input.approvedAmount().compareTo(r.getEstimatedAmount()) != 0 && note.isBlank()) {
                 throw error(HttpStatus.BAD_REQUEST, "Vui lòng ghi lý do điều chỉnh số tiền hoàn");

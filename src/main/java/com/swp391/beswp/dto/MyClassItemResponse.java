@@ -42,6 +42,7 @@ public class MyClassItemResponse {
     private String schedule;
     private String timeSlot;
     private String coachName;
+    private boolean hasPt;
     private String coachAvatar;
     private String status;
     private String rawStatus;

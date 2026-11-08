@@ -1,6 +1,7 @@
 package com.swp391.beswp.exception;
 
 import com.swp391.beswp.dto.ErrorResponse;
+import com.swp391.beswp.service.ApiMessages;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -23,13 +24,13 @@ public class GlobalExceptionHandler {
                 .stream()
                 .findFirst()
                 .map(FieldError::getDefaultMessage)
-                .orElse("Request khong hop le");
+                .orElse(ApiMessages.text("request.invalid"));
         return ResponseEntity.badRequest().body(ErrorResponse.fail(message));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadableRequest() {
-        return ResponseEntity.badRequest().body(ErrorResponse.fail("Request không hợp lệ"));
+        return ResponseEntity.badRequest().body(ErrorResponse.fail(ApiMessages.text("request.invalid")));
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -42,19 +43,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Database integrity violation", ex);
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorResponse.fail("Du lieu da ton tai"));
+                .body(ErrorResponse.fail(ApiMessages.text("data.exists")));
     }
 
     @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handleConcurrentUpdate() {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorResponse.fail("Dữ liệu đã thay đổi. Vui lòng tải lại trước khi lưu."));
+                .body(ErrorResponse.fail(ApiMessages.text("data.changed")));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unexpected backend exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.fail("Loi he thong"));
+                .body(ErrorResponse.fail(ApiMessages.text("system.error")));
     }
 }

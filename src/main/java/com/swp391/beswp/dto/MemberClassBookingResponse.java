@@ -34,6 +34,7 @@ public class MemberClassBookingResponse {
     private Integer classId;
     private String classCode;
     private String className;
+    private boolean hasPt;
     private String schedule;
     private String roomName;
     private String coachName;

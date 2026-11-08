@@ -35,6 +35,7 @@ public class CoachClassItemResponse {
     private Integer durationWeeks;
     private LocalDate endDate;
     private BigDecimal price;
+    private boolean hasPt;
     private String status;
     private String statusDisplay;
 }

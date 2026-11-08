@@ -192,6 +192,7 @@ CREATE TABLE Class (
     Days_Of_Week NVARCHAR(100)     NULL,
     Start_Time   TIME(0)           NULL,
     End_Time     TIME(0)           NULL,
+    Has_PT       BIT               NOT NULL CONSTRAINT DF_Class_Has_PT DEFAULT (0),
     CONSTRAINT PK_Class PRIMARY KEY (Class_ID),
     CONSTRAINT FK_Class_Subject FOREIGN KEY (Subject_ID)
         REFERENCES Subject (Subject_ID) ON DELETE NO ACTION ON UPDATE NO ACTION,
@@ -523,6 +524,7 @@ BEGIN
         Cancelled_Sessions INT NOT NULL,
         Status VARCHAR(20) NOT NULL,
         Reason NVARCHAR(2000) NOT NULL,
+        Refund_Policy VARCHAR(40) NULL,
         Review_Note NVARCHAR(2000) NULL,
         Reviewed_By INT NULL REFERENCES dbo.[User](User_ID),
         Reviewed_At DATETIME2(7) NULL,

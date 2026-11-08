@@ -1,5 +1,6 @@
 package com.swp391.beswp.dto;
 
+import com.swp391.beswp.service.ApiMessages;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -10,14 +11,17 @@ import java.util.List;
 public final class RefundDtos {
     private RefundDtos() { }
     public record Result<T>(boolean success, String message, T data) {
-        public static <T> Result<T> ok(T data) { return new Result<>(true, "Thành công", data); }
+        public static <T> Result<T> ok(T data) { return new Result<>(true, ApiMessages.text("api.success"), data); }
     }
     public record SessionView(Integer sessionId, LocalDate date, LocalTime startTime, boolean refundable) { }
     public record CancellationPreview(Integer bookingId, int totalSessions, int cancelSessions, BigDecimal paidAmount,
                                       BigDecimal estimatedRefund, boolean usesPackage, List<SessionView> sessions,
                                       int packageSessionsReturned) { }
-    public record CancelConfirmation(@NotNull @PositiveOrZero BigDecimal estimatedRefund,
-                                     @NotNull @Positive Integer cancelSessions) { }
+    public record CancelConfirmation(
+            @NotNull(message = "{class.cancel.refund.required}")
+            @PositiveOrZero(message = "{class.cancel.refund.minimum}") BigDecimal estimatedRefund,
+            @NotNull(message = "{class.cancel.sessions.required}")
+            @Positive(message = "{class.cancel.sessions.minimum}") Integer cancelSessions) { }
     public record Review(@NotBlank @Pattern(regexp = "APPROVED|REJECTED") String status,
                          @DecimalMin("0.01") @Digits(integer = 10, fraction = 2) BigDecimal approvedAmount,
                          @Size(max = 2000) String note, @NotNull @PositiveOrZero Long version) { }

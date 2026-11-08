@@ -58,6 +58,7 @@ public class ClassResponse {
         private Integer maxCapacity;
         private BigDecimal price;
         private String status;
+        private boolean hasPt;
 
         @JsonFormat(pattern = "yyyy-MM-dd")
         private LocalDate startDate;
@@ -113,6 +114,7 @@ public class ClassResponse {
                     .maxCapacity(entity.getMaxCapacity())
                     .price(entity.getPrice())
                     .status(ClassSchedule.effectiveStatus(entity, today))
+                    .hasPt(entity.isHasPt())
                     .startDate(entity.getDate())
                     .durationWeeks(entity.getDurationWeeks())
                     .endDate(entity.getEndDate())

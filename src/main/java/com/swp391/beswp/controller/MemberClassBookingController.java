@@ -7,6 +7,7 @@ import com.swp391.beswp.dto.MemberClassBookingResponse;
 import com.swp391.beswp.dto.MemberSubscriptionInfoResponse;
 import com.swp391.beswp.dto.MyClassListResponse;
 import com.swp391.beswp.service.MemberClassBookingService;
+import com.swp391.beswp.service.ApiMessages;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -123,7 +124,7 @@ public class MemberClassBookingController {
         bookingService.cancelClassBooking(authentication.getName(), bookingId, confirmation);
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Hủy đăng ký lớp học thành công"
+                "message", ApiMessages.text("class.cancelled")
         ));
     }
 
@@ -136,7 +137,7 @@ public class MemberClassBookingController {
         bookingService.cancelClassBooking(authentication.getName(), bookingId, confirmation);
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Hủy đăng ký lớp học thành công"
+                "message", ApiMessages.text("class.cancelled")
         ));
     }
 

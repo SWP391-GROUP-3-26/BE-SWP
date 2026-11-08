@@ -39,6 +39,7 @@ public class ClassFormOptionsResponse {
         private String code;
         private String name;
         private String category;
+        private boolean supportsPt;
         private String displayText; // "Hatha Yoga Định Tuyến (SUB-003)"
     }
 

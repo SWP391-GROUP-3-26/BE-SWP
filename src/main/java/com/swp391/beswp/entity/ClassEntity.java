@@ -77,4 +77,7 @@ public class ClassEntity {
 
     @Column(name = "End_Time")
     private LocalTime endTime;
+
+    @Column(name = "Has_PT", nullable = false)
+    private boolean hasPt;
 }

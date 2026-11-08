@@ -5,6 +5,7 @@ import com.swp391.beswp.dto.ClassListResponse;
 import com.swp391.beswp.dto.ClassResponse;
 import com.swp391.beswp.dto.CreateClassRequest;
 import com.swp391.beswp.service.ClassService;
+import com.swp391.beswp.service.ApiMessages;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -56,7 +57,7 @@ public class ClassController {
         classService.deleteClass(id);
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Xóa lớp học thành công"
+                "message", ApiMessages.text("class.deleted")
         ));
     }
 }

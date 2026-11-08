@@ -73,7 +73,8 @@ public final class ReceptionistRegistrationDtos {
             LocalTime endTime,
             int upcomingSessions,
             int availableSeats,
-            boolean available
+            boolean available,
+            boolean hasPt
     ) {
     }
 

@@ -25,48 +25,50 @@ import java.util.List;
 @Builder
 public class CreateClassRequest {
 
-    @NotBlank(message = "Tên lớp học không được để trống")
-    @Size(max = 100, message = "Tên lớp học không được vượt quá 100 ký tự")
+    @NotBlank(message = "{class.name.required}")
+    @Size(max = 100, message = "{class.name.length}")
     private String name;
 
-    @NotNull(message = "Vui lòng chọn môn học cho lớp học")
+    @NotNull(message = "{class.subject.required}")
     private Integer subjectId;
 
-    @NotNull(message = "Vui lòng chọn Huấn Luyện Viên (HLV/PT) phụ trách")
+    @NotNull(message = "{class.coach.required}")
     private Integer coachId;
 
-    @NotNull(message = "Vui lòng chọn phòng tập chỉ định")
+    @NotNull(message = "{class.room.required}")
     private Integer roomId;
 
-    @NotEmpty(message = "Vui lòng chọn ít nhất một ngày học trong tuần")
+    @NotEmpty(message = "{class.days.required}")
     private List<String> daysOfWeek;
 
-    @NotNull(message = "Vui lòng chọn slot học")
+    @NotNull(message = "{class.slot.required}")
     private Integer slotId;
 
-    @NotNull(message = "Giờ bắt đầu buổi học không được để trống")
+    @NotNull(message = "{class.startTime.required}")
     @JsonFormat(pattern = "HH:mm")
     private LocalTime startTime;
 
-    @NotNull(message = "Giờ kết thúc buổi học không được để trống")
+    @NotNull(message = "{class.endTime.required}")
     @JsonFormat(pattern = "HH:mm")
     private LocalTime endTime;
 
-    @NotNull(message = "Sức chứa tối đa không được để trống")
-    @Min(value = 1, message = "Sức chứa tối đa phải lớn hơn 0")
+    @NotNull(message = "{class.capacity.required}")
+    @Min(value = 1, message = "{class.capacity.minimum}")
     private Integer maxCapacity;
 
-    @NotNull(message = "Học phí không được để trống")
-    @DecimalMin(value = "0.0", message = "Học phí không được âm")
+    @NotNull(message = "{class.price.required}")
+    @DecimalMin(value = "0.0", message = "{class.price.minimum}")
     private BigDecimal price;
 
     private String status;
 
-    @NotNull(message = "Ngày học đầu tiên không được để trống")
+    @NotNull(message = "{class.startDate.required}")
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate startDate;
 
-    @NotNull(message = "Số tuần học không được để trống")
-    @Min(value = 1, message = "Số tuần học phải là số nguyên dương")
+    @NotNull(message = "{class.duration.required}")
+    @Min(value = 1, message = "{class.duration.minimum}")
     private Integer durationWeeks;
+
+    private Boolean hasPt;
 }

@@ -25,6 +25,8 @@ import java.time.LocalTime;
 import java.time.LocalDate;
 import java.time.Clock;
 import java.util.List;
+import java.text.Normalizer;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -48,67 +50,72 @@ public class ClassService {
     public ClassResponse createClass(CreateClassRequest request) {
         String name = normalizeText(request.getName());
         if (!StringUtils.hasText(name)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên lớp học không được để trống");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.name.required"));
         }
 
         if (classRepository.existsByNameIgnoreCase(name)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tên lớp học '" + name + "' đã tồn tại trong hệ thống");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text("class.name.duplicate", name));
         }
 
         Subject subject = subjectRepository.findById(request.getSubjectId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Môn học với ID " + request.getSubjectId() + " không tồn tại"
+                        ApiMessages.text("class.subject.notFound", request.getSubjectId())
                 ));
+
+        boolean gymSubject = isGymOrFitness(subject);
+        boolean requestedPt = Boolean.TRUE.equals(request.getHasPt());
+        if (requestedPt && !gymSubject) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.pt.nonGym"));
+        }
 
         // Resource locks serialize concurrent creations that share a coach or room.
         User coach = userRepository.findByIdForUpdate(request.getCoachId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Huấn luyện viên với ID " + request.getCoachId() + " không tồn tại"
+                        ApiMessages.text("class.coach.notFound", request.getCoachId())
                 ));
 
         if (coach.getRole() == null || !"Coach".equalsIgnoreCase(coach.getRole().getRoleName())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Người dùng '" + coach.getFullName() + "' không có vai trò là Huấn Luyện Viên (Coach)"
+                    ApiMessages.text("class.coach.invalid", coach.getFullName())
             );
         }
 
         Room room = roomRepository.findByIdForUpdate(request.getRoomId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Phòng tập với ID " + request.getRoomId() + " không tồn tại"
+                        ApiMessages.text("class.room.notFound", request.getRoomId())
                 ));
 
         if (request.getMaxCapacity() > room.getMaxCapacity()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    String.format("Sức chứa tối đa của lớp (%d học viên) vượt quá sức chứa tối đa của phòng tập '%s' (%d người)",
-                            request.getMaxCapacity(), room.getName(), room.getMaxCapacity())
+                    ApiMessages.text("class.capacity.room", request.getMaxCapacity(), room.getName(), room.getMaxCapacity())
             );
         }
 
         LocalTime startTime = request.getStartTime();
         LocalTime endTime = request.getEndTime();
         if (startTime == null || endTime == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khung giờ học không được để trống");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.time.required"));
         }
         if (!endTime.isAfter(startTime)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Giờ kết thúc (" + endTime + ") phải sau giờ bắt đầu (" + startTime + ")"
+                    ApiMessages.text("class.time.order")
             );
         }
 
         var slot = TIME_SLOTS.stream()
                 .filter(option -> option.id().equals(request.getSlotId()))
                 .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn slot học hợp lệ"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.slot.invalid")));
         if (startTime.isBefore(LocalTime.parse(slot.startTime()))
                 || endTime.isAfter(LocalTime.parse(slot.endTime()))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Giờ học phải nằm trong slot " + slot.id() + " (" + slot.startTime() + " - " + slot.endTime() + ")");
+                    ApiMessages.text("class.time.slot", slot.id(), slot.startTime(), slot.endTime()));
         }
 
         List<String> cleanedDays = ClassSchedule.normalizeDays(request.getDaysOfWeek());
@@ -120,7 +127,7 @@ public class ClassService {
         String status = List.of("Active", "Open", "Closed", "Cancelled", "Completed", "Cancel").stream()
                 .filter(s -> s.equalsIgnoreCase(requestedStatus)
                         || (s.equals("Completed") && "Complete".equalsIgnoreCase(requestedStatus)))
-                .findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái lớp không hợp lệ"));
+                .findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.status.invalid")));
 
         ClassEntity newClass = ClassEntity.builder()
                 .name(name)
@@ -136,6 +143,7 @@ public class ClassService {
                 .date(request.getStartDate())
                 .durationWeeks(request.getDurationWeeks())
                 .endDate(endDate)
+                .hasPt(gymSubject && requestedPt)
                 .build();
         newClass.setStatus(ClassSchedule.effectiveStatus(newClass, LocalDate.now(paymentClock)));
         if (!List.of("Completed", "Cancelled", "Cancel").contains(newClass.getStatus())) {
@@ -148,7 +156,7 @@ public class ClassService {
                 .status("Cancel".equalsIgnoreCase(saved.getStatus()) || "Cancelled".equalsIgnoreCase(saved.getStatus())
                         ? "Cancelled" : "Completed".equalsIgnoreCase(saved.getStatus()) ? "Completed" : "Scheduled")
                 .build()).toList());
-        return ClassResponse.success("Tạo mới lớp học thành công", saved, LocalDate.now(paymentClock));
+        return ClassResponse.success(ApiMessages.text("class.created"), saved, LocalDate.now(paymentClock));
     }
 
     @Transactional(readOnly = true)
@@ -179,9 +187,9 @@ public class ClassService {
         ClassEntity classEntity = classRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Không tìm thấy lớp học với mã ID: " + id
+                        ApiMessages.text("class.notFound", id)
                 ));
-        return ClassResponse.success("Lấy thông tin lớp học thành công", classEntity, LocalDate.now(paymentClock));
+        return ClassResponse.success(ApiMessages.text("class.loaded"), classEntity, LocalDate.now(paymentClock));
     }
 
     @Transactional(readOnly = true)
@@ -199,6 +207,7 @@ public class ClassService {
                         .code(String.format("SUB-%03d", s.getId()))
                         .name(s.getName())
                         .category(s.getCategory())
+                        .supportsPt(isGymOrFitness(s))
                         .displayText(String.format("%s (%s)", s.getName(), String.format("SUB-%03d", s.getId())))
                         .build())
                 .toList();
@@ -209,7 +218,7 @@ public class ClassService {
                         .fullName(c.getFullName())
                         .username(c.getUsername())
                         .phone(c.getPhone())
-                        .displayText("HLV " + c.getFullName())
+                        .displayText(ApiMessages.text("class.coach.display", c.getFullName()))
                         .build())
                 .toList();
 
@@ -218,13 +227,13 @@ public class ClassService {
                         .id(r.getId())
                         .name(r.getName())
                         .maxCapacity(r.getMaxCapacity())
-                        .displayText(String.format("%s (Tối đa %d người)", r.getName(), r.getMaxCapacity()))
+                        .displayText(ApiMessages.text("class.room.display", r.getName(), r.getMaxCapacity()))
                         .build())
                 .toList();
 
         return ClassFormOptionsResponse.builder()
                 .success(true)
-                .message("Lấy dữ liệu danh mục tạo lớp học thành công")
+                .message(ApiMessages.text("class.options.loaded"))
                 .data(ClassFormOptionsResponse.OptionData.builder()
                         .subjects(subjectOptions)
                         .coaches(coachOptions)
@@ -239,7 +248,7 @@ public class ClassService {
         ClassEntity classEntity = classRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Không tìm thấy lớp học với mã ID: " + id
+                        ApiMessages.text("class.notFound", id)
                 ));
         classRepository.delete(classEntity);
     }
@@ -255,15 +264,9 @@ public class ClassService {
         for (ClassEntity existing : roomClasses) {
             ClassSession overlap = conflictingSession(existing, dates, newStart, newEnd);
             if (overlap != null) {
-                    throw new ResponseStatusException(
-                            HttpStatus.CONFLICT,
-                            String.format("Xung đột phòng tập: Phòng '%s' đã có lớp '%s' học vào %s (%s - %s)",
-                                    existing.getRoom().getName(),
-                                    existing.getName(),
-                                    overlap.getDate(),
-                                    overlap.getStartTime(),
-                                    overlap.getEndTime())
-                    );
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text(
+                            "class.conflict.room", existing.getRoom().getName(), existing.getName(), overlap.getDate(),
+                            overlap.getStartTime(), overlap.getEndTime()));
             }
         }
 
@@ -271,15 +274,9 @@ public class ClassService {
         for (ClassEntity existing : coachClasses) {
             ClassSession overlap = conflictingSession(existing, dates, newStart, newEnd);
             if (overlap != null) {
-                    throw new ResponseStatusException(
-                            HttpStatus.CONFLICT,
-                            String.format("Xung đột HLV: Huấn luyện viên '%s' đã có lịch dạy lớp '%s' vào %s (%s - %s)",
-                                    existing.getCoach().getFullName(),
-                                    existing.getName(),
-                                    overlap.getDate(),
-                                    overlap.getStartTime(),
-                                    overlap.getEndTime())
-                    );
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text(
+                            "class.conflict.coach", existing.getCoach().getFullName(), existing.getName(), overlap.getDate(),
+                            overlap.getStartTime(), overlap.getEndTime()));
             }
         }
     }
@@ -306,6 +303,21 @@ public class ClassService {
         if (input == null) return null;
         String trimmed = input.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private boolean isGymOrFitness(Subject subject) {
+        return isGymOrFitnessValue(subject == null ? null : subject.getName())
+                || isGymOrFitnessValue(subject == null ? null : subject.getCategory());
+    }
+
+    private boolean isGymOrFitnessValue(String value) {
+        if (!StringUtils.hasText(value)) return false;
+        String normalized = Normalizer.normalize(value.trim(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", " ")
+                .trim();
+        return List.of("gym", "fitness", "fitness gym", "gym fitness").contains(normalized);
     }
 
     private Integer parseClassId(String keyword) {

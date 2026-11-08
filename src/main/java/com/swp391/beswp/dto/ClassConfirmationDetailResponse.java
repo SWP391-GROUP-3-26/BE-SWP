@@ -36,6 +36,7 @@ public class ClassConfirmationDetailResponse {
     private String schedule;
     private String roomName;
     private String coachName;
+    private boolean hasPt;
     private BigDecimal price;
     private String priceFormatted;
     private String description;

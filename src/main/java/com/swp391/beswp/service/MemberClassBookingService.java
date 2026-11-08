@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.Map;
@@ -114,10 +115,11 @@ public class MemberClassBookingService {
 
             String rawStatus = registrationStatus(group, today);
             String displayStatus = mapBookingDisplayStatus(rawStatus);
+            LocalDateTime cancellationNow = LocalDateTime.now(paymentClock);
             boolean canCancel = ("Booked".equals(rawStatus) || "Pending".equals(rawStatus))
-                    && ClassSchedule.notStarted(classEntity, LocalDateTime.now(paymentClock))
+                    && cancellationWindowOpen(group, cancellationNow)
                     && group.stream().anyMatch(item -> item.getSession().getDate().atTime(item.getSession().getStartTime())
-                    .isAfter(LocalDateTime.now(paymentClock)));
+                    .isAfter(cancellationNow));
             boolean canRebook = ("Completed".equalsIgnoreCase(rawStatus) || "Cancelled".equalsIgnoreCase(rawStatus))
                     && ClassSchedule.notStarted(classEntity, LocalDateTime.now(paymentClock))
                     && ClassSchedule.isOpen(classEntity) && !ClassSchedule.expired(classEntity, today);
@@ -154,6 +156,7 @@ public class MemberClassBookingService {
                     .schedule(schedule)
                     .timeSlot(timeSlot)
                     .coachName(coachName)
+                    .hasPt(classEntity.isHasPt())
                     .coachAvatar(coachAvatar)
                     .status(displayStatus)
                     .rawStatus(rawStatus)
@@ -180,7 +183,7 @@ public class MemberClassBookingService {
 
         return MyClassListResponse.builder()
                 .success(true)
-                .message("Lấy danh sách lớp học của tôi thành công")
+                .message(ApiMessages.text("class.my.list"))
                 .counts(MyClassListResponse.Counts.builder()
                         .all(total)
                         .ongoing(ongoing)
@@ -302,6 +305,7 @@ public class MemberClassBookingService {
                     .capacityUnit(capacityUnit)
                     .remainingSlotsText(remainingSlotsText)
                     .price(price)
+                    .hasPt(c.isHasPt())
                     .priceFormatted(priceFormatted)
                     .packageNote("Hoặc trừ 1 buổi gói")
                     .enrolled(isEnrolled)
@@ -322,7 +326,7 @@ public class MemberClassBookingService {
 
         return AvailableClassListResponse.builder()
                 .success(true)
-                .message("Lấy danh sách lớp học đăng ký thành công")
+                .message(ApiMessages.text("class.available.list"))
                 .activeSubscription(activeSub)
                 .categories(new ArrayList<>(categories))
                 .totalAvailableClasses(cardList.size())
@@ -338,7 +342,7 @@ public class MemberClassBookingService {
     public ClassConfirmationDetailResponse getClassConfirmationDetail(String principal, Integer classId) {
         User user = findMemberUser(principal);
         ClassEntity classEntity = classRepository.findById(classId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học với mã: " + classId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ApiMessages.text("class.notFound", classId)));
 
         List<ClassSession> courseSessions = remainingSessions(classEntity, LocalDateTime.now(paymentClock));
         ClassSession nextSession = courseSessions.getFirst();
@@ -393,7 +397,7 @@ public class MemberClassBookingService {
                 .sessionCount(courseSessions.size()).totalAmount(price.multiply(BigDecimal.valueOf(courseSessions.size())))
                 .sessions(courseSessions.stream().map(s -> sessionData(s, null)).toList())
                 .success(true)
-                .message("Lấy thông tin xác nhận đặt lớp thành công")
+                .message(ApiMessages.text("class.registration.loaded"))
                 .classId(classEntity.getId())
                 .classCode(String.format("CLS-%03d", classEntity.getId()))
                 .className(classEntity.getName())
@@ -403,6 +407,7 @@ public class MemberClassBookingService {
                 .schedule(schedule)
                 .roomName(roomName)
                 .coachName(coachName)
+                .hasPt(classEntity.isHasPt())
                 .price(price)
                 .priceFormatted(priceFormatted)
                 .description(description)
@@ -424,38 +429,38 @@ public class MemberClassBookingService {
 
         Integer classId = targetClassId != null ? targetClassId : request.getClassId();
         if (classId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã lớp học (classId) không được để trống");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.id.required"));
         }
 
         ClassEntity classEntity = classRepository.findByIdForUpdate(classId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học với mã: " + classId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ApiMessages.text("class.notFound", classId)));
         LocalDateTime now = LocalDateTime.now(paymentClock).withNano(0);
 
         if (!ClassSchedule.notStarted(classEntity, now)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp đã bắt đầu hoặc chưa có lịch bắt đầu hợp lệ, không thể đăng ký");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.registration.notStarted"));
         }
 
         String status = classEntity.getStatus() != null ? classEntity.getStatus().trim() : "";
         if ((!"Active".equalsIgnoreCase(status) && !"Open".equalsIgnoreCase(status))
                 || ClassSchedule.expired(classEntity, now.toLocalDate())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp học hiện tại không mở đăng ký (Trạng thái: " + status + ")");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.notOpen", status));
         }
 
         reservationService.expirePending(classId, now);
         if (classBookingRepository.existsActiveBookingByUserIdAndClassId(user.getId(), classEntity.getId(), now)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã đăng ký lớp học này rồi. Vui lòng kiểm tra mục 'Lớp học của tôi'");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text("class.alreadyBooked"));
         }
 
         List<ClassSession> courseSessions = remainingSessions(classEntity, now);
         for (ClassSession selected : courseSessions) {
             if (classBookingRepository.countReservedMembersBySessionId(selected.getId(), now) >= classEntity.getMaxCapacity()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buổi học ngày " + selected.getDate() + " đã hết chỗ");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.session.full", selected.getDate()));
             }
         }
 
         String rawMethod = request.getPaymentMethod();
         if (!StringUtils.hasText(rawMethod)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn hình thức thanh toán");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.required"));
         }
 
         boolean isMixed = "MIXED".equalsIgnoreCase(rawMethod.trim());
@@ -463,7 +468,7 @@ public class MemberClassBookingService {
         boolean isDirect = isDirectPayment(rawMethod) || isMixed;
 
         if (!isPackage && !isDirect) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hình thức thanh toán không hợp lệ. Vui lòng chọn 'Trừ gói hội viên' hoặc 'Thanh toán trực tiếp'");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.method"));
         }
 
         String channel = isDirect ? normalizePaymentChannel(request.getPaymentChannel()) : null;
@@ -471,7 +476,7 @@ public class MemberClassBookingService {
         boolean isQr = isDirect && "E_Wallet".equals(channel);
         boolean isOnline = isCard || isQr;
         if (isMixed && !isOnline) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phần học phí còn thiếu phải thanh toán qua VNPay hoặc QR SePay");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.mixed.channel"));
         }
         BigDecimal unitPrice = classEntity.getPrice() == null ? BigDecimal.ZERO : classEntity.getPrice();
         BigDecimal paymentAmount = isDirect ? unitPrice.multiply(BigDecimal.valueOf(courseSessions.size())) : null;
@@ -483,12 +488,12 @@ public class MemberClassBookingService {
         if (isPackage) {
             Optional<MemberSubscription> subOpt = memberSubscriptionRepository.findCurrentActiveSubscription(user.getId(), LocalDate.now(paymentClock));
             if (subOpt.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn chưa có gói hội viên nào đang hoạt động hoặc gói đã hết hạn. Vui lòng chọn 'Thanh toán trực tiếp' hoặc mua thêm gói dịch vụ");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.package.inactive"));
             }
             activeSub = subOpt.get();
             if (!hasPackageSport(user, classEntity)) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Gói hội viên hiện tại không bao gồm Sport của lớp này");
+                        ApiMessages.text("class.package.noSport"));
             }
             int total = activeSub.getMembershipPackage() != null ? activeSub.getMembershipPackage().getIncludedClasses() : 0;
             long used = classBookingRepository.countUsedPackageSessions(
@@ -502,8 +507,8 @@ public class MemberClassBookingService {
             if ((!isMixed && remaining < courseSessions.size()) || remaining == 0
                     || activeSub.getStartDate().isAfter(now.toLocalDate())
                     || courseSessions.getLast().getDate().isAfter(activeSub.getEndDate())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đăng ký cần " + courseSessions.size()
-                        + " buổi, gói còn " + remaining + " buổi và phải có hiệu lực đến buổi cuối. Vui lòng chọn gói phù hợp hoặc thanh toán trực tiếp");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        ApiMessages.text("class.package.quota", courseSessions.size(), remaining));
             }
             packageSessions = Math.min(remaining, courseSessions.size());
             if (isMixed) {
@@ -511,30 +516,30 @@ public class MemberClassBookingService {
                 if (packageSessions == courseSessions.size() || request.getPackageSessions() == null
                         || request.getPackageSessions() != packageSessions || request.getPaymentAmount() == null
                         || request.getPaymentAmount().compareTo(paymentAmount) != 0) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Số lượt hoặc học phí đã thay đổi. Vui lòng mở lại xác nhận đăng ký.");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text("class.package.changed"));
                 }
             }
             remainingSessionsAfter = remaining - packageSessions;
         }
 
         if (paymentAmount != null && (paymentAmount.signum() < 0 || paymentAmount.precision() - paymentAmount.scale() > 10)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tổng học phí không hợp lệ hoặc vượt giới hạn thanh toán");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.total.invalid"));
         }
         if (isOnline) {
             if (isCard) vnpayService.requireConfigured();
             else sepayService.requireConfigured();
             if (paymentAmount == null || paymentAmount.signum() <= 0 || paymentAmount.stripTrailingZeros().scale() > 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá lớp phải là số VND nguyên dương để thanh toán trực tuyến");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.vnd.invalid"));
             }
         }
 
         ClassSession session = courseSessions.getFirst();
         if (!ClassSchedule.bookable(classEntity, session, now)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buổi học không còn mở đăng ký");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.session.closed"));
         }
         LocalDateTime expiresAt = isOnline ? now.plusMinutes(VnpayService.PAYMENT_TIMEOUT_MINUTES) : null;
         if (isOnline && expiresAt.isAfter(session.getDate().atTime(session.getStartTime()))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buổi học phải bắt đầu sau ít nhất 15 phút để thanh toán trực tuyến");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.payment.notice"));
         }
         String registrationCode = UUID.randomUUID().toString();
         List<ClassBooking> registration = new ArrayList<>();
@@ -591,7 +596,8 @@ public class MemberClassBookingService {
                 .registrationId(savedBooking.getId()).sessionCount(courseSessions.size())
                 .sessions(courseSessions.stream().map(s -> sessionData(s, isOnline ? "Pending" : "Booked")).toList())
                 .success(true)
-                .message(isOnline ? (isQr ? "Đã tạo yêu cầu thanh toán QR SePay" : "Đã tạo yêu cầu thanh toán VNPay") : "Đăng ký lớp học thành công! Chúc bạn có buổi tập vui vẻ và hiệu quả.")
+                .message(isOnline ? ApiMessages.text(isQr ? "class.payment.qr" : "class.payment.vnpay")
+                        : ApiMessages.text("class.registered"))
                 .bookingId(savedBooking.getId())
                 .startDate(classEntity.getDate()).durationWeeks(classEntity.getDurationWeeks()).endDate(classEntity.getEndDate())
                 .sessionId(session.getId()).sessionDate(session.getDate())
@@ -599,6 +605,7 @@ public class MemberClassBookingService {
                 .classId(classEntity.getId())
                 .classCode(String.format("CLS-%03d", classEntity.getId()))
                 .className(classEntity.getName())
+                .hasPt(classEntity.isHasPt())
                 .schedule(schedule)
                 .roomName(classEntity.getRoom() != null ? classEntity.getRoom().getName() : "")
                 .coachName(classEntity.getCoach() != null ? classEntity.getCoach().getFullName() : "")
@@ -626,25 +633,43 @@ public class MemberClassBookingService {
     public com.swp391.beswp.dto.RefundDtos.CancellationPreview cancellationPreview(String principal, Integer bookingId) {
         User user = findMemberUser(principal);
         ClassBooking booking = classBookingRepository.findByIdAndUser_Id(bookingId, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đăng ký lớp"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ApiMessages.text("class.booking.notFound")));
         List<ClassBooking> registration = cancellableRegistration(booking);
         return refunds.preview(bookingId, registration, paymentRepository.findAllByBooking_IdOrderByIdDesc(registration.getFirst().getId()));
     }
 
     private List<ClassBooking> cancellableRegistration(ClassBooking booking) {
-        if (!ClassSchedule.notStarted(booking.getSession().getClassEntity(), LocalDateTime.now(paymentClock))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp đã bắt đầu hoặc chưa có lịch bắt đầu hợp lệ, không thể hủy đăng ký");
-        }
         if (ClassSchedule.expired(booking.getSession().getClassEntity(), LocalDate.now(paymentClock))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp học đã kết thúc");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.cancel.expired"));
         }
         List<ClassBooking> registration = reservationService.registrationBookings(booking);
         LocalDateTime now = LocalDateTime.now(paymentClock);
+        if (firstSessionStart(registration) == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.cancel.notStarted"));
+        }
+        if (!cancellationWindowOpen(registration, now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.cancel.window"));
+        }
         if (registration.stream().noneMatch(b -> ("Booked".equals(b.getStatus()) || "Pending".equals(b.getStatus()))
                 && b.getSession().getDate().atTime(b.getSession().getStartTime()).isAfter(now))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không còn buổi tương lai có thể hủy");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.cancel.noneFuture"));
         }
         return registration;
+    }
+
+    private boolean cancellationWindowOpen(List<ClassBooking> registration, LocalDateTime now) {
+        LocalDateTime firstSessionStart = firstSessionStart(registration);
+        return firstSessionStart != null && firstSessionStart.isAfter(now.plusDays(3));
+    }
+
+    private LocalDateTime firstSessionStart(List<ClassBooking> registration) {
+        return registration.stream()
+                .map(ClassBooking::getSession)
+                .filter(Objects::nonNull)
+                .filter(session -> session.getDate() != null && session.getStartTime() != null)
+                .map(session -> session.getDate().atTime(session.getStartTime()))
+                .min(LocalDateTime::compareTo)
+                .orElse(null);
     }
 
     @Transactional
@@ -652,11 +677,11 @@ public class MemberClassBookingService {
         User user = findMemberUser(principal);
 
         Integer classId = classBookingRepository.findOwnedClassId(bookingId, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đăng ký lớp"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ApiMessages.text("class.booking.notFound")));
         classRepository.findByIdForUpdate(classId).orElseThrow();
 
         ClassBooking booking = classBookingRepository.findByIdAndUser_Id(bookingId, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin đăng ký lớp học này"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ApiMessages.text("class.booking.detail.notFound")));
 
         List<ClassBooking> registration = cancellableRegistration(booking);
         ClassBooking root = registration.getFirst();
@@ -668,7 +693,7 @@ public class MemberClassBookingService {
         if (confirmation != null) {
             var preview = refunds.preview(bookingId, registration, attempts);
             if (confirmation.estimatedRefund().compareTo(preview.estimatedRefund()) != 0 || confirmation.cancelSessions() != preview.cancelSessions()) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Số buổi hoặc số tiền đã thay đổi. Vui lòng đóng và mở lại xác nhận hủy.");
+                throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text("class.cancel.changed"));
             }
         }
         for (ClassBooking item : registration) {
@@ -747,21 +772,21 @@ public class MemberClassBookingService {
 
     User findMemberUser(String principal) {
         if (!StringUtils.hasText(principal)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập để thực hiện");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, ApiMessages.text("class.login.required"));
         }
 
         User member;
         try {
             Integer userId = Integer.valueOf(principal);
             member = userRepository.findById(userId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin tài khoản"));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ApiMessages.text("class.member.notFound")));
         } catch (NumberFormatException ignored) {
             member = userRepository.findByUsernameIgnoreCase(principal)
                     .or(() -> userRepository.findByEmailIgnoreCase(principal))
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin tài khoản"));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, ApiMessages.text("class.member.notFound")));
         }
         if (member.getRole() == null || !"Member".equalsIgnoreCase(member.getRole().getRoleName())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chức năng này chỉ dành cho Member");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ApiMessages.text("class.member.only"));
         }
         return member;
     }
@@ -775,12 +800,12 @@ public class MemberClassBookingService {
 
     private List<ClassSession> remainingSessions(ClassEntity classEntity, LocalDateTime now) {
         if (!ClassSchedule.notStarted(classEntity, now)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lớp đã bắt đầu hoặc chưa có lịch bắt đầu hợp lệ, không thể đăng ký");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.registration.notStarted"));
         }
         List<ClassSession> sessions = classSessionRepository.findUpcomingScheduledSessions(classEntity.getId(), now.toLocalDate())
                 .stream().filter(s -> ClassSchedule.bookable(classEntity, s, now))
                 .sorted(Comparator.comparing(ClassSession::getDate).thenComparing(ClassSession::getStartTime)).toList();
-        if (sessions.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không còn buổi học hợp lệ trong thời hạn lớp");
+        if (sessions.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ApiMessages.text("class.sessions.empty"));
         return sessions;
     }
 

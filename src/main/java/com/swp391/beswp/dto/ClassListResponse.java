@@ -1,6 +1,7 @@
 package com.swp391.beswp.dto;
 
 import com.swp391.beswp.entity.ClassEntity;
+import com.swp391.beswp.service.ApiMessages;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -27,6 +28,6 @@ public class ClassListResponse {
         List<ClassResponse.ClassData> list = classes.stream()
                 .map(c -> ClassResponse.ClassData.fromEntity(c, today))
                 .toList();
-        return new ClassListResponse(true, "Lấy danh sách lớp học thành công", list.size(), list);
+        return new ClassListResponse(true, ApiMessages.text("class.list.loaded"), list.size(), list);
     }
 }

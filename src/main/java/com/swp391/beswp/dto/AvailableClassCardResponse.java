@@ -44,6 +44,7 @@ public class AvailableClassCardResponse {
     private String capacityUnit;
     private String remainingSlotsText;
     private BigDecimal price;
+    private boolean hasPt;
     private String priceFormatted;
     private String packageNote;
     private boolean enrolled;

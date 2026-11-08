@@ -81,6 +81,7 @@ public class CoachClassService {
                     .startDate(c.getDate())
                     .durationWeeks(c.getDurationWeeks()).endDate(c.getEndDate())
                     .price(c.getPrice())
+                    .hasPt(c.isHasPt())
                     .status(effectiveStatus)
                     .statusDisplay(displayStatus)
                     .build());

@@ -33,6 +33,8 @@ public class RefundRequest {
     private String status = "PENDING";
     @Column(name = "Reason", nullable = false, length = 2000)
     private String reason;
+    @Column(name = "Refund_Policy", length = 40)
+    private String refundPolicy;
     @Column(name = "Review_Note", length = 2000)
     private String reviewNote;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "Reviewed_By")

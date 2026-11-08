@@ -565,7 +565,7 @@ public class ReceptionistRegistrationService {
         memberBookings.cancelClassBooking(member.getId().toString(), bookingId, confirmation);
         auditLogService.recordLog(actor, "CANCEL_BOOKING", "Class_Booking",
                 "Hủy đăng ký #" + bookingId + " của hội viên #" + memberId + " - " + member.getFullName());
-        return Map.of("success", true, "message", "Đã hủy các buổi tương lai. Khoản đủ điều kiện hoàn đã được gửi duyệt.");
+        return Map.of("success", true, "message", ApiMessages.text("class.cancel.staffSuccess"));
     }
 
     private User requireReceptionist(Authentication authentication) {
@@ -620,7 +620,8 @@ public class ReceptionistRegistrationService {
                 ClassSchedule.effectiveStatus(course, now.toLocalDate()), unitPrice(course), course.getMaxCapacity(),
                 course.getDate(), course.getDurationWeeks(), course.getEndDate(), course.getDaysOfWeek(),
                 course.getStartTime(), course.getEndTime(), sessions.size(), seats,
-                ClassSchedule.notStarted(course, now) && !sessions.isEmpty() && seats > 0);
+                ClassSchedule.notStarted(course, now) && !sessions.isEmpty() && seats > 0,
+                course.isHasPt());
     }
 
     private List<ClassSession> futureBookableSessions(ClassEntity course, LocalDateTime now) {

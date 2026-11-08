@@ -31,4 +31,15 @@ public class Room {
 
     @Column(name = "Max_Capacity", nullable = false)
     private Integer maxCapacity;
+
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "Room_Type", length = 30)
+    private RoomType type;
+
+    @Column(name = "Location", length = 150)
+    private String location;
+
+    @Column(name = "Status", nullable = false, length = 20)
+    @Builder.Default
+    private String status = "Active";
 }

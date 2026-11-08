@@ -176,9 +176,23 @@ CREATE TABLE Room (
     Room_ID      INT IDENTITY(1,1) NOT NULL,
     Name         NVARCHAR(50)      NOT NULL,
     Max_Capacity INT               NOT NULL,
+    Room_Type    NVARCHAR(30)      NULL,
+    Location     NVARCHAR(150)     NULL,
+    Status       NVARCHAR(20)      NOT NULL CONSTRAINT DF_Room_Status DEFAULT N'Active',
     CONSTRAINT PK_Room PRIMARY KEY (Room_ID),
     CONSTRAINT UQ_Room_Name UNIQUE (Name),
-    CONSTRAINT CK_Room_Capacity CHECK (Max_Capacity > 0)
+    CONSTRAINT CK_Room_Capacity CHECK (Max_Capacity > 0),
+    CONSTRAINT CK_Room_Status CHECK (Status IN (N'Active', N'Maintenance', N'Inactive')),
+    CONSTRAINT CK_Room_Type CHECK (Room_Type IS NULL OR Room_Type IN (N'GYM', N'PILATES', N'FUNCTIONAL', N'BOXING', N'MARTIAL_ARTS', N'MULTIPURPOSE', N'SWIMMING_POOL', N'FOOTBALL_COURT', N'BASKETBALL_COURT', N'BADMINTON_COURT', N'TABLE_TENNIS_COURT', N'TENNIS_COURT'))
+);
+GO
+
+CREATE TABLE Subject_Room_Type (
+    Subject_ID INT NOT NULL,
+    Room_Type NVARCHAR(30) NOT NULL,
+    CONSTRAINT PK_Subject_Room_Type PRIMARY KEY (Subject_ID, Room_Type),
+    CONSTRAINT FK_Subject_Room_Type_Subject FOREIGN KEY (Subject_ID) REFERENCES Subject(Subject_ID) ON DELETE CASCADE,
+    CONSTRAINT CK_Subject_Room_Type CHECK (Room_Type IN (N'GYM', N'PILATES', N'FUNCTIONAL', N'BOXING', N'MARTIAL_ARTS', N'MULTIPURPOSE', N'SWIMMING_POOL', N'FOOTBALL_COURT', N'BASKETBALL_COURT', N'BADMINTON_COURT', N'TABLE_TENNIS_COURT', N'TENNIS_COURT'))
 );
 GO
 

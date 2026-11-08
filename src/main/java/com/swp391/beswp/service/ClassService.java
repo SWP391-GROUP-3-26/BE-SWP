@@ -57,7 +57,7 @@ public class ClassService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text("class.name.duplicate", name));
         }
 
-        Subject subject = subjectRepository.findById(request.getSubjectId())
+        Subject subject = subjectRepository.findByIdForUpdate(request.getSubjectId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         ApiMessages.text("class.subject.notFound", request.getSubjectId())
@@ -89,6 +89,12 @@ public class ClassService {
                         ApiMessages.text("class.room.notFound", request.getRoomId())
                 ));
 
+        if (!RoomService.usable(room)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text("class.room.inactive"));
+        }
+        if (!subject.getAllowedRoomTypes().contains(room.getType())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ApiMessages.text("class.room.incompatible"));
+        }
         if (request.getMaxCapacity() > room.getMaxCapacity()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -199,7 +205,7 @@ public class ClassService {
         if (coaches.isEmpty()) {
             coaches = userRepository.findByRole_RoleNameIgnoreCase("Coach");
         }
-        List<Room> rooms = roomRepository.findAllByOrderByNameAsc();
+        List<Room> rooms = roomRepository.findAllByOrderByNameAsc().stream().filter(RoomService::usable).toList();
 
         List<ClassFormOptionsResponse.SubjectOption> subjectOptions = subjects.stream()
                 .map(s -> ClassFormOptionsResponse.SubjectOption.builder()
@@ -207,6 +213,7 @@ public class ClassService {
                         .code(String.format("SUB-%03d", s.getId()))
                         .name(s.getName())
                         .category(s.getCategory())
+                        .allowedRoomTypes(new java.util.LinkedHashSet<>(s.getAllowedRoomTypes()))
                         .supportsPt(isGymOrFitness(s))
                         .displayText(String.format("%s (%s)", s.getName(), String.format("SUB-%03d", s.getId())))
                         .build())
@@ -227,6 +234,7 @@ public class ClassService {
                         .id(r.getId())
                         .name(r.getName())
                         .maxCapacity(r.getMaxCapacity())
+                        .type(r.getType()).typeLabel(r.getType().getLabel()).location(r.getLocation())
                         .displayText(ApiMessages.text("class.room.display", r.getName(), r.getMaxCapacity()))
                         .build())
                 .toList();

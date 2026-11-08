@@ -22,6 +22,25 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Integer> {
 
     boolean existsByNameIgnoreCaseAndIdNot(String name, Integer id);
 
+    boolean existsByRoom_Id(Integer roomId);
+
+    @Query("SELECT c FROM ClassEntity c JOIN FETCH c.room r " +
+            "WHERE r.id = :roomId AND LOWER(c.status) NOT IN ('cancelled', 'cancel', 'complete', 'completed') " +
+            "AND (EXISTS (SELECT cs.id FROM ClassSession cs WHERE cs.classEntity.id = c.id AND LOWER(cs.status) = 'scheduled' " +
+            "AND (c.date IS NULL OR cs.date >= c.date) AND (c.endDate IS NULL OR cs.date <= c.endDate) " +
+            "AND (cs.date > CAST(:now AS date) OR (cs.date = CAST(:now AS date) AND cs.endTime > CAST(:now AS time)))) " +
+            "OR (NOT EXISTS (SELECT cs.id FROM ClassSession cs WHERE cs.classEntity.id = c.id) " +
+            "AND (c.date > CAST(:now AS date) OR (c.date = CAST(:now AS date) " +
+            "AND COALESCE(c.endTime, c.startTime, c.time) > CAST(:now AS time))))) ORDER BY c.id")
+    List<ClassEntity> findUpcomingClassesByRoomId(@Param("roomId") Integer roomId,
+                                                @Param("now") java.time.LocalDateTime now);
+
+    @Query("SELECT DISTINCT c.room.id FROM ClassEntity c WHERE c.subject.id = :subjectId ORDER BY c.room.id")
+    List<Integer> findRoomIdsBySubjectId(@Param("subjectId") Integer subjectId);
+
+    @Query("SELECT DISTINCT c.subject.id FROM ClassEntity c WHERE c.room.id = :roomId ORDER BY c.subject.id")
+    List<Integer> findSubjectIdsByRoomId(@Param("roomId") Integer roomId);
+
     @Query("SELECT c FROM ClassEntity c " +
            "JOIN FETCH c.subject s " +
            "JOIN FETCH c.coach u " +

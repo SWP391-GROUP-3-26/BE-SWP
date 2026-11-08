@@ -40,6 +40,7 @@ public class ClassFormOptionsResponse {
         private String name;
         private String category;
         private boolean supportsPt;
+        private java.util.Set<com.swp391.beswp.entity.RoomType> allowedRoomTypes;
         private String displayText; // "Hatha Yoga Định Tuyến (SUB-003)"
     }
 
@@ -63,6 +64,9 @@ public class ClassFormOptionsResponse {
         private Integer id;
         private String name;
         private Integer maxCapacity;
+        private com.swp391.beswp.entity.RoomType type;
+        private String typeLabel;
+        private String location;
         private String displayText; // "Studio Lotus 01 (Tầng 2) - Tối đa 20 người"
     }
 }

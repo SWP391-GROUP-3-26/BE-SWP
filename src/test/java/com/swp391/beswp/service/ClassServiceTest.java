@@ -74,6 +74,7 @@ class ClassServiceTest {
         lenient().when(paymentClock.getZone()).thenReturn(ZoneId.of("Asia/Ho_Chi_Minh"));
         lenient().when(paymentClock.instant()).thenReturn(Instant.parse("2026-10-13T01:00:00Z"));
         sampleSubject = Subject.builder()
+                .allowedRoomTypes(new java.util.LinkedHashSet<>(java.util.Set.of(com.swp391.beswp.entity.RoomType.MULTIPURPOSE)))
                 .id(1)
                 .name("Yoga Phục Hồi")
                 .category("Yoga")
@@ -91,6 +92,7 @@ class ClassServiceTest {
         sampleCoach.setStatus("Active");
 
         sampleRoom = Room.builder()
+                .type(com.swp391.beswp.entity.RoomType.MULTIPURPOSE)
                 .id(1)
                 .name("Studio Lotus 01")
                 .maxCapacity(20)
@@ -116,7 +118,7 @@ class ClassServiceTest {
     @Test
     void createClass_success() {
         when(classRepository.existsByNameIgnoreCase("Yoga Chữa Lành Buổi Sáng")).thenReturn(false);
-        when(subjectRepository.findById(1)).thenReturn(Optional.of(sampleSubject));
+        when(subjectRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleSubject));
         when(userRepository.findByIdForUpdate(3)).thenReturn(Optional.of(sampleCoach));
         when(roomRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleRoom));
         when(classRepository.findActiveClassesByRoomId(1)).thenReturn(Collections.emptyList());
@@ -141,7 +143,7 @@ class ClassServiceTest {
         ClassResponse response = classService.createClass(validRequest);
 
         assertTrue(response.isSuccess());
-        assertEquals("Tạo mới lớp học thành công", response.getMessage());
+        assertEquals("Tạo lớp học thành công.", response.getMessage());
         assertNotNull(response.getData());
         assertEquals(1, response.getData().getId());
         assertEquals("CLS-001", response.getData().getCode());
@@ -170,7 +172,7 @@ class ClassServiceTest {
     void createClass_capacityExceedsRoom_throwsBadRequest() {
         validRequest.setMaxCapacity(25); // Room capacity is 20
         when(classRepository.existsByNameIgnoreCase(validRequest.getName())).thenReturn(false);
-        when(subjectRepository.findById(1)).thenReturn(Optional.of(sampleSubject));
+        when(subjectRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleSubject));
         when(userRepository.findByIdForUpdate(3)).thenReturn(Optional.of(sampleCoach));
         when(roomRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleRoom));
 
@@ -179,7 +181,7 @@ class ClassServiceTest {
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
-        assertTrue(ex.getReason().contains("vượt quá sức chứa tối đa của phòng"));
+        assertTrue(ex.getReason().contains("vượt quá sức chứa phòng"));
     }
 
     @Test
@@ -187,7 +189,7 @@ class ClassServiceTest {
         validRequest.setStartTime(LocalTime.of(9, 0));
         validRequest.setEndTime(LocalTime.of(8, 0));
         when(classRepository.existsByNameIgnoreCase(validRequest.getName())).thenReturn(false);
-        when(subjectRepository.findById(1)).thenReturn(Optional.of(sampleSubject));
+        when(subjectRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleSubject));
         when(userRepository.findByIdForUpdate(3)).thenReturn(Optional.of(sampleCoach));
         when(roomRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleRoom));
 
@@ -202,7 +204,7 @@ class ClassServiceTest {
     @Test
     void createClass_roomScheduleConflict_throwsConflict() {
         when(classRepository.existsByNameIgnoreCase(validRequest.getName())).thenReturn(false);
-        when(subjectRepository.findById(1)).thenReturn(Optional.of(sampleSubject));
+        when(subjectRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleSubject));
         when(userRepository.findByIdForUpdate(3)).thenReturn(Optional.of(sampleCoach));
         when(roomRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleRoom));
 
@@ -256,7 +258,7 @@ class ClassServiceTest {
         validRequest.setSlotId(slotId);
         validRequest.setStartTime(LocalTime.parse(start));
         validRequest.setEndTime(LocalTime.parse(end));
-        when(subjectRepository.findById(1)).thenReturn(Optional.of(sampleSubject));
+        when(subjectRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleSubject));
         when(userRepository.findByIdForUpdate(3)).thenReturn(Optional.of(sampleCoach));
         when(roomRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleRoom));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -275,7 +277,7 @@ class ClassServiceTest {
         validRequest.setSlotId(slotId);
         validRequest.setStartTime(LocalTime.parse(start));
         validRequest.setEndTime(LocalTime.parse(end));
-        when(subjectRepository.findById(1)).thenReturn(Optional.of(sampleSubject));
+        when(subjectRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleSubject));
         when(userRepository.findByIdForUpdate(3)).thenReturn(Optional.of(sampleCoach));
         when(roomRepository.findByIdForUpdate(1)).thenReturn(Optional.of(sampleRoom));
 

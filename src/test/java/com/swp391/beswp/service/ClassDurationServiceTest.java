@@ -30,8 +30,8 @@ class ClassDurationServiceTest {
     void setUp() {
         Role role = new Role(); role.setRoleName("Coach");
         coach = new User(); coach.setId(3); coach.setRole(role); coach.setFullName("Coach");
-        room = Room.builder().id(1).name("Room").maxCapacity(20).build();
-        when(subjects.findById(1)).thenReturn(Optional.of(Subject.builder().id(1).name("Yoga").build()));
+        room = Room.builder().id(1).name("Room").type(com.swp391.beswp.entity.RoomType.MULTIPURPOSE).maxCapacity(20).build();
+        when(subjects.findByIdForUpdate(1)).thenReturn(Optional.of(Subject.builder().id(1).name("Yoga").allowedRoomTypes(new java.util.LinkedHashSet<>(java.util.Set.of(com.swp391.beswp.entity.RoomType.MULTIPURPOSE))).build()));
         when(users.findByIdForUpdate(3)).thenReturn(Optional.of(coach));
         when(rooms.findByIdForUpdate(1)).thenReturn(Optional.of(room));
         when(classes.save(any())).thenAnswer(i -> { ClassEntity c = i.getArgument(0); c.setId(10); return c; });

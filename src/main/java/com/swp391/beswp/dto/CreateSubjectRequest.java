@@ -1,5 +1,7 @@
 package com.swp391.beswp.dto;
 
+import com.swp391.beswp.entity.RoomType;
+import java.util.List;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -24,4 +26,7 @@ public class CreateSubjectRequest {
 
     @Size(max = 1000, message = "Mô tả môn học không được vượt quá 1000 ký tự")
     private String description;
+
+    @jakarta.validation.constraints.NotEmpty(message = "Phải chọn ít nhất một loại phòng phù hợp")
+    private List<@jakarta.validation.constraints.NotNull RoomType> allowedRoomTypes;
 }

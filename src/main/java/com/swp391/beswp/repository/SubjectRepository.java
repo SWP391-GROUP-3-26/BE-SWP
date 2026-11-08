@@ -15,6 +15,10 @@ public interface SubjectRepository extends JpaRepository<Subject, Integer> {
 
     boolean existsByNameIgnoreCaseAndIdNot(String name, Integer id);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Subject s WHERE s.id = :id")
+    java.util.Optional<Subject> findByIdForUpdate(@Param("id") Integer id);
+
     @Query("SELECT s FROM Subject s WHERE " +
            "(:keyword IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(s.description) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

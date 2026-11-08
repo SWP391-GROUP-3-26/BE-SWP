@@ -21,7 +21,7 @@ class GlobalExceptionHandlerTest {
             var response = new GlobalExceptionHandler().handleUnexpected(error);
             assertEquals(500, response.getStatusCode().value());
             assertNotNull(response.getBody());
-            assertEquals("Loi he thong", response.getBody().getMessage());
+            assertEquals(com.swp391.beswp.service.ApiMessages.text("system.error"), response.getBody().getMessage());
             assertFalse(response.getBody().isSuccess());
             var logged = events.list.getFirst().getThrowableProxy();
             assertEquals(error.getClass().getName(), logged.getClassName());

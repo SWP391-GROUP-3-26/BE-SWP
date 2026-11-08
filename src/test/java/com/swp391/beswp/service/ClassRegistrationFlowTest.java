@@ -49,8 +49,8 @@ class ClassRegistrationFlowTest {
         Role coachRole = new Role(); coachRole.setRoleName("Coach");
         User coach = new User(); coach.setId(3); coach.setRole(coachRole); coach.setFullName("Coach");
         when(users.findByIdForUpdate(3)).thenReturn(Optional.of(coach));
-        when(rooms.findByIdForUpdate(1)).thenReturn(Optional.of(Room.builder().id(1).name("Room").maxCapacity(10).build()));
-        when(subjects.findById(1)).thenReturn(Optional.of(Subject.builder().id(1).name("Yoga").build()));
+        when(rooms.findByIdForUpdate(1)).thenReturn(Optional.of(Room.builder().id(1).name("Room").type(com.swp391.beswp.entity.RoomType.MULTIPURPOSE).maxCapacity(10).build()));
+        when(subjects.findByIdForUpdate(1)).thenReturn(Optional.of(Subject.builder().id(1).name("Yoga").allowedRoomTypes(new java.util.LinkedHashSet<>(java.util.Set.of(com.swp391.beswp.entity.RoomType.MULTIPURPOSE))).build()));
         when(classes.save(any())).thenAnswer(i -> { course = i.getArgument(0); course.setId(10); return course; });
         when(sessions.saveAll(any())).thenAnswer(i -> {
             Iterable<ClassSession> rows = i.getArgument(0);

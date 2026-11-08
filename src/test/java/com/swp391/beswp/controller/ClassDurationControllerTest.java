@@ -50,9 +50,23 @@ class ClassDurationControllerTest {
         Role role = new Role(); role.setRoleName("Coach");
         User coach = new User(); coach.setId(3); coach.setRole(role);
         when(users.findByIdForUpdate(3)).thenReturn(Optional.of(coach));
-        when(subjects.findById(1)).thenReturn(Optional.of(Subject.builder().id(1).name("Yoga").build()));
-        when(rooms.findByIdForUpdate(1)).thenReturn(Optional.of(Room.builder().id(1).maxCapacity(20).name("Room").build()));
+        when(subjects.findByIdForUpdate(1)).thenReturn(Optional.of(Subject.builder().id(1).name("Yoga")
+                .allowedRoomTypes(new LinkedHashSet<>(Set.of(RoomType.MULTIPURPOSE))).build()));
+        when(rooms.findByIdForUpdate(1)).thenReturn(Optional.of(Room.builder().id(1).maxCapacity(20).name("Room").type(RoomType.MULTIPURPOSE).build()));
         when(classes.save(any())).thenAnswer(i -> { ClassEntity c = i.getArgument(0); c.setId(10); return c; });
+    }
+
+    @Test
+    void maintenanceAndWrongRoomTypesCannotBeUsedForNewClasses() throws Exception {
+        for (Room room : List.of(Room.builder().id(1).type(RoomType.MULTIPURPOSE).status("Maintenance").maxCapacity(20).build(),
+                Room.builder().id(1).type(RoomType.GYM).maxCapacity(20).build(),
+                Room.builder().id(1).maxCapacity(20).build())) {
+            when(rooms.findByIdForUpdate(1)).thenReturn(Optional.of(room));
+            mvc.perform(post("/api/classes").with(user("manager").roles("Center Manager"))
+                    .contentType("application/json").content(BODY.formatted("1")))
+                    .andExpect(status().isConflict());
+        }
+        verify(classes, never()).save(any());
     }
 
     @Test

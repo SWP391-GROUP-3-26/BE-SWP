@@ -26,6 +26,12 @@ public class SubjectController {
 
     private final SubjectService subjectService;
 
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/room-types")
+    public SubjectResponse updateRoomTypes(@PathVariable Integer id,
+            @Valid @RequestBody com.swp391.beswp.dto.SubjectRoomTypesRequest request) {
+        return subjectService.updateRoomTypes(id, request.allowedRoomTypes());
+    }
+
     @PostMapping
     public ResponseEntity<SubjectResponse> createSubject(@Valid @RequestBody CreateSubjectRequest request) {
         SubjectResponse response = subjectService.createSubject(request);

@@ -39,4 +39,12 @@ public class Subject {
     @Column(name = "Status", nullable = false, length = 20)
     @Builder.Default
     private String status = "Active";
+
+    @jakarta.persistence.ElementCollection
+    @jakarta.persistence.CollectionTable(name = "Subject_Room_Type", schema = "dbo",
+            joinColumns = @jakarta.persistence.JoinColumn(name = "Subject_ID"))
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "Room_Type", nullable = false, length = 30)
+    @Builder.Default
+    private java.util.Set<RoomType> allowedRoomTypes = new java.util.LinkedHashSet<>();
 }

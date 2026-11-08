@@ -30,6 +30,7 @@ public class SubjectResponse {
         private String name;
         private String category;
         private String description;
+        private java.util.Set<com.swp391.beswp.entity.RoomType> allowedRoomTypes;
 
         public static SubjectData fromEntity(Subject subject) {
             if (subject == null) {
@@ -41,6 +42,7 @@ public class SubjectResponse {
                     .name(subject.getName())
                     .category(subject.getCategory())
                     .description(subject.getDescription())
+                    .allowedRoomTypes(new java.util.LinkedHashSet<>(subject.getAllowedRoomTypes()))
                     .build();
         }
     }

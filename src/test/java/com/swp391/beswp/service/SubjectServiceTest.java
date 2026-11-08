@@ -4,6 +4,14 @@ import com.swp391.beswp.dto.CreateSubjectRequest;
 import com.swp391.beswp.dto.SubjectListResponse;
 import com.swp391.beswp.dto.SubjectResponse;
 import com.swp391.beswp.entity.Subject;
+import com.swp391.beswp.entity.Room;
+import com.swp391.beswp.entity.RoomType;
+import com.swp391.beswp.entity.ClassEntity;
+import com.swp391.beswp.repository.RoomRepository;
+import com.swp391.beswp.repository.ClassRepository;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import com.swp391.beswp.repository.SubjectRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +34,9 @@ class SubjectServiceTest {
 
     @Mock
     private SubjectRepository subjectRepository;
+    @Mock private RoomRepository roomRepository;
+    @Mock private ClassRepository classRepository;
+    @Mock private Clock paymentClock;
 
     @InjectMocks
     private SubjectService subjectService;
@@ -35,10 +46,43 @@ class SubjectServiceTest {
     @BeforeEach
     void setUp() {
         validRequest = CreateSubjectRequest.builder()
+                .allowedRoomTypes(java.util.List.of(com.swp391.beswp.entity.RoomType.MULTIPURPOSE))
                 .name("Yoga Phục Hồi Cơ Khớp")
                 .category("Yoga")
                 .description("Giảm áp lực cột sống, tăng độ dẻo dai với dụng cụ hỗ trợ")
                 .build();
+    }
+
+    @Test
+    void roomTypesMustBeNonemptyAndUnique() {
+        for (List<RoomType> types : List.of(List.<RoomType>of(), List.of(RoomType.MULTIPURPOSE, RoomType.MULTIPURPOSE))) {
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                    () -> subjectService.updateRoomTypes(1, types)).getStatusCode());
+        }
+        verifyNoInteractions(subjectRepository);
+    }
+
+    @Test
+    void cannotRemoveTypeUsedByUpcomingClass() {
+        Subject subject = Subject.builder().id(1).name("Yoga").build();
+        Room room = Room.builder().id(2).name("Yoga Room").type(RoomType.MULTIPURPOSE).build();
+        when(subjectRepository.findByIdForUpdate(1)).thenReturn(Optional.of(subject));
+        when(classRepository.findRoomIdsBySubjectId(1)).thenReturn(List.of(2));
+        when(roomRepository.findByIdForUpdate(2)).thenReturn(Optional.of(room));
+        when(paymentClock.instant()).thenReturn(Instant.parse("2026-11-08T00:00:00Z"));
+        when(paymentClock.getZone()).thenReturn(ZoneOffset.UTC);
+        when(classRepository.findUpcomingClassesByRoomId(eq(2), any())).thenReturn(
+                List.of(ClassEntity.builder().id(3).subject(subject).build()));
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
+                () -> subjectService.updateRoomTypes(1, List.of(RoomType.GYM))).getStatusCode());
+    }
+
+    @Test
+    void multipleRoomTypesCanBeConfigured() {
+        Subject subject = Subject.builder().id(1).name("Training").build();
+        when(subjectRepository.findByIdForUpdate(1)).thenReturn(Optional.of(subject));
+        var response = subjectService.updateRoomTypes(1, List.of(RoomType.GYM, RoomType.FUNCTIONAL));
+        assertEquals(java.util.Set.of(RoomType.GYM, RoomType.FUNCTIONAL), response.getData().getAllowedRoomTypes());
     }
 
     @Test

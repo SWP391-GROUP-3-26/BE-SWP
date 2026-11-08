@@ -121,16 +121,19 @@ INSERT INTO Subject (Subject_ID, Name, Description) VALUES
 (3, N'Zumba',  N'Nhảy aerobic kết hợp nhạc Latin, đốt mỡ hiệu quả'),
 (4, N'HIIT',   N'Tập cường độ cao ngắt quãng, giảm mỡ và tăng sức bền');
 SET IDENTITY_INSERT Subject OFF;
+-- Yoga/Zumba use multipurpose rooms; HIIT uses gym rooms.
+INSERT INTO Subject_Room_Type (Subject_ID, Room_Type) VALUES (1, N'MULTIPURPOSE'), (2, N'BOXING'), (3, N'MULTIPURPOSE'), (4, N'GYM');
 GO
 
 /* ---------------------------------------------------------------------
    6. Room
    --------------------------------------------------------------------- */
 SET IDENTITY_INSERT Room ON;
-INSERT INTO Room (Room_ID, Name, Max_Capacity) VALUES
-(1, N'Phòng Yoga',   20),
-(2, N'Phòng Võ',     15),
-(3, N'Phòng Đa năng', 30);
+INSERT INTO Room (Room_ID, Name, Max_Capacity, Room_Type) VALUES
+(1, N'Phòng Yoga',   20, N'MULTIPURPOSE'),
+(2, N'Phòng Võ',     15, N'MARTIAL_ARTS'),
+(3, N'Phòng Đa năng', 30, N'MULTIPURPOSE'),
+(4, N'Phòng Gym',     30, N'GYM');
 SET IDENTITY_INSERT Room OFF;
 GO
 
@@ -145,7 +148,7 @@ INSERT INTO Class (Class_ID, Subject_ID, Coach_ID, Room_ID, Name, Max_Capacity, 
 (1, 1, 3, 1, N'Yoga buổi sáng',    15, N'Open', '2026-09-28', '07:00:00', 80000.00, N'T2,T4', '07:00:00', '08:00:00', NULL, NULL),
 (2, 2, 3, 2, N'Boxing cơ bản',     12, N'Open', '2026-09-29', '18:00:00', 80000.00, N'T3',    '18:00:00', '19:00:00', NULL, NULL),
 (3, 3, 3, 3, N'Zumba buổi tối',    25, N'Open', '2026-10-01', '19:00:00', 80000.00, N'T4,T5', '19:00:00', '20:00:00', NULL, NULL),
-(4, 4, 3, 3, N'HIIT giảm mỡ',      20, N'Open', '2026-10-08', '17:30:00', 80000.00, N'T5',    '17:30:00', '18:30:00', NULL, NULL);
+(4, 4, 3, 4, N'HIIT giảm mỡ',      20, N'Open', '2026-10-08', '17:30:00', 80000.00, N'T5',    '17:30:00', '18:30:00', NULL, NULL);
 SET IDENTITY_INSERT Class OFF;
 GO
 

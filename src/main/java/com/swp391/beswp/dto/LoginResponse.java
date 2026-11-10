@@ -19,13 +19,25 @@ public class LoginResponse {
         );
     }
 
+    public static LoginResponse verificationRequired(EmailOtpDtos.Challenge challenge) {
+        LoginData data = new LoginData(null, null, 0, null);
+        data.emailVerificationRequired = true;
+        data.emailVerification = challenge;
+        return new LoginResponse(true, "Vui lòng xác thực email trước khi sử dụng tài khoản", data);
+    }
+
     @Getter
-    @AllArgsConstructor
     public static class LoginData {
 
         private String accessToken;
         private String tokenType;
         private long expiresIn;
         private UserResponse user;
+        private boolean emailVerificationRequired;
+        private EmailOtpDtos.Challenge emailVerification;
+
+        public LoginData(String accessToken, String tokenType, long expiresIn, UserResponse user) {
+            this.accessToken = accessToken; this.tokenType = tokenType; this.expiresIn = expiresIn; this.user = user;
+        }
     }
 }

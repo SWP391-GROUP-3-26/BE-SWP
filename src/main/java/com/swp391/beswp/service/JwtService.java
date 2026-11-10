@@ -1,6 +1,8 @@
 package com.swp391.beswp.service;
 
 import com.swp391.beswp.entity.User;
+import com.swp391.beswp.repository.UserRepository;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -20,13 +22,16 @@ public class JwtService {
 
     private final String secret;
     private final long expirationSeconds;
+    private final UserRepository users;
 
     public JwtService(
             @Value("${security.jwt.secret:}") String secret,
-            @Value("${security.jwt.expiration-seconds:3600}") long expirationSeconds
+            @Value("${security.jwt.expiration-seconds:3600}") long expirationSeconds,
+            UserRepository users
     ) {
         this.secret = secret;
         this.expirationSeconds = expirationSeconds;
+        this.users = users;
     }
 
     public String generateToken(User user) {
@@ -43,6 +48,7 @@ public class JwtService {
         payload.put("username", user.getUsername());
         payload.put("email", user.getEmail());
         payload.put("role", user.getRole() == null ? null : user.getRole().getRoleName());
+        payload.put("sv", user.getSessionVersion());
         payload.put("iat", now.getEpochSecond());
         payload.put("exp", now.plusSeconds(expirationSeconds).getEpochSecond());
 
@@ -52,6 +58,7 @@ public class JwtService {
         return signingInput + "." + sign(signingInput);
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Object> validateToken(String token) {
         assertSecretConfigured();
 
@@ -72,6 +79,14 @@ public class JwtService {
             throw new IllegalArgumentException("JWT has expired");
         }
 
+        User user = users.findById(Integer.valueOf(String.valueOf(claims.get("sub"))))
+                .orElseThrow(() -> new IllegalArgumentException("Account no longer exists"));
+        if (!claims.containsKey("sv") || toLong(claims.get("sv")) != user.getSessionVersion()
+                || !"Active".equalsIgnoreCase(user.getStatus()) || user.getRole() == null
+                || !user.getRole().getRoleName().equals(String.valueOf(claims.get("role")))
+                || ("Member".equalsIgnoreCase(user.getRole().getRoleName()) && !user.isEmailVerified())) {
+            throw new IllegalArgumentException("Session revoked or email verification required");
+        }
         return claims;
     }
 

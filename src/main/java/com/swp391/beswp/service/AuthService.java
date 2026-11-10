@@ -55,8 +55,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuditLogService auditLogService;
+    private final EmailOtpService emailOtpService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         String identifier = normalizeIdentifier(request.getIdentifier());
         User user = findUser(identifier)
@@ -72,13 +73,23 @@ public class AuthService {
             throw invalidCredentials();
         }
 
+        if ("GOOGLE".equals(user.getAuthProvider())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vui lòng đăng nhập bằng Google");
+        }
+        if ("Member".equalsIgnoreCase(role.getRoleName()) && !user.isEmailVerified()) {
+            return LoginResponse.verificationRequired(emailOtpService.loginChallenge(user));
+        }
+        return authenticated(user);
+    }
+
+    public LoginResponse authenticated(User user) {
         String accessToken = jwtService.generateToken(user);
         UserResponse userResponse = new UserResponse(
                 user.getId(),
                 user.getFullName(),
                 user.getUsername(),
                 user.getEmail(),
-                role.getRoleName(),
+                user.getRole().getRoleName(),
                 user.getStatus()
         );
         return LoginResponse.success(accessToken, jwtService.getExpirationSeconds(), userResponse);
@@ -86,6 +97,18 @@ public class AuthService {
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
+        User user = prepareRegistration(request);
+        Role memberRole = user.getRole();
+        User savedUser = userRepository.save(user);
+
+        recordRegistration(savedUser);
+        return RegisterResponse.success(new RegisterResponse.RegisterUserData(
+                savedUser.getId(), savedUser.getUsername(), savedUser.getFullName(), savedUser.getEmail(),
+                savedUser.getPhone(), memberRole.getRoleName(), savedUser.getStatus()));
+    }
+
+    @Transactional(readOnly = true)
+    public User prepareRegistration(RegisterRequest request) {
         String username = normalizeUsername(request.getUsername());
         String fullName = normalizeFullName(request.getFullName());
         String email = normalizeEmail(request.getEmail());
@@ -117,8 +140,12 @@ public class AuthService {
         user.setRole(memberRole);
         user.setStatus("Active");
 
-        User savedUser = userRepository.save(user);
+        user.setAuthProvider("LOCAL");
+        user.setEmailVerified(false);
+        return user;
+    }
 
+    private void recordRegistration(User savedUser) {
         // Ghi nhận Audit Log cho đăng ký người dùng (Lễ tân đăng ký vs Người dùng tự đăng ký)
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean isStaff = auth != null && auth.isAuthenticated()
@@ -154,27 +181,23 @@ public class AuthService {
             );
         }
 
-        return RegisterResponse.success(new RegisterResponse.RegisterUserData(
-                savedUser.getId(),
-                savedUser.getUsername(),
-                savedUser.getFullName(),
-                savedUser.getEmail(),
-                savedUser.getPhone(),
-                memberRole.getRoleName(),
-                savedUser.getStatus()
-        ));
     }
 
     @Transactional
     public LoginResponse loginWithGoogle(String rawEmail, String googleName, String avatarUrl) {
         String email = normalizeEmail(rawEmail);
-        User user = userRepository.findByEmailIgnoreCase(email)
+        User user = userRepository.findIdByEmailIgnoreCase(email)
+                .map(id -> userRepository.findByIdForUpdate(id).orElseThrow())
                 .orElseGet(() -> createGoogleMemberSafely(email, googleName, avatarUrl));
 
         Role role = user.getRole();
         if (!isActive(user) || role == null || !StringUtils.hasText(role.getRoleName())) {
             throw loginNotAllowed();
         }
+
+        // GoogleOAuth2SuccessHandler has already checked email_verified.
+        if (!email.equals(normalizeEmail(user.getEmail()))) throw loginNotAllowed();
+        user.setEmailVerified(true);
 
         String accessToken = jwtService.generateToken(user);
         UserResponse userResponse = new UserResponse(
@@ -211,6 +234,9 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(randomPassword()));
         user.setRole(memberRole);
         user.setStatus("Active");
+
+        user.setAuthProvider("GOOGLE");
+        user.setEmailVerified(true);
 
         User savedUser = userRepository.saveAndFlush(user);
         auditLogService.recordLog(
@@ -329,12 +355,12 @@ public class AuthService {
         return phone;
     }
 
-    private void validatePassword(String password, String confirmPassword) {
-        if (password.length() < 8 || password.length() > 72 || !PASSWORD_PATTERN.matcher(password).matches()) {
-            throw badRequest("Password khong hop le");
+    public static void validatePassword(String password, String confirmPassword) {
+        if (password == null || password.length() < 8 || password.length() > 72 || !PASSWORD_PATTERN.matcher(password).matches()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password khong hop le");
         }
         if (!password.equals(confirmPassword)) {
-            throw badRequest("Confirm password khong khop");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Confirm password khong khop");
         }
     }
 

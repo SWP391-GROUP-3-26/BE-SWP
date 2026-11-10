@@ -55,6 +55,7 @@ public class UserManagementService {
     private final UserManagementRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.context.ApplicationEventPublisher events;
     private final AuditLogService auditLogService;
 
     public UserManagementListResponse searchUsers(String search, String role, String status, int page, int size) {
@@ -126,7 +127,7 @@ public class UserManagementService {
 
     @Transactional
     public UserManagementResponse updateUser(Integer id, UpdateManagedUserRequest request) {
-        User user = findManagedUser(id);
+        User user = findManagedUserForUpdate(id);
         String username = normalizeUsername(request.getUsername());
         String fullName = normalizeRequiredText(request.getFullName(), 100, "Full name");
         String email = normalizeEmail(request.getEmail());
@@ -138,6 +139,11 @@ public class UserManagementService {
 
         user.setUsername(username);
         user.setFullName(fullName);
+        if (!email.equalsIgnoreCase(user.getEmail())) {
+            user.setEmailVerified(false);
+            user.setSessionVersion(user.getSessionVersion() + 1);
+            events.publishEvent(new AccountSessionsInvalidated(id));
+        }
         user.setEmail(email);
         user.setPhone(phone);
         user.setDob(request.getDob());
@@ -157,7 +163,7 @@ public class UserManagementService {
 
     @Transactional
     public UserManagementResponse updateRole(Integer id, String requestedRole) {
-        User user = findManagedUser(id);
+        User user = findManagedUserForUpdate(id);
         String oldRole = user.getRole() != null ? user.getRole().getRoleName() : "None";
         String roleName = normalizeChoice(requestedRole, MANAGED_ROLES, "Role");
         Role role = roleRepository.findByRoleNameIgnoreCase(roleName)
@@ -179,7 +185,7 @@ public class UserManagementService {
 
     @Transactional
     public UserManagementResponse updateStatus(Integer id, String requestedStatus) {
-        User user = findManagedUser(id);
+        User user = findManagedUserForUpdate(id);
         String oldStatus = user.getStatus();
         String status = normalizeChoice(requestedStatus, STATUSES, "Status");
         user.setStatus(status);
@@ -198,9 +204,11 @@ public class UserManagementService {
 
     @Transactional
     public UserManagementResponse resetPassword(Integer id, ResetManagedUserPasswordRequest request) {
-        User user = findManagedUser(id);
+        User user = findManagedUserForUpdate(id);
         String password = validatePassword(request.getPassword(), request.getConfirmPassword());
         user.setPassword(passwordEncoder.encode(password));
+        user.setSessionVersion(user.getSessionVersion() + 1);
+        events.publishEvent(new AccountSessionsInvalidated(id));
         User saved = userRepository.saveAndFlush(user);
 
         auditLogService.recordLog(
@@ -275,6 +283,14 @@ public class UserManagementService {
                 .noneMatch(role -> role.equalsIgnoreCase(user.getRole().getRoleName()))) {
             throw notFound("Không tìm thấy người dùng với mã ID: " + id);
         }
+        return user;
+    }
+
+    private User findManagedUserForUpdate(Integer id) {
+        User user = userRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> notFound("Không tìm thấy người dùng với mã ID: " + id));
+        if (user.getRole() == null || MANAGED_ROLES.stream().noneMatch(r -> r.equalsIgnoreCase(user.getRole().getRoleName())))
+            throw notFound("Không tìm thấy người dùng với mã ID: " + id);
         return user;
     }
 

@@ -21,6 +21,8 @@ public class UserManagementUserData {
     private String avatarUrl;
     private String role;
     private String status;
+    private boolean emailVerified;
+    private String authProvider;
 
     public static UserManagementUserData fromEntity(User user) {
         return new UserManagementUserData(
@@ -34,7 +36,7 @@ public class UserManagementUserData {
                 user.getAddress(),
                 user.getAvatarUrl(),
                 user.getRole() == null ? null : user.getRole().getRoleName(),
-                user.getStatus()
+                user.getStatus(), user.isEmailVerified(), user.getAuthProvider()
         );
     }
 }

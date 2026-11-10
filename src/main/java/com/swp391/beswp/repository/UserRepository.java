@@ -10,6 +10,13 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Integer> {
+    org.springframework.data.domain.Page<User> findByAuthProvider(String authProvider, Pageable pageable);
+
+    @Query("select u.email from User u where u.id = :id")
+    Optional<String> findEmailById(@Param("id") Integer id);
+
+    @Query("select u.id from User u where lower(u.email) = lower(:email)")
+    Optional<Integer> findIdByEmailIgnoreCase(@Param("email") String email);
 
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.id = :id")

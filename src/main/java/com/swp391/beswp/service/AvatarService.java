@@ -130,7 +130,7 @@ public class AvatarService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Danh tính đăng nhập không hợp lệ");
         }
 
-        return userRepository.findById(userId)
+        return userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Không tìm thấy hồ sơ người dùng"

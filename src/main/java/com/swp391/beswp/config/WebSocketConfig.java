@@ -30,6 +30,22 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final AccountWebSocketSessions accountSessions;
+
+    @Override
+    public void configureWebSocketTransport(org.springframework.web.socket.config.annotation.WebSocketTransportRegistration registration) {
+        registration.addDecoratorFactory(handler -> new org.springframework.web.socket.handler.WebSocketHandlerDecorator(handler) {
+            @Override public void afterConnectionEstablished(org.springframework.web.socket.WebSocketSession session) throws Exception {
+                accountSessions.opened(session);
+                super.afterConnectionEstablished(session);
+            }
+            @Override public void afterConnectionClosed(org.springframework.web.socket.WebSocketSession session,
+                    org.springframework.web.socket.CloseStatus status) throws Exception {
+                accountSessions.closed(session.getId());
+                super.afterConnectionClosed(session, status);
+            }
+        });
+    }
 
     @Value("${app.cors.allowed-origins}")
     private String[] allowedOrigins;
@@ -72,6 +88,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         if (accessor.getUser() == null) {
             throw new MessageDeliveryException("WebSocket authentication is required");
         }
+        Object token = accessor.getSessionAttributes().get("accessToken");
+        if (!(token instanceof String)) throw new MessageDeliveryException("WebSocket session has expired");
+        try { jwtService.validateToken((String) token); }
+        catch (RuntimeException ex) { throw new MessageDeliveryException("WebSocket session has expired"); }
 
         String destination = accessor.getDestination();
         if (StompCommand.SEND.equals(accessor.getCommand()) && !"/app/chat.send".equals(destination)) {
@@ -102,6 +122,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                     null,
                     List.of(new SimpleGrantedAuthority("ROLE_" + role))
             ));
+            accessor.getSessionAttributes().put("accessToken", authorization.substring(BEARER_PREFIX.length()));
+            accountSessions.authenticated(accessor.getSessionId(), Integer.valueOf(principal));
         } catch (MessageDeliveryException exception) {
             throw exception;
         } catch (RuntimeException exception) {

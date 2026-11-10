@@ -25,13 +25,22 @@ class BookingRepositoryQueryTest {
             for (var candidate : scanner.findCandidateComponents("com.swp391.beswp.entity")) {
                 sources.addAnnotatedClass(Class.forName(candidate.getBeanClassName()));
             }
-            try (var factory = sources.buildMetadata().buildSessionFactory(); var session = factory.openSession()) {
+            var metadata = sources.buildMetadata();
+            var otpMapping = metadata.getEntityBinding("com.swp391.beswp.entity.EmailOtpChallenge");
+            var expiryColumn = otpMapping.getProperty("otpExpiresAt").getColumns().getFirst();
+            assertEquals("datetimeoffset(7)", expiryColumn.getSqlType(metadata));
+            try (var factory = metadata.buildSessionFactory(); var session = factory.openSession()) {
                 for (Class<?> repository : new Class<?>[]{ClassBookingRepository.class, PaymentRepository.class, ClassRepository.class, UserRepository.class,
-                        RoomRepository.class, SubjectRepository.class, ClassSessionRepository.class, MemberSubscriptionRepository.class,
+                        RoomRepository.class, SubjectRepository.class, EmailOtpChallengeRepository.class, UserManagementRepository.class,
+                        ClassSessionRepository.class, MemberSubscriptionRepository.class,
                         MemberPackageSubscriptionRepository.class, MembershipIncludedSportRepository.class, MembershipSportSelectionRepository.class}) {
                     for (var method : repository.getDeclaredMethods()) {
                         Query query = method.getAnnotation(Query.class);
-                        if (query != null) assertDoesNotThrow(() -> session.createQuery(query.value(), Object.class), method.toString());
+                        if (query != null) assertDoesNotThrow(() -> {
+                            if (method.isAnnotationPresent(org.springframework.data.jpa.repository.Modifying.class))
+                                session.createMutationQuery(query.value());
+                            else session.createQuery(query.value(), Object.class);
+                        }, method.toString());
                     }
                 }
             }

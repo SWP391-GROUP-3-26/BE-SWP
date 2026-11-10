@@ -33,6 +33,9 @@ public class UserProfileResponse {
         private String avatarUrl;
         private String role;
         private String status;
+        private boolean emailVerified;
+        private String authProvider;
+        private boolean canChangeEmail;
 
         private static UserProfileData fromEntity(User user) {
             return new UserProfileData(
@@ -46,7 +49,9 @@ public class UserProfileResponse {
                     user.getAddress(),
                     user.getAvatarUrl(),
                     user.getRole() == null ? null : user.getRole().getRoleName(),
-                    user.getStatus()
+                    user.getStatus(), user.isEmailVerified(), user.getAuthProvider(),
+                    user.isEmailVerified() && "Active".equalsIgnoreCase(user.getStatus())
+                            && java.util.Set.of("LOCAL", "UNKNOWN").contains(user.getAuthProvider())
             );
         }
     }

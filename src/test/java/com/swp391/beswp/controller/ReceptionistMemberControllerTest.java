@@ -54,6 +54,7 @@ class ReceptionistMemberControllerTest {
     @MockitoBean PasswordEncoder encoder;
     @MockitoBean JwtService jwt;
     @MockitoBean GoogleLoginExchangeService exchange;
+    @MockitoBean com.swp391.beswp.service.EmailOtpService emailOtp;
     @MockitoBean GoogleOAuth2SuccessHandler googleSuccess;
     @MockitoBean GoogleOAuth2FailureHandler googleFailure;
     @MockitoBean ClientRegistrationRepository clients;

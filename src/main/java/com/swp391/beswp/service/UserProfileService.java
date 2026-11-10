@@ -19,7 +19,7 @@ public class UserProfileService {
 
     @Transactional(readOnly = true)
     public UserProfileResponse getMyProfile(String authenticatedUserId) {
-        User user = findAuthenticatedUser(authenticatedUserId);
+        User user = findAuthenticatedUser(authenticatedUserId, false);
         return UserProfileResponse.fromEntity(user, "Lấy hồ sơ thành công");
     }
 
@@ -28,7 +28,7 @@ public class UserProfileService {
             String authenticatedUserId,
             UpdateUserProfileRequest request
     ) {
-        User user = findAuthenticatedUser(authenticatedUserId);
+        User user = findAuthenticatedUser(authenticatedUserId, true);
 
         String phone = normalizeOptional(request.getPhone());
         String currentPhone = normalizeOptional(user.getPhone());
@@ -47,7 +47,7 @@ public class UserProfileService {
         return UserProfileResponse.fromEntity(savedUser, "Cập nhật hồ sơ thành công");
     }
 
-    private User findAuthenticatedUser(String authenticatedUserId) {
+    private User findAuthenticatedUser(String authenticatedUserId, boolean forUpdate) {
         final Integer userId;
         try {
             userId = Integer.valueOf(authenticatedUserId);
@@ -55,7 +55,7 @@ public class UserProfileService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Danh tính đăng nhập không hợp lệ");
         }
 
-        return userRepository.findById(userId)
+        return (forUpdate ? userRepository.findByIdForUpdate(userId) : userRepository.findById(userId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ người dùng"));
     }
 

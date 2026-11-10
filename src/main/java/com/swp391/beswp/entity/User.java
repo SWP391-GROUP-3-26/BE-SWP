@@ -58,4 +58,13 @@ public class User {
 
     @Column(name = "Status")
     private String status;
+
+    @Column(name = "Email_Verified", nullable = false)
+    private boolean emailVerified;
+
+    @Column(name = "Auth_Provider", nullable = false, length = 10)
+    private String authProvider = "LOCAL";
+
+    @Column(name = "Session_Version", nullable = false)
+    private long sessionVersion;
 }

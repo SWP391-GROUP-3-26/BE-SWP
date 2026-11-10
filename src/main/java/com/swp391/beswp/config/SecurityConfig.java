@@ -45,6 +45,7 @@ public class SecurityConfig {
                 || ("GET".equals(request.getMethod()) && ("/api/receptionist/members".equals(request.getServletPath())
                 || request.getServletPath().startsWith("/api/receptionist/members/")))
                 || request.getServletPath().startsWith("/api/member/payments/")
+                || request.getServletPath().startsWith("/api/users/me/email-change/")
                 || request.getServletPath().startsWith("/api/receptionist/registrations/");
         HttpSecurity security = http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -67,6 +68,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register/verify", "/api/auth/register/resend",
+                                "/api/auth/email-verification/request", "/api/auth/email-verification/verify",
+                                "/api/auth/email-verification/change-email/request", "/api/auth/email-verification/change-email/resend",
+                                "/api/auth/email-verification/change-email/verify",
+                                "/api/auth/forgot-password", "/api/auth/forgot-password/resend",
+                                "/api/auth/forgot-password/verify", "/api/auth/reset-password").permitAll()
+                        .requestMatchers("/api/admin/account-identities/**").hasAuthority("ROLE_Admin")
                         .requestMatchers(HttpMethod.POST, "/api/payments/sepay/webhook").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/receptionist/members").hasAuthority("ROLE_Receptionist")
                         .requestMatchers(HttpMethod.GET, "/api/receptionist/members", "/api/receptionist/members/**").hasAuthority("ROLE_Receptionist")

@@ -97,6 +97,10 @@ CREATE TABLE [User] (
     Avatar_URL VARCHAR(255)      NULL,
     Password   VARCHAR(255)      NOT NULL,   -- lưu chuỗi đã băm, không lưu mật khẩu thô
     Status     NVARCHAR(20)      NOT NULL CONSTRAINT DF_User_Status DEFAULT N'Active',
+    Email_Verified BIT NOT NULL CONSTRAINT DF_User_Email_Verified DEFAULT 0,
+    Auth_Provider NVARCHAR(10) NOT NULL CONSTRAINT DF_User_Auth_Provider DEFAULT N'UNKNOWN',
+    Session_Version BIGINT NOT NULL CONSTRAINT DF_User_Session_Version DEFAULT 0,
+    CONSTRAINT CK_User_Auth_Provider CHECK (Auth_Provider IN (N'LOCAL', N'GOOGLE', N'UNKNOWN')),
     CONSTRAINT PK_User PRIMARY KEY (User_ID),
     CONSTRAINT UQ_User_Username UNIQUE (Username),
     CONSTRAINT UQ_User_Email UNIQUE (Email),
@@ -111,6 +115,34 @@ GO
 
 -- Phone có thể để trống, nhưng nếu có thì không được trùng
 CREATE UNIQUE INDEX UX_User_Phone ON [User] (Phone) WHERE Phone IS NOT NULL;
+GO
+
+/* ---------- Email_Otp_Challenge ---------- */
+CREATE TABLE Email_Otp_Challenge (
+    Email NVARCHAR(100) NOT NULL CONSTRAINT PK_Email_Otp_Challenge PRIMARY KEY,
+    Purpose NVARCHAR(20) NULL,
+    Context_Hash NVARCHAR(64) NULL,
+    Context_Expires_At DATETIMEOFFSET(7) NULL,
+    User_ID INT NULL,
+    Session_Version BIGINT NULL,
+    Original_Email NVARCHAR(100) NULL,
+    Otp_Hash NVARCHAR(255) NULL,
+    Otp_Expires_At DATETIMEOFFSET(7) NULL,
+    Failed_Attempts INT NOT NULL CONSTRAINT DF_Email_Otp_Attempts DEFAULT 0,
+    Last_Sent_At DATETIMEOFFSET(7) NULL,
+    Window_Started_At DATETIMEOFFSET(7) NULL,
+    Send_Count INT NOT NULL CONSTRAINT DF_Email_Otp_Send_Count DEFAULT 0,
+    Send_History NVARCHAR(1000) NULL,
+    Pending_Username NVARCHAR(50) NULL,
+    Pending_FullName NVARCHAR(100) NULL,
+    Pending_Phone NVARCHAR(15) NULL,
+    Pending_Password_Hash NVARCHAR(255) NULL,
+    Reset_Hash NVARCHAR(64) NULL,
+    Reset_Expires_At DATETIMEOFFSET(7) NULL,
+    CONSTRAINT CK_Email_Otp_Purpose CHECK (Purpose IS NULL OR Purpose IN (N'REGISTER', N'VERIFY_EMAIL', N'RESET', N'CHANGE_EMAIL', N'VERIFY_CHANGE_EMAIL')),
+    CONSTRAINT CK_Email_Otp_Attempts CHECK (Failed_Attempts BETWEEN 0 AND 5),
+    CONSTRAINT CK_Email_Otp_Send_Count CHECK (Send_Count BETWEEN 0 AND 5)
+);
 GO
 
 /* ---------- Membership_Package ---------- */

@@ -23,8 +23,11 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +51,7 @@ public class PackageService {
                 .duration(toDays(request.getDurationMonths())).discount(discount(request.getDiscount())).freezeMonths(freezeMonths)
                 .termConditions(request.getTermConditions()).status(status(request.getStatus())).build());
         replaceBenefits(pkg, request.getIncludedSportIds(), request.getChoiceGroups());
-        return PackageResponse.success("Tạo mới gói dịch vụ thành công", pkg);
+        return PackageResponse.success("Tạo mới gói dịch vụ thành công", packageData(pkg));
     }
 
     @Transactional(readOnly = true)
@@ -60,7 +63,8 @@ public class PackageService {
 
     @Transactional(readOnly = true)
     public PackageResponse getPackageById(Integer id) {
-        return PackageResponse.success("Lấy thông tin gói dịch vụ thành công", find(id));
+        MembershipPackage pkg = find(id);
+        return PackageResponse.success("Lấy thông tin gói dịch vụ thành công", packageData(pkg));
     }
 
     @Transactional
@@ -86,7 +90,7 @@ public class PackageService {
                     : includedSports.findByPackageId(id).stream().map(x -> x.getSubject().getId()).toList();
             replaceBenefits(pkg, included, request.getChoiceGroups());
         }
-        return PackageResponse.success("Cập nhật gói dịch vụ thành công", pkg);
+        return PackageResponse.success("Cập nhật gói dịch vụ thành công", packageData(pkg));
     }
 
     @Transactional
@@ -126,6 +130,57 @@ public class PackageService {
                         .choiceGroup(group).subject(subject(subjectId)).build());
             }
         }
+    }
+
+    private PackageResponse.PackageData packageData(MembershipPackage pkg) {
+        PackageResponse.PackageData base = PackageResponse.PackageData.fromEntity(pkg);
+        List<PackageResponse.SportData> included = includedSports.findByPackageId(pkg.getId()).stream()
+                .map(item -> PackageResponse.SportData.builder()
+                        .id(item.getSubject().getId())
+                        .name(item.getSubject().getName())
+                        .build())
+                .toList();
+
+        List<PackageChoiceGroup> persistedGroups = choiceGroups.findByPackageId(pkg.getId());
+        List<Integer> groupIds = persistedGroups.stream().map(PackageChoiceGroup::getId).toList();
+        Map<Integer, List<PackageChoiceGroupSport>> sportsByGroup = groupIds.isEmpty()
+                ? Collections.emptyMap()
+                : choiceGroupSports.findByChoiceGroupIdIn(groupIds).stream()
+                        .collect(Collectors.groupingBy(item -> item.getChoiceGroup().getId()));
+        List<PackageResponse.ChoiceGroupData> groups = persistedGroups.stream()
+                .map(group -> PackageResponse.ChoiceGroupData.builder()
+                        .id(group.getId())
+                        .name(group.getGroupName())
+                        .description(group.getDescription())
+                        .requiredSelection(group.getRequiredSelection())
+                        .sortOrder(group.getSortOrder())
+                        .sports(sportsByGroup.getOrDefault(group.getId(), List.of()).stream()
+                                .map(item -> PackageResponse.SportData.builder()
+                                        .id(item.getSubject().getId())
+                                        .name(item.getSubject().getName())
+                                        .build())
+                                .toList())
+                        .build())
+                .toList();
+
+        return PackageResponse.PackageData.builder()
+                .code(base.getCode())
+                .id(base.getId())
+                .name(base.getName())
+                .description(base.getDescription())
+                .price(base.getPrice())
+                .discount(base.getDiscount())
+                .durationDays(base.getDurationDays())
+                .durationMonths(base.getDurationMonths())
+                .freezeMonths(base.getFreezeMonths())
+                .freezeTerms(base.getFreezeTerms())
+                .benefits(base.getBenefits())
+                .termConditions(base.getTermConditions())
+                .status(base.getStatus())
+                .statusLabel(base.getStatusLabel())
+                .includedSports(included)
+                .choiceGroups(groups)
+                .build();
     }
 
     private Subject subject(Integer id) {

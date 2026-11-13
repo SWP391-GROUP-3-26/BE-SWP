@@ -87,21 +87,4 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Integer> {
             @Param("keyword") String keyword,
             @Param("parsedId") Integer parsedId
     );
-
-    long countByCoach_Id(Integer coachId);
-
-    @Query("SELECT COUNT(c) FROM ClassEntity c " +
-           "WHERE c.coach.id = :coachId " +
-           "AND LOWER(c.status) IN ('active', 'open')")
-    long countActiveClassesByCoachId(@Param("coachId") Integer coachId);
-
-    @Query("SELECT COUNT(c) FROM ClassEntity c " +
-           "WHERE c.coach.id = :coachId " +
-           "AND LOWER(c.status) IN ('complete', 'completed')")
-    long countCompletedClassesByCoachId(@Param("coachId") Integer coachId);
-
-    @Query("SELECT COUNT(c) FROM ClassEntity c " +
-           "WHERE c.coach.id = :coachId " +
-           "AND LOWER(c.status) IN ('cancel', 'cancelled')")
-    long countCancelledClassesByCoachId(@Param("coachId") Integer coachId);
 }

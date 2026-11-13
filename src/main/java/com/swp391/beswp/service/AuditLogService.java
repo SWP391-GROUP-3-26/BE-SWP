@@ -121,7 +121,7 @@ public class AuditLogService {
     /**
      * Tự động lấy User đang đăng nhập hiện tại từ SecurityContext.
      */
-    public User getCurrentAuthenticatedUser() {
+    private User getCurrentAuthenticatedUser() {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth == null || !auth.isAuthenticated() || "anonymousUser".equalsIgnoreCase(String.valueOf(auth.getPrincipal()))) {

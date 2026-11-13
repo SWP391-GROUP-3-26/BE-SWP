@@ -18,6 +18,4 @@ public interface PackageIncludedSportRepository extends JpaRepository<PackageInc
     @Modifying
     @Query("DELETE FROM PackageIncludedSport pis WHERE pis.membershipPackage.id = :packageId")
     void deleteByPackageId(@Param("packageId") Integer packageId);
-
-    boolean existsByMembershipPackage_IdAndSubject_Id(Integer packageId, Integer subjectId);
 }

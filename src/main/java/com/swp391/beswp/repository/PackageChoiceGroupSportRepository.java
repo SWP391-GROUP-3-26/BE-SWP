@@ -19,10 +19,6 @@ public interface PackageChoiceGroupSportRepository extends JpaRepository<Package
     List<PackageChoiceGroupSport> findByChoiceGroupIdIn(@Param("groupIds") List<Integer> groupIds);
 
     @Modifying
-    @Query("DELETE FROM PackageChoiceGroupSport cgs WHERE cgs.choiceGroup.id = :groupId")
-    void deleteByChoiceGroupId(@Param("groupId") Integer groupId);
-
-    @Modifying
     @Query("DELETE FROM PackageChoiceGroupSport cgs WHERE cgs.choiceGroup.membershipPackage.id = :packageId")
     void deleteByPackageId(@Param("packageId") Integer packageId);
 

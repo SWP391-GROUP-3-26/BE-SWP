@@ -4,7 +4,6 @@ import com.swp391.beswp.dto.AvailableClassListResponse;
 import com.swp391.beswp.dto.ClassConfirmationDetailResponse;
 import com.swp391.beswp.dto.MemberClassBookingRequest;
 import com.swp391.beswp.dto.MemberClassBookingResponse;
-import com.swp391.beswp.dto.MemberSubscriptionInfoResponse;
 import com.swp391.beswp.dto.MyClassListResponse;
 import com.swp391.beswp.service.MemberClassBookingService;
 import com.swp391.beswp.service.ApiMessages;
@@ -61,16 +60,6 @@ public class MemberClassBookingController {
     }
 
     /**
-     * Lấy thông tin gói hội viên của học viên
-     */
-    @Operation(summary = "Kiểm tra gói hội viên khả dụng", description = "Lấy thông tin gói hội viên đang hoạt động và số buổi còn lại của học viên.")
-    @GetMapping("/subscription")
-    public ResponseEntity<MemberSubscriptionInfoResponse> getSubscriptionInfo(Authentication authentication) {
-        // Find user by principal and get subscription
-        return ResponseEntity.ok(bookingService.getAvailableClasses(authentication.getName(), null, null).getActiveSubscription());
-    }
-
-    /**
      * Màn hình 3: Pop-up xác nhận thông tin đặt lớp
      */
     @Operation(summary = "Chi tiết xác nhận đặt lớp (Pop-up)", description = "Lấy thông tin chi tiết lớp học và kiểm tra tính khả dụng của 2 hình thức thanh toán (Sử dụng gói hội viên / Thanh toán trực tiếp).")
@@ -95,37 +84,6 @@ public class MemberClassBookingController {
     ) {
         MemberClassBookingResponse response = bookingService.registerClass(authentication.getName(), classId, request, servletRequest.getRemoteAddr());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    /**
-     * Endpoint thay thế: đăng ký lớp học với classId nằm trong Request Body
-     */
-    @Operation(summary = "Tiến hành đăng ký lớp học (RequestBody)", description = "Đăng ký lớp học truyền classId trong body.")
-    @PostMapping("/register")
-    public ResponseEntity<MemberClassBookingResponse> registerClass(
-            Authentication authentication,
-            HttpServletRequest servletRequest,
-            @Valid @RequestBody MemberClassBookingRequest request
-    ) {
-        MemberClassBookingResponse response = bookingService.registerClass(authentication.getName(), request.getClassId(), request, servletRequest.getRemoteAddr());
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    /**
-     * Hủy đăng ký lớp học
-     */
-    @Operation(summary = "Hủy đăng ký lớp học", description = "Học viên hủy lớp đã đăng ký (chỉ hủy được khi trạng thái là 'Đang diễn ra').")
-    @PostMapping("/cancel/{bookingId}")
-    public ResponseEntity<Map<String, Object>> cancelBooking(
-            Authentication authentication,
-            @PathVariable Integer bookingId,
-            @Valid @RequestBody(required = false) com.swp391.beswp.dto.RefundDtos.CancelConfirmation confirmation
-    ) {
-        bookingService.cancelClassBooking(authentication.getName(), bookingId, confirmation);
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", ApiMessages.text("class.cancelled")
-        ));
     }
 
     @PostMapping("/bookings/{bookingId}/cancel")

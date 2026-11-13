@@ -105,17 +105,6 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
     @Query("SELECT b.session.classEntity.id FROM ClassBooking b WHERE b.id = :id AND b.user.id = :userId")
     Optional<Integer> findOwnedClassId(@Param("id") Integer id, @Param("userId") Integer userId);
 
-    @Query("SELECT COUNT(b) FROM ClassBooking b " +
-           "WHERE b.user.id = :userId " +
-           "AND LOWER(b.status) = LOWER(:status)")
-    long countByUserIdAndStatus(
-            @Param("userId") Integer userId,
-            @Param("status") String status
-    );
-
-    @Query("SELECT COUNT(b) FROM ClassBooking b WHERE b.user.id = :userId AND LOWER(b.status) <> 'pending'")
-    long countByUser_Id(@Param("userId") Integer userId);
-
     Optional<ClassBooking> findByIdAndUser_Id(Integer bookingId, Integer userId);
 
     @Query("SELECT b FROM ClassBooking b " +

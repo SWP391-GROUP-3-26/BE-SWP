@@ -90,7 +90,7 @@ public class ClassReservationService {
         }
     }
 
-    public void failPendingPayments(Integer bookingId) {
+    private void failPendingPayments(Integer bookingId) {
         for (Payment payment : payments.findAllByBooking_IdOrderByIdDesc(bookingId)) {
             if ("Pending".equals(payment.getStatus())) payment.setStatus("Failed");
         }

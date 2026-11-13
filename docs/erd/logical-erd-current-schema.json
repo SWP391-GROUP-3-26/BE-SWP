@@ -1,1873 +1,2177 @@
 {
-  "summary": {
-    "tables": 28,
-    "columns": 245,
-    "foreign_keys": 50,
-    "pages": 9,
-    "original_preserved": true
-  },
-  "tables": {
-    "Role": {
-      "columns": [
-        {
-          "name": "Role_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Role_Name",
-          "type": "NVARCHAR(50)",
-          "nullable": false
-        },
-        {
-          "name": "Description",
-          "type": "NVARCHAR(255)",
-          "nullable": true
-        }
-      ],
-      "pk": [
-        "Role_ID"
-      ],
-      "fks": [],
-      "unique": [
-        [
-          "Role_Name"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "User": {
-      "columns": [
-        {
-          "name": "User_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Role_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "FullName",
-          "type": "NVARCHAR(100)",
-          "nullable": false
-        },
-        {
-          "name": "Username",
-          "type": "VARCHAR(50)",
-          "nullable": false
-        },
-        {
-          "name": "Phone",
-          "type": "VARCHAR(15)",
-          "nullable": true
-        },
-        {
-          "name": "Email",
-          "type": "VARCHAR(100)",
-          "nullable": false
-        },
-        {
-          "name": "DOB",
-          "type": "DATE",
-          "nullable": true
-        },
-        {
-          "name": "Gender",
-          "type": "NVARCHAR(10)",
-          "nullable": true
-        },
-        {
-          "name": "Address",
-          "type": "NVARCHAR(255)",
-          "nullable": true
-        },
-        {
-          "name": "Avatar_URL",
-          "type": "VARCHAR(255)",
-          "nullable": true
-        },
-        {
-          "name": "Password",
-          "type": "VARCHAR(255)",
-          "nullable": false
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "User_ID"
-      ],
-      "fks": [
-        {
-          "column": "Role_ID",
-          "parent": "Role",
-          "key": "Role_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Username"
-        ],
-        [
-          "Email"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Membership_Package": {
-      "columns": [
-        {
-          "name": "Package_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Name",
-          "type": "NVARCHAR(100)",
-          "nullable": false
-        },
-        {
-          "name": "Description",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Price",
-          "type": "DECIMAL(12,2)",
-          "nullable": false
-        },
-        {
-          "name": "Duration",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Included_Classes",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Benefits",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Term_Conditions",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Discount",
-          "type": "DECIMAL(5,2)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Package_ID"
-      ],
-      "fks": [],
-      "unique": [
-        [
-          "Name"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Member_Subscription": {
-      "columns": [
-        {
-          "name": "Subscription_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "User_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Package_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Start_Date",
-          "type": "DATE",
-          "nullable": false
-        },
-        {
-          "name": "End_Date",
-          "type": "DATE",
-          "nullable": false
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Price_At_Purchase",
-          "type": "DECIMAL(12,2)",
-          "nullable": false
-        },
-        {
-          "name": "Duration_At_Purchase",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Terms_At_Purchase",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Package_Name_At_Purchase",
-          "type": "NVARCHAR(200)",
-          "nullable": false
-        },
-        {
-          "name": "Cancellation_Reason",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Cancelled_At",
-          "type": "DATETIME2(0)",
-          "nullable": true
-        },
-        {
-          "name": "Created_At",
-          "type": "DATETIME2(0)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Subscription_ID"
-      ],
-      "fks": [
-        {
-          "column": "User_ID",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Package_ID",
-          "parent": "Membership_Package",
-          "key": "Package_ID"
-        }
-      ],
-      "unique": [],
-      "source": "swp391_db.sql"
-    },
-    "Subject": {
-      "columns": [
-        {
-          "name": "Subject_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Name",
-          "type": "NVARCHAR(100)",
-          "nullable": false
-        },
-        {
-          "name": "Description",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Category",
-          "type": "NVARCHAR(50)",
-          "nullable": true
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Subject_ID"
-      ],
-      "fks": [],
-      "unique": [
-        [
-          "Name"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Room": {
-      "columns": [
-        {
-          "name": "Room_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Name",
-          "type": "NVARCHAR(50)",
-          "nullable": false
-        },
-        {
-          "name": "Max_Capacity",
-          "type": "INT",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Room_ID"
-      ],
-      "fks": [],
-      "unique": [
-        [
-          "Name"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Class": {
-      "columns": [
-        {
-          "name": "Class_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subject_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Coach_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Room_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Name",
-          "type": "NVARCHAR(100)",
-          "nullable": false
-        },
-        {
-          "name": "Max_Capacity",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Date",
-          "type": "DATE",
-          "nullable": true
-        },
-        {
-          "name": "Duration_Weeks",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "End_Date",
-          "type": "DATE",
-          "nullable": true
-        },
-        {
-          "name": "Time",
-          "type": "TIME(0)",
-          "nullable": true
-        },
-        {
-          "name": "Price",
-          "type": "DECIMAL(12,2)",
-          "nullable": true
-        },
-        {
-          "name": "Days_Of_Week",
-          "type": "NVARCHAR(100)",
-          "nullable": true
-        },
-        {
-          "name": "Start_Time",
-          "type": "TIME(0)",
-          "nullable": true
-        },
-        {
-          "name": "End_Time",
-          "type": "TIME(0)",
-          "nullable": true
-        }
-      ],
-      "pk": [
-        "Class_ID"
-      ],
-      "fks": [
-        {
-          "column": "Subject_ID",
-          "parent": "Subject",
-          "key": "Subject_ID"
-        },
-        {
-          "column": "Coach_ID",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Room_ID",
-          "parent": "Room",
-          "key": "Room_ID"
-        }
-      ],
-      "unique": [],
-      "source": "swp391_db.sql"
-    },
-    "Class_Session": {
-      "columns": [
-        {
-          "name": "Session_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Class_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Date",
-          "type": "DATE",
-          "nullable": false
-        },
-        {
-          "name": "Start_Time",
-          "type": "TIME(0)",
-          "nullable": false
-        },
-        {
-          "name": "End_Time",
-          "type": "TIME(0)",
-          "nullable": false
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Session_ID"
-      ],
-      "fks": [
-        {
-          "column": "Class_ID",
-          "parent": "Class",
-          "key": "Class_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Class_ID",
-          "Date",
-          "Start_Time"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Class_Booking": {
-      "columns": [
-        {
-          "name": "Booking_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "User_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Session_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Booking_Datetime",
-          "type": "DATETIME2(0)",
-          "nullable": false
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Payment_Expires_At",
-          "type": "DATETIME2(0)",
-          "nullable": true
-        },
-        {
-          "name": "Payment_Method",
-          "type": "NVARCHAR(20)",
-          "nullable": true
-        },
-        {
-          "name": "Registration_Code",
-          "type": "VARCHAR(36)",
-          "nullable": true
-        }
-      ],
-      "pk": [
-        "Booking_ID"
-      ],
-      "fks": [
-        {
-          "column": "User_ID",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Session_ID",
-          "parent": "Class_Session",
-          "key": "Session_ID"
-        }
-      ],
-      "unique": [],
-      "source": "swp391_db.sql"
-    },
-    "Voucher": {
-      "columns": [
-        {
-          "name": "Voucher_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Code",
-          "type": "VARCHAR(50)",
-          "nullable": false
-        },
-        {
-          "name": "Discount_Type",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Discount_Value",
-          "type": "DECIMAL(12,2)",
-          "nullable": false
-        },
-        {
-          "name": "Start_Date",
-          "type": "DATE",
-          "nullable": false
-        },
-        {
-          "name": "End_Date",
-          "type": "DATE",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Voucher_ID"
-      ],
-      "fks": [],
-      "unique": [
-        [
-          "Code"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Payment": {
-      "columns": [
-        {
-          "name": "Payment_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subscription_ID",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Receptionist_ID",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Voucher_ID",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Booking_ID",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Payment_Type",
-          "type": "NVARCHAR(30)",
-          "nullable": false
-        },
-        {
-          "name": "Amount",
-          "type": "DECIMAL(12,2)",
-          "nullable": false
-        },
-        {
-          "name": "Method",
-          "type": "NVARCHAR(30)",
-          "nullable": false
-        },
-        {
-          "name": "Payment_Date",
-          "type": "DATETIME2(0)",
-          "nullable": false
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Discount_Amount",
-          "type": "DECIMAL(12,2)",
-          "nullable": false
-        },
-        {
-          "name": "Expires_At",
-          "type": "DATETIME2(0)",
-          "nullable": true
-        },
-        {
-          "name": "Vnp_Transaction_No",
-          "type": "NVARCHAR(15)",
-          "nullable": true
-        },
-        {
-          "name": "Vnp_Response_Code",
-          "type": "NVARCHAR(2)",
-          "nullable": true
-        },
-        {
-          "name": "Vnp_Transaction_Status",
-          "type": "NVARCHAR(2)",
-          "nullable": true
-        },
-        {
-          "name": "Vnp_Pay_Date",
-          "type": "NVARCHAR(14)",
-          "nullable": true
-        },
-        {
-          "name": "Sepay_Transaction_ID",
-          "type": "BIGINT",
-          "nullable": true
-        },
-        {
-          "name": "Requires_Review",
-          "type": "BIT",
-          "nullable": false
-        },
-        {
-          "name": "Item_Name_At_Payment",
-          "type": "NVARCHAR(200)",
-          "nullable": true
-        },
-        {
-          "name": "Created_At",
-          "type": "DATETIME2(7)",
-          "nullable": true
-        },
-        {
-          "name": "Paid_At",
-          "type": "DATETIME2(7)",
-          "nullable": true
-        },
-        {
-          "name": "Renewal_Subscription_ID",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Renewal_Start",
-          "type": "NVARCHAR(20)",
-          "nullable": true
-        }
-      ],
-      "pk": [
-        "Payment_ID"
-      ],
-      "fks": [
-        {
-          "column": "Subscription_ID",
-          "parent": "Member_Subscription",
-          "key": "Subscription_ID"
-        },
-        {
-          "column": "Receptionist_ID",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Voucher_ID",
-          "parent": "Voucher",
-          "key": "Voucher_ID"
-        },
-        {
-          "column": "Booking_ID",
-          "parent": "Class_Booking",
-          "key": "Booking_ID"
-        },
-        {
-          "column": "Renewal_Subscription_ID",
-          "parent": "Member_Subscription",
-          "key": "Subscription_ID"
-        }
-      ],
-      "unique": [],
-      "source": "swp391_db.sql"
-    },
-    "Training_Plan": {
-      "columns": [
-        {
-          "name": "Plan_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Coach_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Member_ID",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Plan_Scope",
-          "type": "VARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Class_ID",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Title",
-          "type": "NVARCHAR(150)",
-          "nullable": false
-        },
-        {
-          "name": "Goal",
-          "type": "NVARCHAR(2000)",
-          "nullable": false
-        },
-        {
-          "name": "Description",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Assessment",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        },
-        {
-          "name": "Start_Date",
-          "type": "DATE",
-          "nullable": false
-        },
-        {
-          "name": "End_Date",
-          "type": "DATE",
-          "nullable": true
-        },
-        {
-          "name": "Status",
-          "type": "VARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Coach_Feedback",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        },
-        {
-          "name": "Published_Revision",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Read_Revision",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Published_At",
-          "type": "DATETIME2(7)",
-          "nullable": true
-        },
-        {
-          "name": "Created_At",
-          "type": "DATETIME2(7)",
-          "nullable": false
-        },
-        {
-          "name": "Updated_At",
-          "type": "DATETIME2(7)",
-          "nullable": false
-        },
-        {
-          "name": "Version",
-          "type": "BIGINT",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Plan_ID"
-      ],
-      "fks": [
-        {
-          "column": "Class_ID",
-          "parent": "Class",
-          "key": "Class_ID"
-        },
-        {
-          "column": "Coach_ID",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Member_ID",
-          "parent": "User",
-          "key": "User_ID"
-        }
-      ],
-      "unique": [],
-      "source": "swp391_db.sql"
-    },
-    "Training_Exercise": {
-      "columns": [
-        {
-          "name": "Exercise_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Plan_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Position",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Training_Date",
-          "type": "DATE",
-          "nullable": false
-        },
-        {
-          "name": "Name",
-          "type": "NVARCHAR(150)",
-          "nullable": false
-        },
-        {
-          "name": "Instructions",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        },
-        {
-          "name": "Target",
-          "type": "NVARCHAR(255)",
-          "nullable": false
-        },
-        {
-          "name": "Completed",
-          "type": "BIT",
-          "nullable": false
-        },
-        {
-          "name": "Member_Result",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        }
-      ],
-      "pk": [
-        "Exercise_ID"
-      ],
-      "fks": [
-        {
-          "column": "Plan_ID",
-          "parent": "Training_Plan",
-          "key": "Plan_ID"
-        }
-      ],
-      "unique": [],
-      "source": "swp391_db.sql"
-    },
-    "Training_Plan_Recipient": {
-      "columns": [
-        {
-          "name": "Recipient_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Plan_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Member_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Read_Revision",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Coach_Feedback",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        }
-      ],
-      "pk": [
-        "Recipient_ID"
-      ],
-      "fks": [
-        {
-          "column": "Plan_ID",
-          "parent": "Training_Plan",
-          "key": "Plan_ID"
-        },
-        {
-          "column": "Member_ID",
-          "parent": "User",
-          "key": "User_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Plan_ID",
-          "Member_ID"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Training_Exercise_Result": {
-      "columns": [
-        {
-          "name": "Result_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Recipient_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Exercise_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Completed",
-          "type": "BIT",
-          "nullable": false
-        },
-        {
-          "name": "Member_Result",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        }
-      ],
-      "pk": [
-        "Result_ID"
-      ],
-      "fks": [
-        {
-          "column": "Recipient_ID",
-          "parent": "Training_Plan_Recipient",
-          "key": "Recipient_ID"
-        },
-        {
-          "column": "Exercise_ID",
-          "parent": "Training_Exercise",
-          "key": "Exercise_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Recipient_ID",
-          "Exercise_ID"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Attendance": {
-      "columns": [
-        {
-          "name": "Attendance_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Session_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "User_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Note",
-          "type": "NVARCHAR(255)",
-          "nullable": true
-        }
-      ],
-      "pk": [
-        "Attendance_ID"
-      ],
-      "fks": [
-        {
-          "column": "Session_ID",
-          "parent": "Class_Session",
-          "key": "Session_ID"
-        },
-        {
-          "column": "User_ID",
-          "parent": "User",
-          "key": "User_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Session_ID",
-          "User_ID"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Training_Result": {
-      "columns": [
-        {
-          "name": "Result_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Session_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "User_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Coach_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Metric",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        },
-        {
-          "name": "Training_Content",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        },
-        {
-          "name": "Progress_Status",
-          "type": "VARCHAR(30)",
-          "nullable": true
-        },
-        {
-          "name": "Next_Steps",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        },
-        {
-          "name": "Updated_At",
-          "type": "DATETIME2(7)",
-          "nullable": true
-        },
-        {
-          "name": "Is_Withdrawn",
-          "type": "BIT",
-          "nullable": false
-        },
-        {
-          "name": "Version",
-          "type": "BIGINT",
-          "nullable": false
-        },
-        {
-          "name": "Coach_Feedback",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Date",
-          "type": "DATE",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Result_ID"
-      ],
-      "fks": [
-        {
-          "column": "Session_ID",
-          "parent": "Class_Session",
-          "key": "Session_ID"
-        },
-        {
-          "column": "User_ID",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Coach_ID",
-          "parent": "User",
-          "key": "User_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Session_ID",
-          "User_ID"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Activity_Log": {
-      "columns": [
-        {
-          "name": "Log_ID",
-          "type": "BIGINT",
-          "nullable": false
-        },
-        {
-          "name": "User_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Action_Type",
-          "type": "NVARCHAR(50)",
-          "nullable": false
-        },
-        {
-          "name": "Target_Entity",
-          "type": "NVARCHAR(100)",
-          "nullable": true
-        },
-        {
-          "name": "Description",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Created_At",
-          "type": "DATETIME2(3)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Log_ID"
-      ],
-      "fks": [
-        {
-          "column": "User_ID",
-          "parent": "User",
-          "key": "User_ID"
-        }
-      ],
-      "unique": [],
-      "source": "swp391_db.sql"
-    },
-    "Schedule": {
-      "columns": [
-        {
-          "name": "Schedule_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subject_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Coach_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Schedule_Date",
-          "type": "DATE",
-          "nullable": false
-        },
-        {
-          "name": "Start_Time",
-          "type": "TIME(0)",
-          "nullable": false
-        },
-        {
-          "name": "End_Time",
-          "type": "TIME(0)",
-          "nullable": false
-        },
-        {
-          "name": "Status",
-          "type": "NVARCHAR(20)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Schedule_ID"
-      ],
-      "fks": [
-        {
-          "column": "Subject_ID",
-          "parent": "Subject",
-          "key": "Subject_ID"
-        },
-        {
-          "column": "Coach_ID",
-          "parent": "User",
-          "key": "User_ID"
-        }
-      ],
-      "unique": [],
-      "source": "swp391_db.sql"
-    },
-    "Refund_Request": {
-      "columns": [
-        {
-          "name": "Refund_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Payment_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Requested_By",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Item_Name",
-          "type": "NVARCHAR(150)",
-          "nullable": false
-        },
-        {
-          "name": "Paid_Amount",
-          "type": "DECIMAL(12,2)",
-          "nullable": false
-        },
-        {
-          "name": "Estimated_Amount",
-          "type": "DECIMAL(12,2)",
-          "nullable": false
-        },
-        {
-          "name": "Approved_Amount",
-          "type": "DECIMAL(12,2)",
-          "nullable": true
-        },
-        {
-          "name": "Total_Sessions",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Cancelled_Sessions",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Status",
-          "type": "VARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Reason",
-          "type": "NVARCHAR(2000)",
-          "nullable": false
-        },
-        {
-          "name": "Review_Note",
-          "type": "NVARCHAR(2000)",
-          "nullable": true
-        },
-        {
-          "name": "Reviewed_By",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Reviewed_At",
-          "type": "DATETIME2(7)",
-          "nullable": true
-        },
-        {
-          "name": "Payout_Method",
-          "type": "VARCHAR(20)",
-          "nullable": true
-        },
-        {
-          "name": "Pickup_Code",
-          "type": "VARCHAR(22)",
-          "nullable": true
-        },
-        {
-          "name": "Bank_Name",
-          "type": "NVARCHAR(100)",
-          "nullable": true
-        },
-        {
-          "name": "Account_Number",
-          "type": "VARCHAR(40)",
-          "nullable": true
-        },
-        {
-          "name": "Account_Holder",
-          "type": "NVARCHAR(100)",
-          "nullable": true
-        },
-        {
-          "name": "Payout_Reference",
-          "type": "NVARCHAR(150)",
-          "nullable": true
-        },
-        {
-          "name": "Payout_Note",
-          "type": "NVARCHAR(1000)",
-          "nullable": true
-        },
-        {
-          "name": "Paid_By",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Paid_At",
-          "type": "DATETIME2(7)",
-          "nullable": true
-        },
-        {
-          "name": "Created_At",
-          "type": "DATETIME2(7)",
-          "nullable": false
-        },
-        {
-          "name": "Updated_At",
-          "type": "DATETIME2(7)",
-          "nullable": false
-        },
-        {
-          "name": "Notification_Revision",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Read_Revision",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Version",
-          "type": "BIGINT",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Refund_ID"
-      ],
-      "fks": [
-        {
-          "column": "Payment_ID",
-          "parent": "Payment",
-          "key": "Payment_ID"
-        },
-        {
-          "column": "Requested_By",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Reviewed_By",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Paid_By",
-          "parent": "User",
-          "key": "User_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Payment_ID"
-        ]
-      ],
-      "source": "swp391_db.sql"
-    },
-    "Refund_Session": {
-      "columns": [
-        {
-          "name": "Refund_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Position",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Session_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Session_Date",
-          "type": "DATE",
-          "nullable": false
-        },
-        {
-          "name": "Start_Time",
-          "type": "TIME(7)",
-          "nullable": false
-        },
-        {
-          "name": "Refundable",
-          "type": "BIT",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Refund_ID",
-        "Position"
-      ],
-      "fks": [
-        {
-          "column": "Refund_ID",
-          "parent": "Refund_Request",
-          "key": "Refund_ID"
-        }
-      ],
-      "unique": [],
-      "source": "swp391_db.sql"
-    },
-    "Package_Included_Sport": {
-      "columns": [
-        {
-          "name": "ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Package_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subject_ID",
-          "type": "INT",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "ID"
-      ],
-      "fks": [
-        {
-          "column": "Package_ID",
-          "parent": "Membership_Package",
-          "key": "Package_ID"
-        },
-        {
-          "column": "Subject_ID",
-          "parent": "Subject",
-          "key": "Subject_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Package_ID",
-          "Subject_ID"
-        ]
-      ],
-      "source": "20261022_membership_package_flow.sql"
-    },
-    "Package_Choice_Group": {
-      "columns": [
-        {
-          "name": "Choice_Group_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Package_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Group_Name",
-          "type": "NVARCHAR(100)",
-          "nullable": false
-        },
-        {
-          "name": "Description",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Required_Selection",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Sort_Order",
-          "type": "INT",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Choice_Group_ID"
-      ],
-      "fks": [
-        {
-          "column": "Package_ID",
-          "parent": "Membership_Package",
-          "key": "Package_ID"
-        }
-      ],
-      "unique": [],
-      "source": "20261022_membership_package_flow.sql"
-    },
-    "Package_Choice_Group_Sport": {
-      "columns": [
-        {
-          "name": "ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Choice_Group_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subject_ID",
-          "type": "INT",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "ID"
-      ],
-      "fks": [
-        {
-          "column": "Choice_Group_ID",
-          "parent": "Package_Choice_Group",
-          "key": "Choice_Group_ID"
-        },
-        {
-          "column": "Subject_ID",
-          "parent": "Subject",
-          "key": "Subject_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Choice_Group_ID",
-          "Subject_ID"
-        ]
-      ],
-      "source": "20261022_membership_package_flow.sql"
-    },
-    "Membership_Sport_Selection": {
-      "columns": [
-        {
-          "name": "Selection_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subscription_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Choice_Group_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Choice_Group_Name_At_Purchase",
-          "type": "NVARCHAR(100)",
-          "nullable": false
-        },
-        {
-          "name": "Subject_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subject_Name_At_Purchase",
-          "type": "NVARCHAR(100)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Selection_ID"
-      ],
-      "fks": [
-        {
-          "column": "Subscription_ID",
-          "parent": "Member_Subscription",
-          "key": "Subscription_ID"
-        },
-        {
-          "column": "Subject_ID",
-          "parent": "Subject",
-          "key": "Subject_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Subscription_ID",
-          "Choice_Group_ID",
-          "Subject_ID"
-        ]
-      ],
-      "source": "20261022_membership_package_flow.sql"
-    },
-    "Membership_Included_Sport": {
-      "columns": [
-        {
-          "name": "Snapshot_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subscription_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subject_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Subject_Name_At_Purchase",
-          "type": "NVARCHAR(100)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Snapshot_ID"
-      ],
-      "fks": [
-        {
-          "column": "Subscription_ID",
-          "parent": "Member_Subscription",
-          "key": "Subscription_ID"
-        },
-        {
-          "column": "Subject_ID",
-          "parent": "Subject",
-          "key": "Subject_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Subscription_ID",
-          "Subject_ID"
-        ]
-      ],
-      "source": "20261022_membership_package_flow.sql"
-    },
-    "Chat_Conversation": {
-      "columns": [
-        {
-          "name": "Conversation_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Member_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Coach_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Class_ID",
-          "type": "INT",
-          "nullable": true
-        },
-        {
-          "name": "Last_Message",
-          "type": "NVARCHAR(1000)",
-          "nullable": true
-        },
-        {
-          "name": "Last_Message_At",
-          "type": "DATETIME2(7)",
-          "nullable": true
-        },
-        {
-          "name": "Created_At",
-          "type": "DATETIME2(7)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Conversation_ID"
-      ],
-      "fks": [
-        {
-          "column": "Member_ID",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Coach_ID",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Class_ID",
-          "parent": "Class",
-          "key": "Class_ID"
-        }
-      ],
-      "unique": [
-        [
-          "Member_ID",
-          "Coach_ID"
-        ]
-      ],
-      "source": "20261026_chatbox.sql"
-    },
-    "Chat_Message": {
-      "columns": [
-        {
-          "name": "Message_ID",
-          "type": "BIGINT",
-          "nullable": false
-        },
-        {
-          "name": "Conversation_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Sender_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Receiver_ID",
-          "type": "INT",
-          "nullable": false
-        },
-        {
-          "name": "Content",
-          "type": "NVARCHAR(MAX)",
-          "nullable": true
-        },
-        {
-          "name": "Message_Type",
-          "type": "VARCHAR(20)",
-          "nullable": false
-        },
-        {
-          "name": "Media_URL",
-          "type": "VARCHAR(500)",
-          "nullable": true
-        },
-        {
-          "name": "Is_Read",
-          "type": "BIT",
-          "nullable": false
-        },
-        {
-          "name": "Created_At",
-          "type": "DATETIME2(7)",
-          "nullable": false
-        }
-      ],
-      "pk": [
-        "Message_ID"
-      ],
-      "fks": [
-        {
-          "column": "Conversation_ID",
-          "parent": "Chat_Conversation",
-          "key": "Conversation_ID"
-        },
-        {
-          "column": "Sender_ID",
-          "parent": "User",
-          "key": "User_ID"
-        },
-        {
-          "column": "Receiver_ID",
-          "parent": "User",
-          "key": "User_ID"
-        }
-      ],
-      "unique": [],
-      "source": "20261026_chatbox.sql"
-    }
-  }
+    "summary":  {
+                    "tables":  31,
+                    "columns":  289,
+                    "foreign_keys":  52,
+                    "pages":  9,
+                    "original_preserved":  true
+                },
+    "tables":  {
+                   "Role":  {
+                                "columns":  [
+                                                {
+                                                    "name":  "Role_ID",
+                                                    "type":  "INT",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Role_Name",
+                                                    "type":  "NVARCHAR(50)",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Description",
+                                                    "type":  "NVARCHAR(255)",
+                                                    "nullable":  true
+                                                }
+                                            ],
+                                "pk":  [
+                                           "Role_ID"
+                                       ],
+                                "fks":  [
+
+                                        ],
+                                "unique":  [
+                                               [
+                                                   "Role_Name"
+                                               ]
+                                           ],
+                                "source":  "swp391_db.sql"
+                            },
+                   "User":  {
+                                "columns":  [
+                                                {
+                                                    "name":  "User_ID",
+                                                    "type":  "INT",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Role_ID",
+                                                    "type":  "INT",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "FullName",
+                                                    "type":  "NVARCHAR(100)",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Username",
+                                                    "type":  "VARCHAR(50)",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Phone",
+                                                    "type":  "VARCHAR(15)",
+                                                    "nullable":  true
+                                                },
+                                                {
+                                                    "name":  "Email",
+                                                    "type":  "VARCHAR(100)",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "DOB",
+                                                    "type":  "DATE",
+                                                    "nullable":  true
+                                                },
+                                                {
+                                                    "name":  "Gender",
+                                                    "type":  "NVARCHAR(10)",
+                                                    "nullable":  true
+                                                },
+                                                {
+                                                    "name":  "Address",
+                                                    "type":  "NVARCHAR(255)",
+                                                    "nullable":  true
+                                                },
+                                                {
+                                                    "name":  "Avatar_URL",
+                                                    "type":  "VARCHAR(255)",
+                                                    "nullable":  true
+                                                },
+                                                {
+                                                    "name":  "Password",
+                                                    "type":  "VARCHAR(255)",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Status",
+                                                    "type":  "NVARCHAR(20)",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Email_Verified",
+                                                    "type":  "BIT",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Auth_Provider",
+                                                    "type":  "NVARCHAR(10)",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Session_Version",
+                                                    "type":  "BIGINT",
+                                                    "nullable":  false
+                                                }
+                                            ],
+                                "pk":  [
+                                           "User_ID"
+                                       ],
+                                "fks":  [
+                                            {
+                                                "column":  "Role_ID",
+                                                "parent":  "Role",
+                                                "key":  "Role_ID"
+                                            }
+                                        ],
+                                "unique":  [
+                                               [
+                                                   "Username"
+                                               ],
+                                               [
+                                                   "Email"
+                                               ]
+                                           ],
+                                "source":  "swp391_db.sql + 20261110_email_otp_authentication.sql"
+                            },
+                   "Membership_Package":  {
+                                              "columns":  [
+                                                              {
+                                                                  "name":  "Package_ID",
+                                                                  "type":  "INT",
+                                                                  "nullable":  false
+                                                              },
+                                                              {
+                                                                  "name":  "Name",
+                                                                  "type":  "NVARCHAR(100)",
+                                                                  "nullable":  false
+                                                              },
+                                                              {
+                                                                  "name":  "Description",
+                                                                  "type":  "NVARCHAR(MAX)",
+                                                                  "nullable":  true
+                                                              },
+                                                              {
+                                                                  "name":  "Price",
+                                                                  "type":  "DECIMAL(12,2)",
+                                                                  "nullable":  false
+                                                              },
+                                                              {
+                                                                  "name":  "Duration",
+                                                                  "type":  "INT",
+                                                                  "nullable":  false
+                                                              },
+                                                              {
+                                                                  "name":  "Benefits",
+                                                                  "type":  "NVARCHAR(MAX)",
+                                                                  "nullable":  true
+                                                              },
+                                                              {
+                                                                  "name":  "Term_Conditions",
+                                                                  "type":  "NVARCHAR(MAX)",
+                                                                  "nullable":  true
+                                                              },
+                                                              {
+                                                                  "name":  "Status",
+                                                                  "type":  "NVARCHAR(20)",
+                                                                  "nullable":  false
+                                                              },
+                                                              {
+                                                                  "name":  "Discount",
+                                                                  "type":  "DECIMAL(5,2)",
+                                                                  "nullable":  false
+                                                              },
+                                                              {
+                                                                  "name":  "Freeze_Months",
+                                                                  "type":  "INT",
+                                                                  "nullable":  false
+                                                              }
+                                                          ],
+                                              "pk":  [
+                                                         "Package_ID"
+                                                     ],
+                                              "fks":  [
+
+                                                      ],
+                                              "unique":  [
+                                                             [
+                                                                 "Name"
+                                                             ]
+                                                         ],
+                                              "source":  "swp391_db.sql + 20261108_membership_freeze_configuration.sql + 20261108_drop_membership_session_quota.sql"
+                                          },
+                   "Member_Subscription":  {
+                                               "columns":  [
+                                                               {
+                                                                   "name":  "Subscription_ID",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "User_ID",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Package_ID",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Start_Date",
+                                                                   "type":  "DATE",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "End_Date",
+                                                                   "type":  "DATE",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Status",
+                                                                   "type":  "NVARCHAR(20)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Price_At_Purchase",
+                                                                   "type":  "DECIMAL(12,2)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Duration_At_Purchase",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Terms_At_Purchase",
+                                                                   "type":  "NVARCHAR(MAX)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Package_Name_At_Purchase",
+                                                                   "type":  "NVARCHAR(200)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Cancellation_Reason",
+                                                                   "type":  "NVARCHAR(MAX)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Cancelled_At",
+                                                                   "type":  "DATETIME2(0)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Created_At",
+                                                                   "type":  "DATETIME2(0)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Freeze_Months_At_Purchase",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Freeze_Months_Used",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Freeze_Started_At",
+                                                                   "type":  "DATETIME2(0)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Freeze_Ends_At",
+                                                                   "type":  "DATETIME2(0)",
+                                                                   "nullable":  true
+                                                               }
+                                                           ],
+                                               "pk":  [
+                                                          "Subscription_ID"
+                                                      ],
+                                               "fks":  [
+                                                           {
+                                                               "column":  "User_ID",
+                                                               "parent":  "User",
+                                                               "key":  "User_ID"
+                                                           },
+                                                           {
+                                                               "column":  "Package_ID",
+                                                               "parent":  "Membership_Package",
+                                                               "key":  "Package_ID"
+                                                           }
+                                                       ],
+                                               "unique":  [
+
+                                                          ],
+                                               "source":  "20261022_membership_package_flow.sql + 20261108_membership_freeze_lifecycle.sql"
+                                           },
+                   "Subject":  {
+                                   "columns":  [
+                                                   {
+                                                       "name":  "Subject_ID",
+                                                       "type":  "INT",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Name",
+                                                       "type":  "NVARCHAR(100)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Description",
+                                                       "type":  "NVARCHAR(MAX)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Category",
+                                                       "type":  "NVARCHAR(50)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Status",
+                                                       "type":  "NVARCHAR(20)",
+                                                       "nullable":  false
+                                                   }
+                                               ],
+                                   "pk":  [
+                                              "Subject_ID"
+                                          ],
+                                   "fks":  [
+
+                                           ],
+                                   "unique":  [
+                                                  [
+                                                      "Name"
+                                                  ]
+                                              ],
+                                   "source":  "swp391_db.sql"
+                               },
+                   "Room":  {
+                                "columns":  [
+                                                {
+                                                    "name":  "Room_ID",
+                                                    "type":  "INT",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Name",
+                                                    "type":  "NVARCHAR(50)",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Max_Capacity",
+                                                    "type":  "INT",
+                                                    "nullable":  false
+                                                },
+                                                {
+                                                    "name":  "Room_Type",
+                                                    "type":  "NVARCHAR(30)",
+                                                    "nullable":  true
+                                                },
+                                                {
+                                                    "name":  "Location",
+                                                    "type":  "NVARCHAR(150)",
+                                                    "nullable":  true
+                                                },
+                                                {
+                                                    "name":  "Status",
+                                                    "type":  "NVARCHAR(20)",
+                                                    "nullable":  false
+                                                }
+                                            ],
+                                "pk":  [
+                                           "Room_ID"
+                                       ],
+                                "fks":  [
+
+                                        ],
+                                "unique":  [
+                                               [
+                                                   "Name"
+                                               ]
+                                           ],
+                                "source":  "swp391_db.sql + 20261108_room_management.sql"
+                            },
+                   "Class":  {
+                                 "columns":  [
+                                                 {
+                                                     "name":  "Class_ID",
+                                                     "type":  "INT",
+                                                     "nullable":  false
+                                                 },
+                                                 {
+                                                     "name":  "Subject_ID",
+                                                     "type":  "INT",
+                                                     "nullable":  false
+                                                 },
+                                                 {
+                                                     "name":  "Coach_ID",
+                                                     "type":  "INT",
+                                                     "nullable":  false
+                                                 },
+                                                 {
+                                                     "name":  "Room_ID",
+                                                     "type":  "INT",
+                                                     "nullable":  false
+                                                 },
+                                                 {
+                                                     "name":  "Name",
+                                                     "type":  "NVARCHAR(100)",
+                                                     "nullable":  false
+                                                 },
+                                                 {
+                                                     "name":  "Max_Capacity",
+                                                     "type":  "INT",
+                                                     "nullable":  false
+                                                 },
+                                                 {
+                                                     "name":  "Status",
+                                                     "type":  "NVARCHAR(20)",
+                                                     "nullable":  false
+                                                 },
+                                                 {
+                                                     "name":  "Date",
+                                                     "type":  "DATE",
+                                                     "nullable":  true
+                                                 },
+                                                 {
+                                                     "name":  "Duration_Weeks",
+                                                     "type":  "INT",
+                                                     "nullable":  true
+                                                 },
+                                                 {
+                                                     "name":  "End_Date",
+                                                     "type":  "DATE",
+                                                     "nullable":  true
+                                                 },
+                                                 {
+                                                     "name":  "Time",
+                                                     "type":  "TIME(0)",
+                                                     "nullable":  true
+                                                 },
+                                                 {
+                                                     "name":  "Price",
+                                                     "type":  "DECIMAL(12,2)",
+                                                     "nullable":  true
+                                                 },
+                                                 {
+                                                     "name":  "Days_Of_Week",
+                                                     "type":  "NVARCHAR(100)",
+                                                     "nullable":  true
+                                                 },
+                                                 {
+                                                     "name":  "Start_Time",
+                                                     "type":  "TIME(0)",
+                                                     "nullable":  true
+                                                 },
+                                                 {
+                                                     "name":  "End_Time",
+                                                     "type":  "TIME(0)",
+                                                     "nullable":  true
+                                                 },
+                                                 {
+                                                     "name":  "Has_PT",
+                                                     "type":  "BIT",
+                                                     "nullable":  false
+                                                 }
+                                             ],
+                                 "pk":  [
+                                            "Class_ID"
+                                        ],
+                                 "fks":  [
+                                             {
+                                                 "column":  "Subject_ID",
+                                                 "parent":  "Subject",
+                                                 "key":  "Subject_ID"
+                                             },
+                                             {
+                                                 "column":  "Coach_ID",
+                                                 "parent":  "User",
+                                                 "key":  "User_ID"
+                                             },
+                                             {
+                                                 "column":  "Room_ID",
+                                                 "parent":  "Room",
+                                                 "key":  "Room_ID"
+                                             }
+                                         ],
+                                 "unique":  [
+
+                                            ],
+                                 "source":  "swp391_db.sql + 20261107_class_pt_cancel_policy.sql"
+                             },
+                   "Class_Session":  {
+                                         "columns":  [
+                                                         {
+                                                             "name":  "Session_ID",
+                                                             "type":  "INT",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Class_ID",
+                                                             "type":  "INT",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Date",
+                                                             "type":  "DATE",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Start_Time",
+                                                             "type":  "TIME(0)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "End_Time",
+                                                             "type":  "TIME(0)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Status",
+                                                             "type":  "NVARCHAR(20)",
+                                                             "nullable":  false
+                                                         }
+                                                     ],
+                                         "pk":  [
+                                                    "Session_ID"
+                                                ],
+                                         "fks":  [
+                                                     {
+                                                         "column":  "Class_ID",
+                                                         "parent":  "Class",
+                                                         "key":  "Class_ID"
+                                                     }
+                                                 ],
+                                         "unique":  [
+                                                        [
+                                                            "Class_ID",
+                                                            "Date",
+                                                            "Start_Time"
+                                                        ]
+                                                    ],
+                                         "source":  "swp391_db.sql"
+                                     },
+                   "Class_Booking":  {
+                                         "columns":  [
+                                                         {
+                                                             "name":  "Booking_ID",
+                                                             "type":  "INT",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "User_ID",
+                                                             "type":  "INT",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Session_ID",
+                                                             "type":  "INT",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Booking_Datetime",
+                                                             "type":  "DATETIME2(0)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Status",
+                                                             "type":  "NVARCHAR(20)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Payment_Expires_At",
+                                                             "type":  "DATETIME2(0)",
+                                                             "nullable":  true
+                                                         },
+                                                         {
+                                                             "name":  "Payment_Method",
+                                                             "type":  "NVARCHAR(20)",
+                                                             "nullable":  true
+                                                         },
+                                                         {
+                                                             "name":  "Registration_Code",
+                                                             "type":  "VARCHAR(36)",
+                                                             "nullable":  true
+                                                         }
+                                                     ],
+                                         "pk":  [
+                                                    "Booking_ID"
+                                                ],
+                                         "fks":  [
+                                                     {
+                                                         "column":  "User_ID",
+                                                         "parent":  "User",
+                                                         "key":  "User_ID"
+                                                     },
+                                                     {
+                                                         "column":  "Session_ID",
+                                                         "parent":  "Class_Session",
+                                                         "key":  "Session_ID"
+                                                     }
+                                                 ],
+                                         "unique":  [
+
+                                                    ],
+                                         "source":  "swp391_db.sql"
+                                     },
+                   "Voucher":  {
+                                   "columns":  [
+                                                   {
+                                                       "name":  "Voucher_ID",
+                                                       "type":  "INT",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Code",
+                                                       "type":  "VARCHAR(50)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Discount_Type",
+                                                       "type":  "NVARCHAR(20)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Discount_Value",
+                                                       "type":  "DECIMAL(12,2)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Start_Date",
+                                                       "type":  "DATE",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "End_Date",
+                                                       "type":  "DATE",
+                                                       "nullable":  false
+                                                   }
+                                               ],
+                                   "pk":  [
+                                              "Voucher_ID"
+                                          ],
+                                   "fks":  [
+
+                                           ],
+                                   "unique":  [
+                                                  [
+                                                      "Code"
+                                                  ]
+                                              ],
+                                   "source":  "swp391_db.sql"
+                               },
+                   "Payment":  {
+                                   "columns":  [
+                                                   {
+                                                       "name":  "Payment_ID",
+                                                       "type":  "INT",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Subscription_ID",
+                                                       "type":  "INT",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Receptionist_ID",
+                                                       "type":  "INT",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Voucher_ID",
+                                                       "type":  "INT",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Booking_ID",
+                                                       "type":  "INT",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Payment_Type",
+                                                       "type":  "NVARCHAR(30)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Amount",
+                                                       "type":  "DECIMAL(12,2)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Method",
+                                                       "type":  "NVARCHAR(30)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Payment_Date",
+                                                       "type":  "DATETIME2(0)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Status",
+                                                       "type":  "NVARCHAR(20)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Discount_Amount",
+                                                       "type":  "DECIMAL(12,2)",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Expires_At",
+                                                       "type":  "DATETIME2(0)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Vnp_Transaction_No",
+                                                       "type":  "NVARCHAR(15)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Vnp_Response_Code",
+                                                       "type":  "NVARCHAR(2)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Vnp_Transaction_Status",
+                                                       "type":  "NVARCHAR(2)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Vnp_Pay_Date",
+                                                       "type":  "NVARCHAR(14)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Sepay_Transaction_ID",
+                                                       "type":  "BIGINT",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Requires_Review",
+                                                       "type":  "BIT",
+                                                       "nullable":  false
+                                                   },
+                                                   {
+                                                       "name":  "Item_Name_At_Payment",
+                                                       "type":  "NVARCHAR(200)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Created_At",
+                                                       "type":  "DATETIME2(7)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Paid_At",
+                                                       "type":  "DATETIME2(7)",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Renewal_Subscription_ID",
+                                                       "type":  "INT",
+                                                       "nullable":  true
+                                                   },
+                                                   {
+                                                       "name":  "Renewal_Start",
+                                                       "type":  "NVARCHAR(20)",
+                                                       "nullable":  true
+                                                   }
+                                               ],
+                                   "pk":  [
+                                              "Payment_ID"
+                                          ],
+                                   "fks":  [
+                                               {
+                                                   "column":  "Subscription_ID",
+                                                   "parent":  "Member_Subscription",
+                                                   "key":  "Subscription_ID"
+                                               },
+                                               {
+                                                   "column":  "Receptionist_ID",
+                                                   "parent":  "User",
+                                                   "key":  "User_ID"
+                                               },
+                                               {
+                                                   "column":  "Voucher_ID",
+                                                   "parent":  "Voucher",
+                                                   "key":  "Voucher_ID"
+                                               },
+                                               {
+                                                   "column":  "Booking_ID",
+                                                   "parent":  "Class_Booking",
+                                                   "key":  "Booking_ID"
+                                               },
+                                               {
+                                                   "column":  "Renewal_Subscription_ID",
+                                                   "parent":  "Member_Subscription",
+                                                   "key":  "Subscription_ID"
+                                               }
+                                           ],
+                                   "unique":  [
+
+                                              ],
+                                   "source":  "swp391_db.sql"
+                               },
+                   "Training_Plan":  {
+                                         "columns":  [
+                                                         {
+                                                             "name":  "Plan_ID",
+                                                             "type":  "INT",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Coach_ID",
+                                                             "type":  "INT",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Member_ID",
+                                                             "type":  "INT",
+                                                             "nullable":  true
+                                                         },
+                                                         {
+                                                             "name":  "Plan_Scope",
+                                                             "type":  "VARCHAR(20)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Class_ID",
+                                                             "type":  "INT",
+                                                             "nullable":  true
+                                                         },
+                                                         {
+                                                             "name":  "Title",
+                                                             "type":  "NVARCHAR(150)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Goal",
+                                                             "type":  "NVARCHAR(2000)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Description",
+                                                             "type":  "NVARCHAR(MAX)",
+                                                             "nullable":  true
+                                                         },
+                                                         {
+                                                             "name":  "Assessment",
+                                                             "type":  "NVARCHAR(2000)",
+                                                             "nullable":  true
+                                                         },
+                                                         {
+                                                             "name":  "Start_Date",
+                                                             "type":  "DATE",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "End_Date",
+                                                             "type":  "DATE",
+                                                             "nullable":  true
+                                                         },
+                                                         {
+                                                             "name":  "Status",
+                                                             "type":  "VARCHAR(20)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Coach_Feedback",
+                                                             "type":  "NVARCHAR(2000)",
+                                                             "nullable":  true
+                                                         },
+                                                         {
+                                                             "name":  "Published_Revision",
+                                                             "type":  "INT",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Read_Revision",
+                                                             "type":  "INT",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Published_At",
+                                                             "type":  "DATETIME2(7)",
+                                                             "nullable":  true
+                                                         },
+                                                         {
+                                                             "name":  "Created_At",
+                                                             "type":  "DATETIME2(7)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Updated_At",
+                                                             "type":  "DATETIME2(7)",
+                                                             "nullable":  false
+                                                         },
+                                                         {
+                                                             "name":  "Version",
+                                                             "type":  "BIGINT",
+                                                             "nullable":  false
+                                                         }
+                                                     ],
+                                         "pk":  [
+                                                    "Plan_ID"
+                                                ],
+                                         "fks":  [
+                                                     {
+                                                         "column":  "Class_ID",
+                                                         "parent":  "Class",
+                                                         "key":  "Class_ID"
+                                                     },
+                                                     {
+                                                         "column":  "Coach_ID",
+                                                         "parent":  "User",
+                                                         "key":  "User_ID"
+                                                     },
+                                                     {
+                                                         "column":  "Member_ID",
+                                                         "parent":  "User",
+                                                         "key":  "User_ID"
+                                                     }
+                                                 ],
+                                         "unique":  [
+
+                                                    ],
+                                         "source":  "swp391_db.sql"
+                                     },
+                   "Training_Exercise":  {
+                                             "columns":  [
+                                                             {
+                                                                 "name":  "Exercise_ID",
+                                                                 "type":  "INT",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Plan_ID",
+                                                                 "type":  "INT",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Position",
+                                                                 "type":  "INT",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Training_Date",
+                                                                 "type":  "DATE",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Name",
+                                                                 "type":  "NVARCHAR(150)",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Instructions",
+                                                                 "type":  "NVARCHAR(2000)",
+                                                                 "nullable":  true
+                                                             },
+                                                             {
+                                                                 "name":  "Target",
+                                                                 "type":  "NVARCHAR(255)",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Completed",
+                                                                 "type":  "BIT",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Member_Result",
+                                                                 "type":  "NVARCHAR(2000)",
+                                                                 "nullable":  true
+                                                             }
+                                                         ],
+                                             "pk":  [
+                                                        "Exercise_ID"
+                                                    ],
+                                             "fks":  [
+                                                         {
+                                                             "column":  "Plan_ID",
+                                                             "parent":  "Training_Plan",
+                                                             "key":  "Plan_ID"
+                                                         }
+                                                     ],
+                                             "unique":  [
+
+                                                        ],
+                                             "source":  "swp391_db.sql"
+                                         },
+                   "Training_Plan_Recipient":  {
+                                                   "columns":  [
+                                                                   {
+                                                                       "name":  "Recipient_ID",
+                                                                       "type":  "INT",
+                                                                       "nullable":  false
+                                                                   },
+                                                                   {
+                                                                       "name":  "Plan_ID",
+                                                                       "type":  "INT",
+                                                                       "nullable":  false
+                                                                   },
+                                                                   {
+                                                                       "name":  "Member_ID",
+                                                                       "type":  "INT",
+                                                                       "nullable":  false
+                                                                   },
+                                                                   {
+                                                                       "name":  "Read_Revision",
+                                                                       "type":  "INT",
+                                                                       "nullable":  false
+                                                                   },
+                                                                   {
+                                                                       "name":  "Coach_Feedback",
+                                                                       "type":  "NVARCHAR(2000)",
+                                                                       "nullable":  true
+                                                                   }
+                                                               ],
+                                                   "pk":  [
+                                                              "Recipient_ID"
+                                                          ],
+                                                   "fks":  [
+                                                               {
+                                                                   "column":  "Plan_ID",
+                                                                   "parent":  "Training_Plan",
+                                                                   "key":  "Plan_ID"
+                                                               },
+                                                               {
+                                                                   "column":  "Member_ID",
+                                                                   "parent":  "User",
+                                                                   "key":  "User_ID"
+                                                               }
+                                                           ],
+                                                   "unique":  [
+                                                                  [
+                                                                      "Plan_ID",
+                                                                      "Member_ID"
+                                                                  ]
+                                                              ],
+                                                   "source":  "swp391_db.sql"
+                                               },
+                   "Training_Exercise_Result":  {
+                                                    "columns":  [
+                                                                    {
+                                                                        "name":  "Result_ID",
+                                                                        "type":  "INT",
+                                                                        "nullable":  false
+                                                                    },
+                                                                    {
+                                                                        "name":  "Recipient_ID",
+                                                                        "type":  "INT",
+                                                                        "nullable":  false
+                                                                    },
+                                                                    {
+                                                                        "name":  "Exercise_ID",
+                                                                        "type":  "INT",
+                                                                        "nullable":  false
+                                                                    },
+                                                                    {
+                                                                        "name":  "Completed",
+                                                                        "type":  "BIT",
+                                                                        "nullable":  false
+                                                                    },
+                                                                    {
+                                                                        "name":  "Member_Result",
+                                                                        "type":  "NVARCHAR(2000)",
+                                                                        "nullable":  true
+                                                                    }
+                                                                ],
+                                                    "pk":  [
+                                                               "Result_ID"
+                                                           ],
+                                                    "fks":  [
+                                                                {
+                                                                    "column":  "Recipient_ID",
+                                                                    "parent":  "Training_Plan_Recipient",
+                                                                    "key":  "Recipient_ID"
+                                                                },
+                                                                {
+                                                                    "column":  "Exercise_ID",
+                                                                    "parent":  "Training_Exercise",
+                                                                    "key":  "Exercise_ID"
+                                                                }
+                                                            ],
+                                                    "unique":  [
+                                                                   [
+                                                                       "Recipient_ID",
+                                                                       "Exercise_ID"
+                                                                   ]
+                                                               ],
+                                                    "source":  "swp391_db.sql"
+                                                },
+                   "Attendance":  {
+                                      "columns":  [
+                                                      {
+                                                          "name":  "Attendance_ID",
+                                                          "type":  "INT",
+                                                          "nullable":  false
+                                                      },
+                                                      {
+                                                          "name":  "Session_ID",
+                                                          "type":  "INT",
+                                                          "nullable":  false
+                                                      },
+                                                      {
+                                                          "name":  "User_ID",
+                                                          "type":  "INT",
+                                                          "nullable":  false
+                                                      },
+                                                      {
+                                                          "name":  "Status",
+                                                          "type":  "NVARCHAR(20)",
+                                                          "nullable":  false
+                                                      },
+                                                      {
+                                                          "name":  "Note",
+                                                          "type":  "NVARCHAR(255)",
+                                                          "nullable":  true
+                                                      }
+                                                  ],
+                                      "pk":  [
+                                                 "Attendance_ID"
+                                             ],
+                                      "fks":  [
+                                                  {
+                                                      "column":  "Session_ID",
+                                                      "parent":  "Class_Session",
+                                                      "key":  "Session_ID"
+                                                  },
+                                                  {
+                                                      "column":  "User_ID",
+                                                      "parent":  "User",
+                                                      "key":  "User_ID"
+                                                  }
+                                              ],
+                                      "unique":  [
+                                                     [
+                                                         "Session_ID",
+                                                         "User_ID"
+                                                     ]
+                                                 ],
+                                      "source":  "swp391_db.sql"
+                                  },
+                   "Training_Result":  {
+                                           "columns":  [
+                                                           {
+                                                               "name":  "Result_ID",
+                                                               "type":  "INT",
+                                                               "nullable":  false
+                                                           },
+                                                           {
+                                                               "name":  "Session_ID",
+                                                               "type":  "INT",
+                                                               "nullable":  false
+                                                           },
+                                                           {
+                                                               "name":  "User_ID",
+                                                               "type":  "INT",
+                                                               "nullable":  false
+                                                           },
+                                                           {
+                                                               "name":  "Coach_ID",
+                                                               "type":  "INT",
+                                                               "nullable":  false
+                                                           },
+                                                           {
+                                                               "name":  "Metric",
+                                                               "type":  "NVARCHAR(2000)",
+                                                               "nullable":  true
+                                                           },
+                                                           {
+                                                               "name":  "Training_Content",
+                                                               "type":  "NVARCHAR(2000)",
+                                                               "nullable":  true
+                                                           },
+                                                           {
+                                                               "name":  "Progress_Status",
+                                                               "type":  "VARCHAR(30)",
+                                                               "nullable":  true
+                                                           },
+                                                           {
+                                                               "name":  "Next_Steps",
+                                                               "type":  "NVARCHAR(2000)",
+                                                               "nullable":  true
+                                                           },
+                                                           {
+                                                               "name":  "Updated_At",
+                                                               "type":  "DATETIME2(7)",
+                                                               "nullable":  true
+                                                           },
+                                                           {
+                                                               "name":  "Is_Withdrawn",
+                                                               "type":  "BIT",
+                                                               "nullable":  false
+                                                           },
+                                                           {
+                                                               "name":  "Version",
+                                                               "type":  "BIGINT",
+                                                               "nullable":  false
+                                                           },
+                                                           {
+                                                               "name":  "Coach_Feedback",
+                                                               "type":  "NVARCHAR(MAX)",
+                                                               "nullable":  true
+                                                           },
+                                                           {
+                                                               "name":  "Date",
+                                                               "type":  "DATE",
+                                                               "nullable":  false
+                                                           }
+                                                       ],
+                                           "pk":  [
+                                                      "Result_ID"
+                                                  ],
+                                           "fks":  [
+                                                       {
+                                                           "column":  "Session_ID",
+                                                           "parent":  "Class_Session",
+                                                           "key":  "Session_ID"
+                                                       },
+                                                       {
+                                                           "column":  "User_ID",
+                                                           "parent":  "User",
+                                                           "key":  "User_ID"
+                                                       },
+                                                       {
+                                                           "column":  "Coach_ID",
+                                                           "parent":  "User",
+                                                           "key":  "User_ID"
+                                                       }
+                                                   ],
+                                           "unique":  [
+                                                          [
+                                                              "Session_ID",
+                                                              "User_ID"
+                                                          ]
+                                                      ],
+                                           "source":  "swp391_db.sql"
+                                       },
+                   "Activity_Log":  {
+                                        "columns":  [
+                                                        {
+                                                            "name":  "Log_ID",
+                                                            "type":  "BIGINT",
+                                                            "nullable":  false
+                                                        },
+                                                        {
+                                                            "name":  "User_ID",
+                                                            "type":  "INT",
+                                                            "nullable":  false
+                                                        },
+                                                        {
+                                                            "name":  "Action_Type",
+                                                            "type":  "NVARCHAR(50)",
+                                                            "nullable":  false
+                                                        },
+                                                        {
+                                                            "name":  "Target_Entity",
+                                                            "type":  "NVARCHAR(100)",
+                                                            "nullable":  true
+                                                        },
+                                                        {
+                                                            "name":  "Description",
+                                                            "type":  "NVARCHAR(MAX)",
+                                                            "nullable":  true
+                                                        },
+                                                        {
+                                                            "name":  "Created_At",
+                                                            "type":  "DATETIME2(3)",
+                                                            "nullable":  false
+                                                        }
+                                                    ],
+                                        "pk":  [
+                                                   "Log_ID"
+                                               ],
+                                        "fks":  [
+                                                    {
+                                                        "column":  "User_ID",
+                                                        "parent":  "User",
+                                                        "key":  "User_ID"
+                                                    }
+                                                ],
+                                        "unique":  [
+
+                                                   ],
+                                        "source":  "swp391_db.sql"
+                                    },
+                   "Schedule":  {
+                                    "columns":  [
+                                                    {
+                                                        "name":  "Schedule_ID",
+                                                        "type":  "INT",
+                                                        "nullable":  false
+                                                    },
+                                                    {
+                                                        "name":  "Subject_ID",
+                                                        "type":  "INT",
+                                                        "nullable":  false
+                                                    },
+                                                    {
+                                                        "name":  "Coach_ID",
+                                                        "type":  "INT",
+                                                        "nullable":  false
+                                                    },
+                                                    {
+                                                        "name":  "Schedule_Date",
+                                                        "type":  "DATE",
+                                                        "nullable":  false
+                                                    },
+                                                    {
+                                                        "name":  "Start_Time",
+                                                        "type":  "TIME(0)",
+                                                        "nullable":  false
+                                                    },
+                                                    {
+                                                        "name":  "End_Time",
+                                                        "type":  "TIME(0)",
+                                                        "nullable":  false
+                                                    },
+                                                    {
+                                                        "name":  "Status",
+                                                        "type":  "NVARCHAR(20)",
+                                                        "nullable":  false
+                                                    }
+                                                ],
+                                    "pk":  [
+                                               "Schedule_ID"
+                                           ],
+                                    "fks":  [
+                                                {
+                                                    "column":  "Subject_ID",
+                                                    "parent":  "Subject",
+                                                    "key":  "Subject_ID"
+                                                },
+                                                {
+                                                    "column":  "Coach_ID",
+                                                    "parent":  "User",
+                                                    "key":  "User_ID"
+                                                }
+                                            ],
+                                    "unique":  [
+
+                                               ],
+                                    "source":  "swp391_db.sql"
+                                },
+                   "Refund_Request":  {
+                                          "columns":  [
+                                                          {
+                                                              "name":  "Refund_ID",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Payment_ID",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Requested_By",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Item_Name",
+                                                              "type":  "NVARCHAR(150)",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Paid_Amount",
+                                                              "type":  "DECIMAL(12,2)",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Estimated_Amount",
+                                                              "type":  "DECIMAL(12,2)",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Approved_Amount",
+                                                              "type":  "DECIMAL(12,2)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Total_Sessions",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Cancelled_Sessions",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Status",
+                                                              "type":  "VARCHAR(20)",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Reason",
+                                                              "type":  "NVARCHAR(2000)",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Review_Note",
+                                                              "type":  "NVARCHAR(2000)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Reviewed_By",
+                                                              "type":  "INT",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Reviewed_At",
+                                                              "type":  "DATETIME2(7)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Payout_Method",
+                                                              "type":  "VARCHAR(20)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Pickup_Code",
+                                                              "type":  "VARCHAR(22)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Bank_Name",
+                                                              "type":  "NVARCHAR(100)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Account_Number",
+                                                              "type":  "VARCHAR(40)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Account_Holder",
+                                                              "type":  "NVARCHAR(100)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Payout_Reference",
+                                                              "type":  "NVARCHAR(150)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Payout_Note",
+                                                              "type":  "NVARCHAR(1000)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Paid_By",
+                                                              "type":  "INT",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Paid_At",
+                                                              "type":  "DATETIME2(7)",
+                                                              "nullable":  true
+                                                          },
+                                                          {
+                                                              "name":  "Created_At",
+                                                              "type":  "DATETIME2(7)",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Updated_At",
+                                                              "type":  "DATETIME2(7)",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Notification_Revision",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Read_Revision",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Version",
+                                                              "type":  "BIGINT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Refund_Policy",
+                                                              "type":  "VARCHAR(40)",
+                                                              "nullable":  true
+                                                          }
+                                                      ],
+                                          "pk":  [
+                                                     "Refund_ID"
+                                                 ],
+                                          "fks":  [
+                                                      {
+                                                          "column":  "Payment_ID",
+                                                          "parent":  "Payment",
+                                                          "key":  "Payment_ID"
+                                                      },
+                                                      {
+                                                          "column":  "Requested_By",
+                                                          "parent":  "User",
+                                                          "key":  "User_ID"
+                                                      },
+                                                      {
+                                                          "column":  "Reviewed_By",
+                                                          "parent":  "User",
+                                                          "key":  "User_ID"
+                                                      },
+                                                      {
+                                                          "column":  "Paid_By",
+                                                          "parent":  "User",
+                                                          "key":  "User_ID"
+                                                      }
+                                                  ],
+                                          "unique":  [
+                                                         [
+                                                             "Payment_ID"
+                                                         ]
+                                                     ],
+                                          "source":  "20261030_class_refunds.sql + 20261107_class_pt_cancel_policy.sql"
+                                      },
+                   "Refund_Session":  {
+                                          "columns":  [
+                                                          {
+                                                              "name":  "Refund_ID",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Position",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Session_ID",
+                                                              "type":  "INT",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Session_Date",
+                                                              "type":  "DATE",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Start_Time",
+                                                              "type":  "TIME(7)",
+                                                              "nullable":  false
+                                                          },
+                                                          {
+                                                              "name":  "Refundable",
+                                                              "type":  "BIT",
+                                                              "nullable":  false
+                                                          }
+                                                      ],
+                                          "pk":  [
+                                                     "Refund_ID",
+                                                     "Position"
+                                                 ],
+                                          "fks":  [
+                                                      {
+                                                          "column":  "Refund_ID",
+                                                          "parent":  "Refund_Request",
+                                                          "key":  "Refund_ID"
+                                                      }
+                                                  ],
+                                          "unique":  [
+
+                                                     ],
+                                          "source":  "swp391_db.sql"
+                                      },
+                   "Package_Included_Sport":  {
+                                                  "columns":  [
+                                                                  {
+                                                                      "name":  "ID",
+                                                                      "type":  "INT",
+                                                                      "nullable":  false
+                                                                  },
+                                                                  {
+                                                                      "name":  "Package_ID",
+                                                                      "type":  "INT",
+                                                                      "nullable":  false
+                                                                  },
+                                                                  {
+                                                                      "name":  "Subject_ID",
+                                                                      "type":  "INT",
+                                                                      "nullable":  false
+                                                                  }
+                                                              ],
+                                                  "pk":  [
+                                                             "ID"
+                                                         ],
+                                                  "fks":  [
+                                                              {
+                                                                  "column":  "Package_ID",
+                                                                  "parent":  "Membership_Package",
+                                                                  "key":  "Package_ID"
+                                                              },
+                                                              {
+                                                                  "column":  "Subject_ID",
+                                                                  "parent":  "Subject",
+                                                                  "key":  "Subject_ID"
+                                                              }
+                                                          ],
+                                                  "unique":  [
+                                                                 [
+                                                                     "Package_ID",
+                                                                     "Subject_ID"
+                                                                 ]
+                                                             ],
+                                                  "source":  "20261022_membership_package_flow.sql"
+                                              },
+                   "Package_Choice_Group":  {
+                                                "columns":  [
+                                                                {
+                                                                    "name":  "Choice_Group_ID",
+                                                                    "type":  "INT",
+                                                                    "nullable":  false
+                                                                },
+                                                                {
+                                                                    "name":  "Package_ID",
+                                                                    "type":  "INT",
+                                                                    "nullable":  false
+                                                                },
+                                                                {
+                                                                    "name":  "Group_Name",
+                                                                    "type":  "NVARCHAR(100)",
+                                                                    "nullable":  false
+                                                                },
+                                                                {
+                                                                    "name":  "Description",
+                                                                    "type":  "NVARCHAR(MAX)",
+                                                                    "nullable":  true
+                                                                },
+                                                                {
+                                                                    "name":  "Required_Selection",
+                                                                    "type":  "INT",
+                                                                    "nullable":  false
+                                                                },
+                                                                {
+                                                                    "name":  "Sort_Order",
+                                                                    "type":  "INT",
+                                                                    "nullable":  false
+                                                                }
+                                                            ],
+                                                "pk":  [
+                                                           "Choice_Group_ID"
+                                                       ],
+                                                "fks":  [
+                                                            {
+                                                                "column":  "Package_ID",
+                                                                "parent":  "Membership_Package",
+                                                                "key":  "Package_ID"
+                                                            }
+                                                        ],
+                                                "unique":  [
+
+                                                           ],
+                                                "source":  "20261022_membership_package_flow.sql"
+                                            },
+                   "Package_Choice_Group_Sport":  {
+                                                      "columns":  [
+                                                                      {
+                                                                          "name":  "ID",
+                                                                          "type":  "INT",
+                                                                          "nullable":  false
+                                                                      },
+                                                                      {
+                                                                          "name":  "Choice_Group_ID",
+                                                                          "type":  "INT",
+                                                                          "nullable":  false
+                                                                      },
+                                                                      {
+                                                                          "name":  "Subject_ID",
+                                                                          "type":  "INT",
+                                                                          "nullable":  false
+                                                                      }
+                                                                  ],
+                                                      "pk":  [
+                                                                 "ID"
+                                                             ],
+                                                      "fks":  [
+                                                                  {
+                                                                      "column":  "Choice_Group_ID",
+                                                                      "parent":  "Package_Choice_Group",
+                                                                      "key":  "Choice_Group_ID"
+                                                                  },
+                                                                  {
+                                                                      "column":  "Subject_ID",
+                                                                      "parent":  "Subject",
+                                                                      "key":  "Subject_ID"
+                                                                  }
+                                                              ],
+                                                      "unique":  [
+                                                                     [
+                                                                         "Choice_Group_ID",
+                                                                         "Subject_ID"
+                                                                     ]
+                                                                 ],
+                                                      "source":  "20261022_membership_package_flow.sql"
+                                                  },
+                   "Membership_Sport_Selection":  {
+                                                      "columns":  [
+                                                                      {
+                                                                          "name":  "Selection_ID",
+                                                                          "type":  "INT",
+                                                                          "nullable":  false
+                                                                      },
+                                                                      {
+                                                                          "name":  "Subscription_ID",
+                                                                          "type":  "INT",
+                                                                          "nullable":  false
+                                                                      },
+                                                                      {
+                                                                          "name":  "Choice_Group_ID",
+                                                                          "type":  "INT",
+                                                                          "nullable":  false
+                                                                      },
+                                                                      {
+                                                                          "name":  "Choice_Group_Name_At_Purchase",
+                                                                          "type":  "NVARCHAR(100)",
+                                                                          "nullable":  false
+                                                                      },
+                                                                      {
+                                                                          "name":  "Subject_ID",
+                                                                          "type":  "INT",
+                                                                          "nullable":  false
+                                                                      },
+                                                                      {
+                                                                          "name":  "Subject_Name_At_Purchase",
+                                                                          "type":  "NVARCHAR(100)",
+                                                                          "nullable":  false
+                                                                      }
+                                                                  ],
+                                                      "pk":  [
+                                                                 "Selection_ID"
+                                                             ],
+                                                      "fks":  [
+                                                                  {
+                                                                      "column":  "Subscription_ID",
+                                                                      "parent":  "Member_Subscription",
+                                                                      "key":  "Subscription_ID"
+                                                                  },
+                                                                  {
+                                                                      "column":  "Subject_ID",
+                                                                      "parent":  "Subject",
+                                                                      "key":  "Subject_ID"
+                                                                  }
+                                                              ],
+                                                      "unique":  [
+                                                                     [
+                                                                         "Subscription_ID",
+                                                                         "Choice_Group_ID",
+                                                                         "Subject_ID"
+                                                                     ]
+                                                                 ],
+                                                      "source":  "20261022_membership_package_flow.sql"
+                                                  },
+                   "Membership_Included_Sport":  {
+                                                     "columns":  [
+                                                                     {
+                                                                         "name":  "Snapshot_ID",
+                                                                         "type":  "INT",
+                                                                         "nullable":  false
+                                                                     },
+                                                                     {
+                                                                         "name":  "Subscription_ID",
+                                                                         "type":  "INT",
+                                                                         "nullable":  false
+                                                                     },
+                                                                     {
+                                                                         "name":  "Subject_ID",
+                                                                         "type":  "INT",
+                                                                         "nullable":  false
+                                                                     },
+                                                                     {
+                                                                         "name":  "Subject_Name_At_Purchase",
+                                                                         "type":  "NVARCHAR(100)",
+                                                                         "nullable":  false
+                                                                     }
+                                                                 ],
+                                                     "pk":  [
+                                                                "Snapshot_ID"
+                                                            ],
+                                                     "fks":  [
+                                                                 {
+                                                                     "column":  "Subscription_ID",
+                                                                     "parent":  "Member_Subscription",
+                                                                     "key":  "Subscription_ID"
+                                                                 },
+                                                                 {
+                                                                     "column":  "Subject_ID",
+                                                                     "parent":  "Subject",
+                                                                     "key":  "Subject_ID"
+                                                                 }
+                                                             ],
+                                                     "unique":  [
+                                                                    [
+                                                                        "Subscription_ID",
+                                                                        "Subject_ID"
+                                                                    ]
+                                                                ],
+                                                     "source":  "20261022_membership_package_flow.sql"
+                                                 },
+                   "Chat_Conversation":  {
+                                             "columns":  [
+                                                             {
+                                                                 "name":  "Conversation_ID",
+                                                                 "type":  "INT",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Member_ID",
+                                                                 "type":  "INT",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Coach_ID",
+                                                                 "type":  "INT",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Class_ID",
+                                                                 "type":  "INT",
+                                                                 "nullable":  true
+                                                             },
+                                                             {
+                                                                 "name":  "Last_Message",
+                                                                 "type":  "NVARCHAR(1000)",
+                                                                 "nullable":  true
+                                                             },
+                                                             {
+                                                                 "name":  "Last_Message_At",
+                                                                 "type":  "DATETIME2(7)",
+                                                                 "nullable":  true
+                                                             },
+                                                             {
+                                                                 "name":  "Created_At",
+                                                                 "type":  "DATETIME2(7)",
+                                                                 "nullable":  false
+                                                             }
+                                                         ],
+                                             "pk":  [
+                                                        "Conversation_ID"
+                                                    ],
+                                             "fks":  [
+                                                         {
+                                                             "column":  "Member_ID",
+                                                             "parent":  "User",
+                                                             "key":  "User_ID"
+                                                         },
+                                                         {
+                                                             "column":  "Coach_ID",
+                                                             "parent":  "User",
+                                                             "key":  "User_ID"
+                                                         },
+                                                         {
+                                                             "column":  "Class_ID",
+                                                             "parent":  "Class",
+                                                             "key":  "Class_ID"
+                                                         }
+                                                     ],
+                                             "unique":  [
+                                                            [
+                                                                "Member_ID",
+                                                                "Coach_ID"
+                                                            ]
+                                                        ],
+                                             "source":  "20261026_chatbox.sql"
+                                         },
+                   "Chat_Message":  {
+                                        "columns":  [
+                                                        {
+                                                            "name":  "Message_ID",
+                                                            "type":  "BIGINT",
+                                                            "nullable":  false
+                                                        },
+                                                        {
+                                                            "name":  "Conversation_ID",
+                                                            "type":  "INT",
+                                                            "nullable":  false
+                                                        },
+                                                        {
+                                                            "name":  "Sender_ID",
+                                                            "type":  "INT",
+                                                            "nullable":  false
+                                                        },
+                                                        {
+                                                            "name":  "Receiver_ID",
+                                                            "type":  "INT",
+                                                            "nullable":  false
+                                                        },
+                                                        {
+                                                            "name":  "Content",
+                                                            "type":  "NVARCHAR(MAX)",
+                                                            "nullable":  true
+                                                        },
+                                                        {
+                                                            "name":  "Message_Type",
+                                                            "type":  "VARCHAR(20)",
+                                                            "nullable":  false
+                                                        },
+                                                        {
+                                                            "name":  "Media_URL",
+                                                            "type":  "VARCHAR(500)",
+                                                            "nullable":  true
+                                                        },
+                                                        {
+                                                            "name":  "Is_Read",
+                                                            "type":  "BIT",
+                                                            "nullable":  false
+                                                        },
+                                                        {
+                                                            "name":  "Created_At",
+                                                            "type":  "DATETIME2(7)",
+                                                            "nullable":  false
+                                                        }
+                                                    ],
+                                        "pk":  [
+                                                   "Message_ID"
+                                               ],
+                                        "fks":  [
+                                                    {
+                                                        "column":  "Conversation_ID",
+                                                        "parent":  "Chat_Conversation",
+                                                        "key":  "Conversation_ID"
+                                                    },
+                                                    {
+                                                        "column":  "Sender_ID",
+                                                        "parent":  "User",
+                                                        "key":  "User_ID"
+                                                    },
+                                                    {
+                                                        "column":  "Receiver_ID",
+                                                        "parent":  "User",
+                                                        "key":  "User_ID"
+                                                    }
+                                                ],
+                                        "unique":  [
+
+                                                   ],
+                                        "source":  "20261026_chatbox.sql"
+                                    },
+                   "Subject_Room_Type":  {
+                                             "columns":  [
+                                                             {
+                                                                 "name":  "Subject_ID",
+                                                                 "type":  "INT",
+                                                                 "nullable":  false
+                                                             },
+                                                             {
+                                                                 "name":  "Room_Type",
+                                                                 "type":  "NVARCHAR(30)",
+                                                                 "nullable":  false
+                                                             }
+                                                         ],
+                                             "pk":  [
+                                                        "Subject_ID",
+                                                        "Room_Type"
+                                                    ],
+                                             "fks":  [
+                                                         {
+                                                             "column":  "Subject_ID",
+                                                             "parent":  "Subject",
+                                                             "key":  "Subject_ID"
+                                                         }
+                                                     ],
+                                             "unique":  [
+
+                                                        ],
+                                             "source":  "20261108_room_management.sql"
+                                         },
+                   "Member_Notification":  {
+                                               "columns":  [
+                                                               {
+                                                                   "name":  "Notification_ID",
+                                                                   "type":  "BIGINT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Member_ID",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Type",
+                                                                   "type":  "VARCHAR(40)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Title",
+                                                                   "type":  "NVARCHAR(200)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Message",
+                                                                   "type":  "NVARCHAR(1000)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Reference_Type",
+                                                                   "type":  "VARCHAR(40)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Reference_ID",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Source_Key",
+                                                                   "type":  "VARCHAR(200)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Read_At",
+                                                                   "type":  "DATETIME2(0)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Created_At",
+                                                                   "type":  "DATETIME2(0)",
+                                                                   "nullable":  false
+                                                               }
+                                                           ],
+                                               "pk":  [
+                                                          "Notification_ID"
+                                                      ],
+                                               "fks":  [
+                                                           {
+                                                               "column":  "Member_ID",
+                                                               "parent":  "User",
+                                                               "key":  "User_ID"
+                                                           }
+                                                       ],
+                                               "unique":  [
+                                                              "Member_ID",
+                                                              "Source_Key"
+                                                          ],
+                                               "source":  "20261105_member_notifications.sql"
+                                           },
+                   "Email_Otp_Challenge":  {
+                                               "columns":  [
+                                                               {
+                                                                   "name":  "Email",
+                                                                   "type":  "NVARCHAR(100)",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Purpose",
+                                                                   "type":  "NVARCHAR(20)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Context_Hash",
+                                                                   "type":  "NVARCHAR(64)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Context_Expires_At",
+                                                                   "type":  "DATETIMEOFFSET(7)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "User_ID",
+                                                                   "type":  "INT",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Session_Version",
+                                                                   "type":  "BIGINT",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Original_Email",
+                                                                   "type":  "NVARCHAR(100)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Otp_Hash",
+                                                                   "type":  "NVARCHAR(255)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Otp_Expires_At",
+                                                                   "type":  "DATETIMEOFFSET(7)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Failed_Attempts",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Last_Sent_At",
+                                                                   "type":  "DATETIMEOFFSET(7)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Window_Started_At",
+                                                                   "type":  "DATETIMEOFFSET(7)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Send_Count",
+                                                                   "type":  "INT",
+                                                                   "nullable":  false
+                                                               },
+                                                               {
+                                                                   "name":  "Send_History",
+                                                                   "type":  "NVARCHAR(1000)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Pending_Username",
+                                                                   "type":  "NVARCHAR(50)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Pending_FullName",
+                                                                   "type":  "NVARCHAR(100)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Pending_Phone",
+                                                                   "type":  "NVARCHAR(15)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Pending_Password_Hash",
+                                                                   "type":  "NVARCHAR(255)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Reset_Hash",
+                                                                   "type":  "NVARCHAR(64)",
+                                                                   "nullable":  true
+                                                               },
+                                                               {
+                                                                   "name":  "Reset_Expires_At",
+                                                                   "type":  "DATETIMEOFFSET(7)",
+                                                                   "nullable":  true
+                                                               }
+                                                           ],
+                                               "pk":  [
+                                                          "Email"
+                                                      ],
+                                               "fks":  [
+
+                                                       ],
+                                               "unique":  [
+
+                                                          ],
+                                               "source":  "20261110_email_otp_authentication.sql"
+                                           }
+               }
 }

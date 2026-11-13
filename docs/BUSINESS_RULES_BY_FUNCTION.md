@@ -1,373 +1,103 @@
 # Business Rules theo chức năng — SereneDesk
 
-Ngày đối chiếu: 03/11/2026. Cơ sở: code backend, quyền truy cập controller/security và schema/migration trong repository tại thời điểm rà soát.
+Ngày đối chiếu: 14/11/2026 (nhánh `format`). Cơ sở: code backend Spring Boot, phân quyền controller/security và schema/migration hiện hành trong repository `BE-SWP`.
 
-Đây là bản mô tả hành vi đang được triển khai, dùng để cập nhật doc và đối chiếu với ERD mới. Không phải xác nhận rằng mọi chức năng đã được kiểm thử nghiệm thu. Những điểm code và mô tả cũ chưa thống nhất được tách ở cuối tài liệu, không tự chuyển thành yêu cầu nghiệp vụ đã được nhóm duyệt.
+Quy ước:
+- `Fxx`: mã chức năng (`F01–F28` giữ mã cũ; `F29–F33` là các chức năng mới bổ sung sau mốc 03/11/2026).
+- `BR-Fxx-yy`: mã quy tắc dùng để tham chiếu từ **Swimlane / Flowchart**, **State chart** và test case.
+- Vai trò thực hiện: `Khách`, `User` (mọi tài khoản đã đăng nhập), `MEM` (Member), `REC` (Receptionist), `COACH` (Coach), `CM` (Center Manager), `ADMIN` (`ROLE_Admin` rà soát nguồn tài khoản), `Hệ thống`.
 
-Quy ước: `Fxx` là mã chức năng; `BR-Fxx-yy` là mã quy tắc để tham chiếu trong flowchart, state chart và test case. CM = Center Manager; REC = Receptionist; COACH = Coach; MEM = Member. Một quy tắc có thể áp dụng cho nhiều màn hình của cùng chức năng.
+---
 
-## A. Tài khoản và quản lý danh mục
+## A. Tài khoản, xác thực & danh mục cơ sở
 
-### F01 — Đăng ký tài khoản hội viên
+| Func | Rules |
+|---|---|
+| **F01 — Đăng ký tài khoản hội viên qua Email OTP** | • **BR-F01-01 [Khách]:** Tự đăng ký luôn gán vai trò `Member`; không nhận tham số chọn vai trò nhân viên hoặc quản lý.<br>• **BR-F01-02 [Khách]:** Username (tối đa 50 ký tự, `a-z`, `0-9`, `.`, `_`), email (tối đa 100 ký tự) và số điện thoại Việt Nam (chuẩn hóa 10 số, đầu số Viettel/MobiFone/VinaPhone) không được trùng tài khoản hiện có (kiểm tra lại cả khi xác nhận OTP).<br>• **BR-F01-03 [Khách]:** Mật khẩu dài 8–72 ký tự, có chữ hoa, chữ thường, chữ số, ký tự đặc biệt và khớp mật khẩu xác nhận.<br>• **BR-F01-04 [Hệ thống]:** `POST /api/auth/register` chưa tạo bản ghi `User`; chỉ lưu yêu cầu tạm (mật khẩu đã băm) vào `Email_Otp_Challenge` và trả `verificationToken` ngữ cảnh (hạn 15 phút).<br>• **BR-F01-05 [Hệ thống]:** Mã OTP gồm 6 chữ số (hạn 300 giây, sai tối đa 5 lần sẽ khóa mã); gửi lại tối thiểu sau 60 giây và tối đa 5 thư/email trong cửa sổ trượt 60 phút (cộng chung mọi mục đích).<br>• **BR-F01-06 [Hệ thống]:** Chỉ khi `/register/verify` đúng OTP mới tạo `User` với `Role = Member`, `Status = Active`, `Email_Verified = true`, `Auth_Provider = LOCAL`, không tự cấp JWT sau đăng ký. |
+| **F02 — Đăng nhập thường, Google và cổng xác thực email** | • **BR-F02-01 [User]:** Đăng nhập mật khẩu hỗ trợ username hoặc email; chỉ hợp lệ khi đúng mật khẩu, tài khoản `Active`, có role hợp lệ và `Auth_Provider <> GOOGLE`.<br>• **BR-F02-02 [Hệ thống]:** Tài khoản `Inactive` hoặc `Locked` bị từ chối đăng nhập (cả thường lẫn Google); tài khoản `GOOGLE` cố đăng nhập mật khẩu bị từ chối.<br>• **BR-F02-03 [Hệ thống]:** Nếu là `Member` có `Email_Verified = false` (kể cả tài khoản tạo qua lễ tân hoặc cũ), đăng nhập đúng mật khẩu chưa trả JWT mà trả `emailVerificationRequired = true` kèm `verificationToken` chỉ dùng để gửi/xác thực OTP hoặc đổi sang email mới qua `/api/auth/email-verification/*`.<br>• **BR-F02-04 [Hệ thống]:** Nhân viên/quản lý giữ luồng đăng nhập chuẩn, không bị chặn bởi cờ `Email_Verified`.<br>• **BR-F02-05 [User]:** Đăng nhập Google dùng email đã được Google xác thực; nếu chưa tồn tại thì tạo `Member` (`Active`, `Auth_Provider = GOOGLE`, `Email_Verified = true`); nếu đã tồn tại thì giữ nguyên `Auth_Provider` và đánh dấu `Email_Verified = true`. Mã đổi token Google chỉ có hiệu lực ngắn hạn (mặc định 60 giây) và dùng một lần.<br>• **BR-F02-06 [Hệ thống]:** JWT chứa claim phiên bản phiên (`sv`); mọi request HTTP và kết nối chat STOMP đều đối chiếu `Session_Version`, trạng thái tài khoản, vai trò và điều kiện xác thực email của Member. |
+| **F29 — Quên mật khẩu & rà soát nguồn tài khoản** | • **BR-F29-01 [Khách]:** Chỉ tài khoản `Active` có `Auth_Provider = LOCAL` được yêu cầu quên mật khẩu qua email; email không tồn tại trả 404, tài khoản `GOOGLE` trả 403, tài khoản `UNKNOWN` trả 409 yêu cầu quản trị rà soát trước.<br>• **BR-F29-02 [Hệ thống]:** Xác nhận đúng OTP quên mật khẩu (6 số, 300s, 5 lần sai, 60s gửi lại, tối đa 5 thư/60 phút) trả `resetToken` dùng một lần (hạn 300 giây) để gọi `/api/auth/reset-password`.<br>• **BR-F29-03 [Hệ thống]:** Đặt lại mật khẩu thành công làm tăng `Session_Version`, thu hồi toàn bộ JWT cũ và đóng kết nối WebSocket chat cũ; không tự mở khóa tài khoản và không bỏ qua bước xác thực email cho Member chưa verify.<br>• **BR-F29-04 [ADMIN]:** Chỉ `ROLE_Admin` được xem danh sách tài khoản `Auth_Provider = UNKNOWN` và gán nguồn `LOCAL` hoặc `GOOGLE` kèm lý do (`/api/admin/account-identities/**`); thao tác này ghi audit log, tăng `Session_Version` và không tự đánh dấu `Email_Verified = true`. |
+| **F03 — Xem, cập nhật hồ sơ & tự đổi email qua OTP** | • **BR-F03-01 [User]:** Người dùng chỉ xem và cập nhật hồ sơ của chính tài khoản đang đăng nhập (`GET/PUT /api/users/me`).<br>• **BR-F03-02 [User]:** Số điện thoại mới nếu cung cấp không được trùng với tài khoản khác.<br>• **BR-F03-03 [User]:** `PUT /api/users/me` không cho đổi vai trò, trạng thái, username hoặc email.<br>• **BR-F03-04 [User]:** Ảnh đại diện upload phải là PNG, JPEG hoặc GIF hợp lệ; tối đa 1 MB, kích thước tối đa 2048 × 2048 px (tối đa 4.194.304 pixel).<br>• **BR-F03-05 [User]:** Tài khoản đã xác thực thuộc `LOCAL` hoặc `UNKNOWN` được đổi email qua `/api/users/me/email-change/*`: bắt buộc nhập đúng mật khẩu hiện tại, email mới khác email cũ và chưa thuộc tài khoản khác; tài khoản `GOOGLE` bị cấm tự đổi email (403).<br>• **BR-F03-06 [Hệ thống]:** Email chỉ cập nhật sau khi xác nhận OTP gửi tới email mới; khi thành công đánh dấu `Email_Verified = true`, tăng `Session_Version`, thu hồi phiên/socket cũ, ghi audit log và cấp JWT mới. |
+| **F04 — Quản lý người dùng** | • **BR-F04-01 [CM]:** Quản lý các tài khoản thuộc 3 vai trò `Receptionist`, `Coach`, `Member` (bao gồm export CSV); không dùng API này để tạo/sửa `Center Manager`.<br>• **BR-F04-02 [CM]:** Khi tạo hoặc cập nhật người dùng, username, email và số điện thoại phải duy nhất so với tài khoản khác.<br>• **BR-F04-03 [CM]:** Chỉ được gán role trong 3 vai trò quản lý và status trong `Active`, `Inactive`, `Locked`.<br>• **BR-F04-04 [CM]:** Đặt lại mật khẩu yêu cầu mật khẩu hợp lệ (8–72 ký tự, đủ chữ hoa/thường/số/ký tự đặc biệt) và khớp xác nhận; khi thành công hệ thống tăng `Session_Version` và ngắt socket/JWT cũ.<br>• **BR-F04-05 [CM]:** Nếu quản lý đổi email của người dùng, hệ thống tự đặt `Email_Verified = false`, tăng `Session_Version` và vô hiệu phiên cũ.<br>• **BR-F04-06 [Hệ thống]:** Các thao tác tạo, sửa, đổi vai trò, đổi trạng thái và đặt lại mật khẩu đều phải ghi `Activity_Log`. |
+| **F05 — Quản lý môn thể thao & loại phòng phù hợp** | • **BR-F05-01 [CM]:** Chỉ `CM` (hoặc `ROLE_Admin`) được tạo, xóa môn và cấu hình loại phòng cho môn; tài khoản đã đăng nhập được đọc danh mục môn.<br>• **BR-F05-02 [CM]:** Tên môn không được rỗng và không trùng tên đã tồn tại (không phân biệt hoa/thường).<br>• **BR-F05-03 [CM]:** Khi tạo môn hoặc gọi `PUT /api/subjects/{id}/room-types`, bắt buộc chọn ít nhất 1 `Room_Type` hợp lệ trong danh mục 12 loại phòng hệ thống và không trùng lặp (`Subject_Room_Type`).<br>• **BR-F05-04 [Hệ thống]:** Không cho phép gỡ một `Room_Type` khỏi môn nếu còn lớp chưa hủy/chưa hoàn tất của môn đó đang sử dụng phòng thuộc loại cần gỡ (kiểm tra khóa dữ liệu đồng thời với quản lý phòng).<br>• **BR-F05-05 [Hệ thống]:** Môn mang trạng thái `Active` hoặc `Discontinued`; việc xóa môn chịu ràng buộc tham chiếu dữ liệu hiện có. |
+| **F30 — Quản lý phòng / sân** | • **BR-F30-01 [CM]:** Chỉ `CM` (hoặc `ROLE_Admin`) được tạo, sửa, đổi trạng thái và xóa phòng; mọi phòng dùng 1 trong 12 mã loại phòng hợp lệ (`GYM`, `PILATES`, `FUNCTIONAL`, `BOXING`, `MARTIAL_ARTS`, `MULTIPURPOSE`, `SWIMMING_POOL`, `FOOTBALL_COURT`, `BASKETBALL_COURT`, `BADMINTON_COURT`, `TABLE_TENNIS_COURT`, `TENNIS_COURT`).<br>• **BR-F30-02 [CM]:** Tên phòng bắt buộc, tối đa 50 ký tự, duy nhất không phân biệt hoa/thường; vị trí bắt buộc (tối đa 150 ký tự); sức chứa `> 0`; trạng thái thuộc `Active`, `Maintenance` hoặc `Inactive`.<br>• **BR-F30-03 [Hệ thống]:** Không được chuyển phòng sang `Maintenance` hoặc `Inactive` nếu còn lớp chưa hủy/chưa kết thúc đang gắn phòng (trả 409 kèm danh sách lớp).<br>• **BR-F30-04 [Hệ thống]:** Không được giảm sức chứa dưới `Max_Capacity` của lớp đang/sắp dùng phòng hoặc đổi sang `Room_Type` không nằm trong `Subject_Room_Type` của các lớp đó.<br>• **BR-F30-05 [CM]:** Chỉ được xóa phòng khi chưa từng có lớp nào tham chiếu; nếu đã có lịch sử lớp thì chỉ được chuyển `Inactive`. |
+| **F06 — Tạo và tra cứu lớp học** | • **BR-F06-01 [CM]:** Tên lớp không rỗng và không trùng tên lớp đã tồn tại (không phân biệt hoa/thường).<br>• **BR-F06-02 [CM]:** Lớp phải tham chiếu môn tồn tại, huấn luyện viên có vai trò `Coach` và phòng ở trạng thái `Active` đã được phân loại (`Room_Type <> null`).<br>• **BR-F06-03 [Hệ thống]:** Loại phòng được chọn phải nằm trong danh sách `Subject_Room_Type` cho phép của môn; sức chứa lớp `> 0` và `<=` sức chứa phòng.<br>• **BR-F06-04 [CM]:** Tùy chọn `Has_PT = true` chỉ được bật cho môn thuộc nhóm Gym/Fitness (khớp tên hoặc category `gym`, `fitness`, `fitness gym`, `gym fitness`); môn khác bật PT bị từ chối `400`.<br>• **BR-F06-05 [CM]:** Giờ kết thúc sau giờ bắt đầu và phải nằm gọn trong slot hợp lệ: `07:00–09:15`, `09:30–11:45`, `12:30–14:45` hoặc `15:00–17:15`.<br>• **BR-F06-06 [Hệ thống]:** Từ ngày bắt đầu, số tuần và thứ trong tuần, hệ thống tính `End_Date`, sinh các bản ghi `Class_Session`, kiểm tra không trùng lịch phòng và Coach với các buổi đang chiếm lịch, và tự chốt lớp/buổi hoàn thành khi quá hạn. |
 
-Nguồn: [AuthService](../src/main/java/com/swp391/beswp/service/AuthService.java), [RegisterRequest](../src/main/java/com/swp391/beswp/dto/RegisterRequest.java).
+---
 
-| Mã BR | Người thực hiện | Business Rule |
+## B. Gói dịch vụ và vòng đời gói hội viên
+
+| Func | Rules |
+|---|---|
+| **F07 — Tạo và sửa cấu hình gói dịch vụ** | • **BR-F07-01 [CM]:** Tên gói bắt buộc và duy nhất (không phân biệt hoa/thường).<br>• **BR-F07-02 [CM]:** Giá niêm yết `> 0`, thời hạn `> 0` tháng, tỷ lệ chiết khấu từ `0%` đến `100%`, trạng thái chỉ là `Active` hoặc `Inactive`.<br>• **BR-F07-03 [Hệ thống]:** Quy đổi thời hạn: 12 tháng = 365 ngày; 24 tháng = 730 ngày; các số tháng khác = số tháng × 30 ngày.<br>• **BR-F07-04 [CM]:** Cấu hình bảo lưu `freezeMonths >= 0` (`0` là tắt); chỉ gói có thời hạn quy đổi `>= 180 ngày` (từ 6 tháng trở lên) mới được bật `freezeMonths > 0`.<br>• **BR-F07-05 [CM]:** Chỉ được đưa môn tồn tại và đang `Active` vào quyền lợi sẵn có hoặc nhóm lựa chọn; không lặp môn trong cùng danh sách hoặc cùng một nhóm.<br>• **BR-F07-06 [CM]:** Mỗi `Choice Group` phải có tên, `Required_Selection > 0` và số môn trong nhóm `>= Required_Selection`. |
+| **F08 — Xóa hoặc ngừng bán gói dịch vụ** | • **BR-F08-01 [CM]:** Không được xóa gói đã có lịch sử mua (`Member_Subscription`); chuyển sang `Inactive` để ngừng bán.<br>• **BR-F08-02 [CM]:** Gói chưa từng được mua có thể xóa cùng cấu hình `Package_Included_Sport`, `Package_Choice_Group`, `Package_Choice_Group_Sport`.<br>• **BR-F08-03 [Hệ thống]:** Cập nhật hoặc ngừng bán gói không làm thay đổi giá, thời hạn, hạn mức bảo lưu, điều khoản và quyền môn đã snapshot trong các `Member_Subscription` cũ. |
+| **F09 — Member mua gói online** | • **BR-F09-01 [MEM]:** Tài khoản phải `Member` `Active`, chưa ở trạng thái gói `Frozen` (phải tham gia lại trước khi mua) và chọn gói đang `Active`.<br>• **BR-F09-02 [MEM]:** Nếu đã có gói `Active` hiện tại thì phải dùng luồng gia hạn (`F10`); nếu đang có giao dịch gói `Pending` chưa hết hạn thì không được tạo giao dịch mới.<br>• **BR-F09-03 [MEM]:** Phải chọn đủ mọi `Choice Group` bắt buộc, đúng số lượng `Required_Selection`, không trùng môn và đúng môn thuộc từng nhóm.<br>• **BR-F09-04 [Hệ thống]:** Tiền giảm = giá niêm yết × chiết khấu / 100; giá sau giảm phải là số nguyên VND dương (`<= 9.999.999.999`) để thanh toán online (`Card`/VNPay hoặc `E_Wallet`/SePay, không dùng tiền mặt).<br>• **BR-F09-05 [Hệ thống]:** Giao dịch tạo ra giữ `Payment = Pending` (hạn 15 phút) và `Member_Subscription = Pending`; tại lúc tạo, snapshot đủ giá thực trả, tên gói, thời hạn, `Freeze_Months_At_Purchase`, điều khoản (kèm điều khoản bảo lưu nếu có), `Membership_Included_Sport` và `Membership_Sport_Selection`. |
+| **F10 — Gia hạn gói hội viên** | • **BR-F10-01 [MEM / REC]:** Yêu cầu hội viên có đúng 1 gói `Active` hiện tại và không đang `Frozen` (nếu có nhiều hơn 1 gói `Active`, phải để quản lý xử lý trước).<br>• **BR-F10-02 [MEM / REC]:** Chọn bắt đầu ngay (`IMMEDIATE`, ngày bắt đầu = hôm nay) hoặc nối tiếp (`AFTER_CURRENT`, ngày bắt đầu = `End_Date` gói hiện tại + 1 ngày); không được tạo thêm gói `AFTER_CURRENT` nếu đã tồn tại một gói `Pending` nối tiếp.<br>• **BR-F10-03 [Hệ thống]:** `End_Date` = `Start_Date` + `Duration` (ngày) − 1; lấy giá, chiết khấu, thời hạn, hạn mức bảo lưu và quyền môn của gói tại thời điểm gia hạn.<br>• **BR-F10-04 [Hệ thống]:** Với gia hạn online `IMMEDIATE`, chỉ chuyển gói cũ sang `Expired` và kích hoạt gói mới sang `Active` khi nhận webhook/IPN hợp lệ; với `AFTER_CURRENT`, gói mới giữ `Pending` sau khi `Paid` cho đến ngày hiệu lực. |
+| **F11 — Đăng ký / gia hạn gói tại quầy** | • **BR-F11-01 [REC]:** Chỉ `Receptionist` `Active` được thao tác cho `Member` `Active` (tài khoản hội viên không `Frozen`).<br>• **BR-F11-02 [REC]:** Hỗ trợ `Cash` (thu và kích hoạt/nối tiếp ngay), `Card` (VNPay) hoặc `E_Wallet` (QR SePay, tạo giao dịch `Pending` như luồng online). Không cho phép nhập tay giá ở client.<br>• **BR-F11-03 [REC]:** Đăng ký mới qua quầy hiện chỉ hỗ trợ gói không có `Choice Group` (gói có lựa chọn môn tự chọn yêu cầu thao tác ở luồng Member); gia hạn qua quầy áp dụng đủ quy tắc `F10` và lưu `Receptionist_ID` + audit log. |
+| **F31 — Bảo lưu & tham gia lại gói hội viên** | • **BR-F31-01 [MEM]:** Member chỉ tự bảo lưu gói `Active` đang trong thời hạn hiệu lực của chính mình, khi không có thanh toán gói `Pending` chưa hết hạn và không có nhiều gói `Active` cùng lúc.<br>• **BR-F31-02 [MEM]:** Gói phải có thời hạn mua `>= 180` ngày và còn hạn mức `Freeze_Months_At_Purchase - Freeze_Months_Used >= months` (`months` nguyên `>= 1`).<br>• **BR-F31-03 [Hệ thống]:** Không cho bảo lưu nếu Member có buổi học đã đặt (`Booked` hoặc `Pending` còn hạn giữ chỗ, mọi hình thức thanh toán) có khoảng thời gian giao với khoảng `[now, now + months]` (UTC+7); buổi bắt đầu đúng thời điểm kết thúc bảo lưu không bị tính trùng.<br>• **BR-F31-04 [Hệ thống]:** Xác nhận bảo lưu trừ toàn bộ `months` vào `Freeze_Months_Used` ngay lập tức (tham gia lại sớm không hoàn hạn mức tháng), đặt `Status = Frozen`, ghi `Freeze_Started_At` và `Freeze_Ends_At` (theo lịch tháng, chốt cuối tháng nếu ngày không tồn tại).<br>• **BR-F31-05 [Hệ thống]:** Trong khi `Frozen`, Member bị chặn quyền môn của gói, không được mua/gia hạn gói mới, không được ghi kết quả kế hoạch tập của lớp (`isTrainingPlanMember` loại tài khoản `Frozen`), nhưng vẫn đăng nhập và tra cứu dữ liệu bình thường.<br>• **BR-F31-06 [MEM / Hệ thống]:** Khi Member chọn tham gia lại (`/resume`), truy vấn `GET /freeze` sau hạn hoặc job tự động mỗi 60 giây quét đến hạn: cộng đúng số ngày tròn đủ 24 giờ đã trôi qua vào `End_Date` (không làm tròn lên), dời đồng bộ ngày bắt đầu/kết thúc của các gói gia hạn `Pending` đã `Paid`, chuyển về `Active` (hoặc `Expired` nếu `End_Date` sau cộng vẫn `< today`) và ghi audit log. |
+| **F12 — Vòng đời tự động & chấm dứt membership** | • **BR-F12-01 [Hệ thống]:** Tác vụ mỗi 60 giây tự chuyển gói `Active` có `End_Date < today` sang `Expired`.<br>• **BR-F12-02 [Hệ thống]:** Gói `Pending` đã đến `Start_Date` chỉ được kích hoạt thành `Active` khi đã đủ điều kiện thanh toán, Member không có gói `Active` khác và không có gói `Frozen`.<br>• **BR-F12-03 [CM]:** Chỉ `CM` (hoặc `ROLE_Admin`) được chấm dứt membership đang `Active`, `Pending` hoặc `Frozen` qua `PATCH /api/center-manager/memberships/{id}/terminate`; bắt buộc nhập lý do.<br>• **BR-F12-04 [Hệ thống]:** Chấm dứt chuyển gói sang `Cancelled`, xóa mốc freeze nếu có, lưu `Cancellation_Reason`, `Cancelled_At`, ghi audit log và giữ nguyên toàn bộ lịch sử thanh toán. |
+
+---
+
+## C. Đăng ký lớp, thanh toán & Voucher
+
+| Func | Rules |
+|---|---|
+| **F13 — Đăng ký lớp học (Unlimited Membership hoặc DIRECT)** | • **BR-F13-01 [MEM / REC]:** Chỉ đăng ký lớp đang `Active` hoặc `Open`, chưa bắt đầu, chưa quá `End_Date` và còn buổi tương lai hợp lệ trong thời hạn lớp.<br>• **BR-F13-02 [MEM / REC]:** Không tạo đăng ký mới nếu hội viên đã có booking `Booked` hoặc `Pending` còn giữ chỗ trong cùng lớp.<br>• **BR-F13-03 [Hệ thống]:** Mọi buổi tương lai của lớp phải còn chỗ trống (`Max_Capacity >` số booking `Booked` + `Pending` chưa hết hạn); đăng ký thành công tạo 1 nhóm booking cho các buổi còn lại gắn chung `Registration_Code`.<br>• **BR-F13-04 [MEM / REC]:** Chỉ chấp nhận phương thức `PACKAGE` hoặc `DIRECT` (tại quầy hỗ trợ `DIRECT` qua `Cash`, `Card`, `E_Wallet`; Member online hỗ trợ `PACKAGE` hoặc `DIRECT` qua `Card`/VNPay, `E_Wallet`/SePay). **Từ chối `MIXED` (`400 Bad Request`).** |
+| **F14 — Điều kiện dùng gói & kiểm tra trùng lịch khi đăng ký lớp** | • **BR-F14-01 [MEM / REC]:** Khi chọn `PACKAGE`, hội viên phải có gói `Active` (không `Frozen`), quyền môn snapshot của gói (`Membership_Included_Sport` hoặc `Membership_Sport_Selection`) chứa môn của lớp, và gói có hiệu lực phủ tới ngày buổi cuối cùng của lớp.<br>• **BR-F14-02 [Hệ thống]:** Không kiểm tra, giữ, trừ hay hoàn số buổi/lượt gói (`Included_Classes` đã bị loại bỏ khỏi schema); gói đủ điều kiện được đăng ký toàn khóa.<br>• **BR-F14-03 [Hệ thống]:** Với mọi phương thức (`PACKAGE` và `DIRECT`), không được đăng ký 2 lớp cùng môn có khoảng thời gian khóa học giao nhau (tính cả ngày bắt đầu và kết thúc), không được có buổi học giao giờ trên cùng ngày (buổi nối tiếp sát giờ không tính trùng), và không có buổi nào giao vào khoảng thời gian gói đang `Frozen`.<br>• **BR-F14-04 [Hệ thống]:** Mọi điều kiện lớp, chỗ trống và trùng lịch được khóa kiểm tra lại trong transaction ghi theo hội viên/lớp; bản preview chỉ mang tính tham khảo. |
+| **F15 — Thanh toán online, giữ chỗ & đối soát** | • **BR-F15-01 [Hệ thống]:** Giao dịch online (`VNPay` / `SePay QR`) có thời hạn `15 phút`; đăng ký lớp online yêu cầu thời điểm hết hạn thanh toán không vượt quá thời điểm bắt đầu buổi học đầu tiên.<br>• **BR-F15-02 [Hệ thống]:** Chỉ xác nhận `Paid` qua IPN VNPay hợp lệ chữ ký hoặc Webhook SePay xác thực API Key, đúng `Payment_ID` và đúng số tiền VND; không kích hoạt quyền lợi chỉ từ URL redirect trình duyệt.<br>• **BR-F15-03 [Hệ thống]:** Nếu giao dịch hết hạn hoặc bị hủy (kể cả nhóm `MIXED` Pending cũ), hệ thống giải phóng giữ chỗ (`Cancelled`/`Failed`); nếu tiền về sau hạn hoặc điều kiện gói/lớp không còn hợp lệ, vẫn ghi nhận `Paid` + đánh dấu `Requires_Review = true` để quản lý đối soát, không tự kích hoạt lại lớp hay gói.<br>• **BR-F15-04 [Hệ thống]:** Callback/webhook trùng lặp (cùng `Payment` đã `Paid` hoặc trùng `Sepay_Transaction_ID`) phải idempotent, không thu hoặc kích hoạt lặp lại. |
+| **F32 — Áp dụng Voucher khi thanh toán** | • **BR-F32-01 [MEM / REC]:** Danh sách voucher khả dụng chỉ trả các `Voucher` có `Start_Date <= today <= End_Date` (theo múi giờ hệ thống).<br>• **BR-F32-02 [MEM / REC]:** Voucher chỉ áp dụng ngay trong lúc tạo thanh toán mua mới/gia hạn gói hoặc đăng ký lớp hình thức `DIRECT`; không áp dụng khi đăng ký lớp bằng `PACKAGE`.<br>• **BR-F32-03 [Hệ thống]:** Mỗi `Payment` chỉ gắn tối đa một `Voucher_ID` (chặn ghi đè ở mức DB nếu `Voucher_ID IS NOT NULL`), không áp cho giao dịch đã có `Requires_Review`, đã hết hạn hoặc không ở trạng thái hợp lệ.<br>• **BR-F32-04 [Hệ thống]:** `Percent` giảm `amount × Discount_Value / 100` (tối đa 100%); `Fixed` giảm `min(Discount_Value, amount)`. Thanh toán online sau giảm vẫn phải là số nguyên VND dương (`> 0`); chỉ thanh toán tiền mặt (`Cash`) tại quầy được phép có số tiền sau giảm bằng `0`.<br>• **BR-F32-05 [Hệ thống]:** Cập nhật `Payment.Amount`, `Payment.Discount_Amount` (cộng dồn với chiết khấu gói nếu có), `Member_Subscription.Price_At_Purchase` và ghi audit log `APPLY_VOUCHER`. |
+| **F16 — Xem lịch sử gói và giao dịch** | • **BR-F16-01 [MEM / REC]:** Member chỉ xem lịch sử gói và thanh toán của chính mình; lễ tân chỉ xem qua API tra cứu hội viên khi Member không bị `Frozen` ở luồng tra cứu đăng ký gói.<br>• **BR-F16-02 [Hệ thống]:** Chi tiết gói và hóa đơn sử dụng dữ liệu snapshot lúc mua (`Item_Name_At_Payment`, `Price_At_Purchase`, `Duration_At_Purchase`, quyền môn đã mua) để không bị sai lệch khi CM sửa cấu hình gói mới nhất.<br>• **BR-F16-03 [Hệ thống]:** Lịch sử giao dịch tách rõ thực thu (`Amount`), tổng giảm (`Discount_Amount`), trạng thái đối soát (`Requires_Review`) và số tiền đã hoàn từ `Refund_Request` mà không xóa bản ghi `Payment` gốc. |
+
+---
+
+## D. Hủy đăng ký & hoàn tiền
+
+| Func | Rules |
+|---|---|
+| **F17 — Hủy đăng ký lớp học** | • **BR-F17-01 [MEM / REC]:** Chỉ hủy được nhóm booking thuộc đúng Member khi lớp chưa quá `End_Date`, còn buổi tương lai chưa hủy, và **thời điểm hủy phải trước giờ bắt đầu buổi đầu tiên hơn 3 ngày** (`firstSessionStart > now + 3 days`).<br>• **BR-F17-02 [Hệ thống]:** Hủy theo toàn bộ nhóm `Registration_Code`; chỉ các booking tương lai ở trạng thái `Booked`/`Pending` chuyển sang `Cancelled`, giữ nguyên lịch sử booking đã qua.<br>• **BR-F17-03 [Hệ thống]:** Nếu gửi xác nhận từ preview hủy, số buổi hủy và tiền hoàn dự kiến phải khớp thời điểm thực hiện; nếu dữ liệu đã đổi trả `409` yêu cầu mở lại preview.<br>• **BR-F17-04 [Hệ thống]:** Giao dịch `Pending` của đăng ký bị hủy chuyển `Failed`. Nếu đăng ký `DIRECT` đã `Paid`, tạo yêu cầu hoàn tiền theo `F18`; nếu dùng `PACKAGE`, chỉ hủy giữ chỗ tương lai (không hoàn tiền mặt và không còn cơ chế trả lượt). |
+| **F18 — Tạo và tính yêu cầu hoàn tiền** | • **BR-F18-01 [Hệ thống]:** Mỗi `Payment` `Paid` gắn `Class_Booking` có buổi trực tiếp bị hủy chỉ được tạo tối đa 1 bản ghi `Refund_Request` (`UNIQUE(Payment_ID)`) kèm snapshot danh sách buổi vào `Refund_Session`.<br>• **BR-F18-02 [Hệ thống]:** Hủy đăng ký lớp theo luồng chuẩn áp dụng chính sách **`CLASS_CANCEL_50`**: tiền hoàn dự kiến cố định bằng **50% `Paid_Amount`** (làm tròn xuống số VND nguyên); đồng thời bật `Payment.Requires_Review = true`.<br>• **BR-F18-03 [CM]:** Với giao dịch cũ còn `Requires_Review = true` và có booking hủy trước đó nhưng chưa có `Refund_Request` (`createLegacy`), CM có thể khởi tạo yêu cầu hoàn theo tỷ lệ `Paid_Amount × số buổi hủy / tổng số buổi trả trực tiếp` (làm tròn xuống VND) để kiểm tra và duyệt. |
+| **F19 — Duyệt hoặc từ chối hoàn tiền** | • **BR-F19-01 [CM]:** Chỉ CM được duyệt (`APPROVED`) hoặc từ chối (`REJECTED`) các yêu cầu đang ở trạng thái `PENDING` (kèm kiểm tra `Version` chống ghi đè đồng thời).<br>• **BR-F19-02 [CM]:** Số tiền duyệt phải `> 0` và `<= Paid_Amount`; riêng yêu cầu gắn policy `CLASS_CANCEL_50`, số tiền duyệt bắt buộc bằng đúng `Estimated_Amount` (50%).<br>• **BR-F19-03 [CM]:** Từ chối bắt buộc nhập lý do (và giải phóng `Payment.Requires_Review = false`); duyệt với số tiền khác `Estimated_Amount` (trường hợp legacy) bắt buộc nhập lý do điều chỉnh.<br>• **BR-F19-04 [Hệ thống]:** Ghi `Reviewed_By`, `Reviewed_At`, tăng `Notification_Revision` để Member nhận thông báo kết quả và ghi audit log. |
+| **F20 — Nhận và chi hoàn tiền tại quầy** | • **BR-F20-01 [MEM]:** Chỉ chủ sở hữu `Refund_Request` đang `APPROVED` được đăng ký phương thức nhận `CASH` tại quầy để hệ thống sinh mã `Pickup_Code` (định dạng `HT-XXXX-XXXX-XXXX-XXXX`).<br>• **BR-F20-02 [REC]:** Chỉ Receptionist được xác nhận chi tiền cho yêu cầu `APPROVED` đã chọn `CASH` và có `Pickup_Code`; bắt buộc đối chiếu đúng mã do Member cung cấp (không phân biệt hoa/thường, khoảng trắng, dấu gạch nối).<br>• **BR-F20-03 [Hệ thống]:** Chi thành công chuyển `Refund_Request` sang `PAID`, đặt `Payment.Requires_Review = false`, lưu `Paid_By`, `Paid_At`, mã biên nhận `CASH-HT-<id>`, tăng thông báo cho Member và ghi audit log.<br>• **BR-F20-04 [Hệ thống]:** `Payment` gốc vẫn giữ trạng thái `Paid`; hệ thống ghi nhận chi hoàn tại quầy, chưa tích hợp tự chuyển khoản `BANK`. |
+
+---
+
+## E. Coach, điểm danh, đánh giá & kế hoạch tập
+
+| Func | Rules |
+|---|---|
+| **F21 — Xem lớp phụ trách và điểm danh** | • **BR-F21-01 [COACH]:** Coach phải `Active` và chỉ thao tác với lớp do mình phụ trách.<br>• **BR-F21-02 [COACH]:** Không được điểm danh nếu lớp hoặc buổi học đã `Cancelled`/`Cancel`.<br>• **BR-F21-03 [COACH]:** Danh sách lưu điểm danh phải khớp chính xác toàn bộ hội viên có đăng ký hợp lệ của buổi học; mỗi hội viên chỉ xuất hiện một lần.<br>• **BR-F21-04 [COACH]:** Service điểm danh hiện chỉ chấp nhận `Present` hoặc `Absent` (chưa mở `Late`/`Excused`).<br>• **BR-F21-05 [COACH]:** Nếu hội viên đã có đánh giá buổi học chưa bị thu hồi (`Is_Withdrawn = false`), bắt buộc thu hồi đánh giá trước khi đổi điểm danh sang `Absent`. |
+| **F22 — Đánh giá học viên theo buổi** | • **BR-F22-01 [COACH]:** Chỉ Coach phụ trách lớp được tạo/sửa hoặc thu hồi đánh giá (`Training_Result`) cho hội viên có đăng ký hợp lệ trong buổi học.<br>• **BR-F22-02 [COACH]:** Chỉ được đánh giá sau thời điểm kết thúc buổi học, khi lớp/buổi không bị hủy và ngày buổi học nằm trong thời hạn lớp.<br>• **BR-F22-03 [COACH]:** Hội viên bắt buộc đã được điểm danh `Present` ở buổi đó trước khi lưu đánh giá.<br>• **BR-F22-04 [Hệ thống]:** Mỗi cặp `(Session_ID, User_ID)` có một bản ghi đánh giá kiểm soát đồng thời qua `Version`; tiến độ thuộc `INITIAL`, `IMPROVING`, `STEADY`, `NEEDS_IMPROVEMENT`.<br>• **BR-F22-05 [MEM]:** Member chỉ được đọc đánh giá của chính mình chưa bị thu hồi (`Is_Withdrawn = false`). |
+| **F23 — Tạo, giao và cập nhật kế hoạch tập** | • **BR-F23-01 [COACH]:** Chỉ Coach phụ trách lớp `Open`/`Active` chưa hết hạn được quản lý kế hoạch của lớp; người nhận phải là `Member` `Active`, có booking `Booked` trong lớp và **không có gói đang `Frozen`**.<br>• **BR-F23-02 [COACH]:** Kế hoạch `INDIVIDUAL` gắn một `Member_ID`; kế hoạch `CLASS` có `Member_ID = null` và lưu danh sách người nhận ở `Training_Plan_Recipient`.<br>• **BR-F23-03 [COACH]:** Khoảng ngày kế hoạch phải nằm gọn trong thời hạn lớp, `End_Date >= Start_Date` và không chỉnh nội dung với ngày ở quá khứ.<br>• **BR-F23-04 [Hệ thống]:** Bản `DRAFT` chưa hiển thị cho Member; khi chuyển `ASSIGNED` thì không thể quay lại `DRAFT`. Mỗi lớp có tối đa 1 kế hoạch `CLASS` đang `ASSIGNED`; mỗi học viên có tối đa 1 kế hoạch `INDIVIDUAL` đang `ASSIGNED` trong lớp.<br>• **BR-F23-05 [Hệ thống]:** Giao kế hoạch `CLASS` lần đầu phải chốt ít nhất 1 người nhận đủ điều kiện và tự tạo thông báo `Member_Notification`; học viên đăng ký bổ sung sau được thêm qua API thêm người nhận (`addRecipients`). Không đổi lớp/loại/học viên cá nhân sau khi tạo và không xóa bài tập đã có kết quả. |
+| **F24 — Ghi kết quả tập và xem tiến độ** | • **BR-F24-01 [MEM]:** Chỉ Member được giao kế hoạch được ghi kết quả bài tập thuộc đúng kế hoạch đó (kiểm tra `Version`).<br>• **BR-F24-02 [MEM]:** Chỉ ghi được kết quả khi plan ở trạng thái `ASSIGNED`, ngày hiện tại nằm trong `[Start_Date, End_Date]`, lớp đang mở chưa hết hạn, booking hợp lệ và **tài khoản không có gói `Frozen`**.<br>• **BR-F24-03 [Hệ thống]:** Kế hoạch `COMPLETED`/`CANCELLED`, lớp đóng/hết hạn hoặc học viên `Frozen`/hủy lớp vẫn đọc được lịch sử nhưng khóa ghi nhận kết quả mới.<br>• **BR-F24-04 [Hệ thống]:** Kế hoạch `CLASS` tách kết quả (`Training_Exercise_Result`), phản hồi Coach và `Read_Revision` riêng từng người nhận; tăng `Published_Revision` khi giao/cập nhật nội dung. |
+
+---
+
+## F. Trao đổi, thông báo, nhật ký & dashboard
+
+| Func | Rules |
+|---|---|
+| **F25 — Chat Member–Coach** | • **BR-F25-01 [MEM / COACH]:** Tài khoản phải `Active` và thuộc đúng cặp đối ứng `Member` – `Coach`.<br>• **BR-F25-02 [MEM / COACH]:** Chỉ được nhắn tin khi Member có booking `Booked` trong lớp đang `Active`/`Open` chưa hết hạn do Coach đó phụ trách.<br>• **BR-F25-03 [Hệ thống]:** Mỗi cặp `Member–Coach` có tối đa 1 `Chat_Conversation`; chỉ 2 người tham gia được đọc lịch sử và đánh dấu đã đọc.<br>• **BR-F25-04 [MEM / COACH]:** `TEXT` không được rỗng; `IMAGE` phải là file ảnh hợp lệ (tối đa 5 MB, tối đa 4096 × 4096 px) tải lên qua `/api/chat/upload-image`. |
+| **F33 — Thông báo cho hội viên** | • **BR-F33-01 [MEM]:** Chỉ tài khoản `Member` `Active` được xem danh sách thông báo phân trang (`size` 1–100), đếm chưa đọc và đánh dấu đã đọc của chính mình.<br>• **BR-F33-02 [Hệ thống]:** Hệ thống tự sinh thông báo cho 2 loại sự kiện: `TRAINING_PLAN_ASSIGNED` (khi Coach giao/thêm người nhận kế hoạch) và `PACKAGE_EXPIRING` (khi còn trong ngưỡng cảnh báo hết hạn, mặc định 7 ngày, tạo động khi truy vấn danh sách/unread).<br>• **BR-F33-03 [Hệ thống]:** Chống tạo trùng thông báo theo khóa duy nhất `(Member_ID, Source_Key)`. |
+| **F26 — Bảo toàn lịch sử & xử lý đồng thời** | • **BR-F26-01 [Hệ thống]:** Các nghiệp vụ cập nhật kế hoạch, đánh giá buổi học và xử lý hoàn tiền dùng optimistic locking (`Version`), từ chối lưu nếu dữ liệu đã bị sửa trước đó.<br>• **BR-F26-02 [Hệ thống]:** Hủy lớp, chấm dứt/hết hạn gói hoặc hoàn tiền không xóa lịch sử booking, thanh toán, snapshot mua gói và nhật ký hoạt động.<br>• **BR-F26-03 [CM]:** Chỉ `CM` (và `ROLE_Admin`) được xem `Activity_Log` qua `/api/admin/audit-logs/**`. |
+| **F27 — Lễ tân tra cứu và tạo hội viên** | • **BR-F27-01 [REC]:** Chỉ `Receptionist` được tra cứu và tạo tài khoản `Member` tại quầy.<br>• **BR-F27-02 [REC]:** Tạo hội viên tại quầy áp dụng cùng validation username/email/phone/password của `F01`, lưu ngay tài khoản `Active` với `Auth_Provider = LOCAL`, `Email_Verified = false` (buộc xác thực OTP khi Member đăng nhập lần đầu) và ghi audit log `CREATE_MEMBER`.<br>• **BR-F27-03 [Hệ thống]:** Tìm kiếm rỗng trả trang trống (phân trang `size` 1–100); xem chi tiết chỉ trả tài khoản có role `Member`, không trả vai trò khác. |
+| **F28 — Dashboard quản lý** | • **BR-F28-01 [CM]:** Chỉ `CM` (hoặc `ROLE_Admin`) được xem tổng quan chỉ số, chuỗi doanh thu, phân bố trạng thái lớp/gói và nhật ký gần đây.<br>• **BR-F28-02 [Hệ thống]:** Mốc ngày/tháng báo cáo tính theo múi giờ `Asia/Ho_Chi_Minh`; phạm vi chuỗi doanh thu từ `1` đến `24` tháng, số hoạt động gần đây từ `1` đến `100` bản ghi. |
+
+---
+
+## G. Các giới hạn & điểm cần nhóm thống nhất khi vẽ doc
+
+| Hạng mục | Thực trạng code/DB hiện tại | Lưu ý cho Swimlane / State Chart / ERD |
 |---|---|---|
-| BR-F01-01 | Khách | Tài khoản tự đăng ký luôn được cấp vai trò Member; người đăng ký không được tự chọn vai trò nhân viên hoặc quản lý. |
-| BR-F01-02 | Khách | Username và email phải chưa được sử dụng; kiểm tra trùng không phân biệt chữ hoa/chữ thường. Số điện thoại đăng ký cũng không được trùng. |
-| BR-F01-03 | Khách | Mật khẩu phải hợp lệ và mật khẩu xác nhận phải khớp trước khi tạo tài khoản. |
-| BR-F01-04 | Hệ thống | Tài khoản đăng ký thành công có trạng thái Active; mật khẩu được lưu dưới dạng đã băm. |
-
-### F02 — Đăng nhập thông thường và Google
-
-Nguồn: [AuthService](../src/main/java/com/swp391/beswp/service/AuthService.java), [GoogleLoginExchangeService](../src/main/java/com/swp391/beswp/service/GoogleLoginExchangeService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F02-01 | Người dùng | Đăng nhập thông thường chỉ thành công khi thông tin đăng nhập đúng, tài khoản Active và có vai trò hợp lệ. |
-| BR-F02-02 | Hệ thống | Tài khoản Inactive hoặc Locked không được đăng nhập. |
-| BR-F02-03 | Người dùng | Đăng nhập Google sử dụng email đã được luồng Google xác thực; nếu email đã tồn tại thì dùng tài khoản tương ứng. |
-| BR-F02-04 | Hệ thống | Nếu email Google chưa tồn tại, hệ thống tạo tài khoản Member rồi thực hiện đăng nhập; đăng nhập Google không bỏ qua kiểm tra trạng thái tài khoản. |
-
-### F03 — Xem và cập nhật hồ sơ cá nhân
-
-Nguồn: [UserProfileService](../src/main/java/com/swp391/beswp/service/UserProfileService.java), [AvatarService](../src/main/java/com/swp391/beswp/service/AvatarService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F03-01 | Người dùng | Người dùng xem và sửa hồ sơ của chính tài khoản đăng nhập. |
-| BR-F03-02 | Người dùng | Số điện thoại mới, nếu có, không được trùng với tài khoản khác. |
-| BR-F03-03 | Người dùng | Chức năng sửa hồ sơ cá nhân không cho đổi vai trò, trạng thái tài khoản, username hoặc email. |
-| BR-F03-04 | Người dùng | Ảnh tải lên qua chức năng avatar phải là PNG, JPEG hoặc GIF hợp lệ; tối đa 1 MB và tối đa 2048 × 2048 pixel. |
-
-### F04 — Quản lý người dùng
-
-Nguồn: [UserManagementController](../src/main/java/com/swp391/beswp/controller/UserManagementController.java), [UserManagementService](../src/main/java/com/swp391/beswp/service/UserManagementService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F04-01 | CM | Quản lý các tài khoản thuộc ba vai trò Receptionist, Coach và Member; chức năng này không dùng để tạo/quản lý tài khoản Center Manager. |
-| BR-F04-02 | CM | Khi tạo hoặc sửa người dùng, username, email và số điện thoại nếu có phải duy nhất so với các tài khoản khác. |
-| BR-F04-03 | CM | Chỉ được gán một trong ba vai trò được quản lý; trạng thái hợp lệ là Active, Inactive hoặc Locked. |
-| BR-F04-04 | CM | Đặt lại mật khẩu yêu cầu mật khẩu hợp lệ và xác nhận khớp; hệ thống lưu mật khẩu mới dưới dạng đã băm. |
-| BR-F04-05 | Hệ thống | Các thao tác tạo, cập nhật, đổi vai trò, đổi trạng thái và đặt lại mật khẩu được ghi nhật ký. |
-
-### F05 — Quản lý môn thể thao
-
-Nguồn: [SubjectService](../src/main/java/com/swp391/beswp/service/SubjectService.java), [SecurityConfig](../src/main/java/com/swp391/beswp/config/SecurityConfig.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F05-01 | CM | Được tạo và xóa môn theo quyền quản lý; tài khoản đã đăng nhập được đọc danh mục môn. |
-| BR-F05-02 | CM | Tên môn khi tạo không được để trống và không được trùng tên môn đã tồn tại, không phân biệt chữ hoa/chữ thường. |
-| BR-F05-03 | Hệ thống | Việc xóa môn chịu ràng buộc tham chiếu dữ liệu; không mặc định xóa kèm lớp học hoặc quyền lợi gói đang tham chiếu môn đó. |
-
-### F06 — Tạo và tra cứu lớp học
-
-Nguồn: [ClassService](../src/main/java/com/swp391/beswp/service/ClassService.java), [ClassSchedule](../src/main/java/com/swp391/beswp/service/ClassSchedule.java), [CreateClassRequest](../src/main/java/com/swp391/beswp/dto/CreateClassRequest.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F06-01 | CM | Tên lớp phải có giá trị và không trùng tên lớp đã tồn tại, không phân biệt chữ hoa/chữ thường. |
-| BR-F06-02 | CM | Lớp phải tham chiếu môn và phòng tồn tại; người phụ trách phải có vai trò Coach. |
-| BR-F06-03 | CM | Sức chứa lớp phải lớn hơn 0 và không vượt sức chứa phòng. |
-| BR-F06-04 | CM | Giờ kết thúc phải sau giờ bắt đầu; khoảng giờ học phải nằm trong slot được chọn. |
-| BR-F06-05 | CM | Slot hợp lệ là 07:00–09:15, 09:30–11:45, 12:30–14:45 hoặc 15:00–17:15. |
-| BR-F06-06 | Hệ thống | Từ ngày bắt đầu, số tuần và các thứ học, hệ thống tính ngày kết thúc khóa và tạo các Class_Session tương ứng. |
-| BR-F06-07 | CM | Khi tạo lớp chưa kết thúc/chưa hủy, không được trùng lịch phòng hoặc coach với các buổi học đang chiếm lịch. |
-
-## B. Gói dịch vụ và gói hội viên
-
-### F07 — Tạo và sửa cấu hình gói dịch vụ
-
-Nguồn: [PackageService](../src/main/java/com/swp391/beswp/service/PackageService.java), [CreatePackageRequest](../src/main/java/com/swp391/beswp/dto/CreatePackageRequest.java), [UpdatePackageRequest](../src/main/java/com/swp391/beswp/dto/UpdatePackageRequest.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F07-01 | CM | Tên gói phải có giá trị và không trùng tên gói khác, không phân biệt chữ hoa/chữ thường. |
-| BR-F07-02 | CM | Giá niêm yết phải lớn hơn 0; thời hạn phải lớn hơn 0; tỷ lệ chiết khấu nằm từ 0% đến 100%. |
-| BR-F07-03 | CM | Trạng thái gói chỉ là Active hoặc Inactive. |
-| BR-F07-04 | CM | Chỉ được đưa môn tồn tại và có trạng thái Active vào cấu hình quyền lợi gói. |
-| BR-F07-05 | CM | Không được lặp môn trong danh sách môn có sẵn hoặc trong cùng một nhóm lựa chọn. |
-| BR-F07-06 | CM | Mỗi nhóm lựa chọn phải có tên, số môn phải chọn lớn hơn 0 và đủ số môn để đáp ứng lựa chọn đó. |
-| BR-F07-07 | Hệ thống | Quy đổi thời hạn: 12 tháng = 365 ngày; 24 tháng = 730 ngày; các thời hạn khác = số tháng × 30 ngày. |
-
-### F08 — Xóa hoặc ngừng bán gói dịch vụ
-
-Nguồn: [PackageService](../src/main/java/com/swp391/beswp/service/PackageService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F08-01 | CM | Không được xóa gói đã có lịch sử mua; có thể chuyển gói sang Inactive để giữ lịch sử. |
-| BR-F08-02 | CM | Gói chưa có lịch sử mua có thể được xóa cùng các cấu hình môn và nhóm lựa chọn của gói. |
-| BR-F08-03 | Hệ thống | Việc thay đổi cấu hình gói không được ghi đè thông tin giá, tên, thời hạn, điều khoản và môn đã lưu tại thời điểm mua của các membership cũ. |
-
-### F09 — Member mua gói online
-
-Nguồn: [MemberPackageService](../src/main/java/com/swp391/beswp/service/MemberPackageService.java), [MemberPackageController](../src/main/java/com/swp391/beswp/controller/MemberPackageController.java), [OnlineSubscriptionPaymentService](../src/main/java/com/swp391/beswp/service/OnlineSubscriptionPaymentService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F09-01 | MEM | Tài khoản phải Active; gói được mua phải đủ điều kiện bán theo kiểm tra của hệ thống. |
-| BR-F09-02 | MEM | Nếu đang có gói Active, Member phải dùng luồng gia hạn thay vì mua mới thông thường. |
-| BR-F09-03 | MEM | Phải chọn đủ mọi nhóm lựa chọn, đúng số lượng yêu cầu, không trùng và đúng môn thuộc từng nhóm. |
-| BR-F09-04 | Hệ thống | Tiền giảm = giá niêm yết × tỷ lệ chiết khấu / 100; tiền phải trả = giá niêm yết − tiền giảm. Hệ thống tự tính từ dữ liệu gói. |
-| BR-F09-05 | MEM | Mua gói online chỉ nhận Card qua VNPay hoặc E_Wallet qua SePay; không dùng tiền mặt ở luồng Member online. |
-| BR-F09-06 | Hệ thống | Khoản thu online phải là số VND nguyên dương trong giới hạn thanh toán; không tạo giao dịch online bằng 0 dù cấu hình có chiết khấu 100%. |
-| BR-F09-07 | Hệ thống | Khi tạo giao dịch online, payment và membership ở trạng thái Pending; chưa được hưởng quyền lợi chỉ vì đã tạo giao dịch. |
-| BR-F09-08 | Hệ thống | Tại thời điểm mua, lưu lại giá thực trả, thời hạn, tên gói, điều khoản, môn có sẵn và môn đã chọn để bảo toàn lịch sử. |
-| BR-F09-09 | MEM / REC | Không tạo thêm thanh toán gói nếu hội viên còn một thanh toán gói Pending chưa hết hạn. |
-
-### F10 — Gia hạn gói hội viên
-
-Nguồn: [MemberPackageService](../src/main/java/com/swp391/beswp/service/MemberPackageService.java), [OnlineSubscriptionPaymentService](../src/main/java/com/swp391/beswp/service/OnlineSubscriptionPaymentService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F10-01 | MEM / REC | Có thể chọn bắt đầu ngay (IMMEDIATE) hoặc nối tiếp sau gói hiện tại (AFTER_CURRENT), tùy tình trạng membership. |
-| BR-F10-02 | Hệ thống | Gia hạn nối tiếp bắt đầu vào ngày sau End_Date của gói hiện tại; gói mới dùng giá, thời hạn và quyền lợi được kiểm tra tại thời điểm gia hạn. |
-| BR-F10-03 | MEM / REC | Không được tạo thêm gói chờ nối tiếp nếu đã có một gói Pending nối tiếp đang được ghi nhận. |
-| BR-F10-04 | Hệ thống | End_Date của gói mới = Start_Date + thời hạn theo ngày − 1 ngày. |
-| BR-F10-05 | Hệ thống | Với gia hạn online bắt đầu ngay, chỉ chuyển gói cũ sang Expired sau khi nhận xác nhận đã thanh toán và kiểm tra đủ điều kiện. |
-| BR-F10-06 | Hệ thống | Gia hạn nối tiếp đã trả tiền vẫn Pending cho đến ngày hiệu lực; thanh toán thất bại không được thay thế gói đang sử dụng. |
-| BR-F10-07 | MEM / REC | Luồng gia hạn yêu cầu có gói Active hiện tại. Nếu dữ liệu đang có nhiều gói Active cùng lúc thì phải được quản lý xử lý trước khi gia hạn. |
-
-### F11 — Đăng ký/gia hạn tại quầy và hỗ trợ hội viên
-
-Nguồn: [ReceptionistRegistrationService](../src/main/java/com/swp391/beswp/service/ReceptionistRegistrationService.java), [ReceptionistRegistrationController](../src/main/java/com/swp391/beswp/controller/ReceptionistRegistrationController.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F11-01 | REC | Chỉ Receptionist được thực hiện các API đăng ký tại quầy; hội viên được phục vụ phải là Member đủ điều kiện của luồng tương ứng. |
-| BR-F11-02 | REC | Đăng ký bằng tiền mặt được ghi nhận đã thu tiền; đăng ký bằng VNPay/SePay phải chờ xác nhận thanh toán như luồng online. |
-| BR-F11-03 | REC | Giá, lựa chọn môn, tình trạng gói và điều kiện đăng ký phải được kiểm tra lại tại server; không được tự nhập số tiền để bỏ qua chính sách gói. |
-| BR-F11-04 | REC | Khi gia hạn hộ hội viên, áp dụng cùng cách tính giá, thời hạn và lựa chọn bắt đầu ngay/nối tiếp của chức năng gia hạn. |
-
-### F12 — Quản lý vòng đời và chấm dứt membership
-
-Nguồn: [MembershipLifecycleService](../src/main/java/com/swp391/beswp/service/MembershipLifecycleService.java), [MembershipManagementService](../src/main/java/com/swp391/beswp/service/MembershipManagementService.java), [MemberPackageSubscriptionRepository](../src/main/java/com/swp391/beswp/repository/MemberPackageSubscriptionRepository.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F12-01 | Hệ thống | Gói Active có End_Date trước ngày hiện tại được chuyển sang Expired. |
-| BR-F12-02 | Hệ thống | Gói Pending đủ điều kiện thanh toán, đến ngày hiệu lực và không có gói Active khác mới được kích hoạt; gói online chưa trả tiền không được tự kích hoạt. |
-| BR-F12-03 | CM | Chỉ được chấm dứt membership đang Active hoặc Pending; phải nhập lý do. |
-| BR-F12-04 | Hệ thống | Khi chấm dứt, chuyển membership sang Cancelled, lưu lý do, thời điểm và nhật ký; không xóa lịch sử mua gói. |
-
-## C. Đăng ký lớp và thanh toán
-
-### F13 — Đăng ký lớp học
-
-Nguồn: [MemberClassBookingService](../src/main/java/com/swp391/beswp/service/MemberClassBookingService.java), [ClassReservationService](../src/main/java/com/swp391/beswp/service/ClassReservationService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F13-01 | MEM / REC | Chỉ đăng ký lớp đang Active hoặc Open, chưa bắt đầu, chưa hết thời hạn và có lịch hợp lệ. |
-| BR-F13-02 | MEM / REC | Không tạo đăng ký mới nếu hội viên đã có đăng ký còn hiệu lực hoặc giữ chỗ chưa hết hạn trong cùng lớp. |
-| BR-F13-03 | Hệ thống | Phải còn chỗ ở mọi buổi được đăng ký; số giữ chỗ Pending chưa hết hạn được tính khi kiểm tra sức chứa. |
-| BR-F13-04 | Hệ thống | Đăng ký tạo các booking theo từng buổi của khóa trong phạm vi lịch hợp lệ; các booking cùng lần đăng ký được nhóm bằng Registration_Code. |
-| BR-F13-05 | MEM / REC | Được chọn dùng gói, trả trực tiếp hoặc kết hợp dùng gói với trả phần thiếu (MIXED), theo điều kiện từng phương thức. |
-
-### F14 — Dùng gói hoặc kết hợp thanh toán khi đăng ký lớp
-
-Nguồn: [MemberClassBookingService](../src/main/java/com/swp391/beswp/service/MemberClassBookingService.java), [ClassBookingRepository](../src/main/java/com/swp391/beswp/repository/ClassBookingRepository.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F14-01 | MEM / REC | Dùng gói yêu cầu có membership Active hiện tại và quyền lợi môn của gói bao gồm môn của lớp. |
-| BR-F14-02 | Hệ thống | Lượt còn lại được tính từ Included_Classes của gói, trừ lượt đã dùng và lượt đang giữ chỗ; số hiển thị không được âm. |
-| BR-F14-03 | MEM / REC | Gói phải có hiệu lực đến buổi cuối của đăng ký; nếu chỉ dùng gói thì phải đủ lượt cho toàn bộ các buổi. |
-| BR-F14-04 | MEM / REC | MIXED yêu cầu còn ít nhất một lượt nhưng không đủ toàn bộ; phần thiếu phải thanh toán qua VNPay hoặc QR SePay. |
-| BR-F14-05 | Hệ thống | Tiền phần thiếu = đơn giá lớp × số buổi không được gói chi trả. Nếu lượt/số tiền khác với xác nhận người dùng vừa xem thì từ chối và yêu cầu xem lại. |
-
-### F15 — Thanh toán online và giữ chỗ
-
-Nguồn: [MemberClassBookingService](../src/main/java/com/swp391/beswp/service/MemberClassBookingService.java), [VnpayService](../src/main/java/com/swp391/beswp/service/VnpayService.java), [SepayService](../src/main/java/com/swp391/beswp/service/SepayService.java), [OnlineSubscriptionPaymentService](../src/main/java/com/swp391/beswp/service/OnlineSubscriptionPaymentService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F15-01 | Hệ thống | Giao dịch online có thời hạn 15 phút; đăng ký lớp online yêu cầu thời hạn này không vượt thời điểm bắt đầu buổi đầu. |
-| BR-F15-02 | Hệ thống | Chỉ xác nhận thanh toán từ thông báo cổng thanh toán hợp lệ, đúng giao dịch và số tiền; không coi việc trình duyệt chuyển về trang thành công là đủ để cấp quyền lợi. |
-| BR-F15-03 | Hệ thống | Khi xác nhận thanh toán lớp đúng hạn và đăng ký còn đủ điều kiện, payment chuyển Paid và các booking chờ được xác nhận. |
-| BR-F15-04 | Hệ thống | Giao dịch hết hạn/thất bại không được tiếp tục giữ chỗ hoặc kích hoạt gói chưa trả tiền. |
-| BR-F15-05 | Hệ thống | Nếu tiền đến sau hạn hoặc điều kiện đăng ký đã thay đổi, ghi nhận khoản thu để đối soát; không tự khôi phục quyền lợi đã không còn hợp lệ. |
-| BR-F15-06 | Hệ thống | Thông báo thanh toán trùng không được làm thu nhận hoặc kích hoạt quyền lợi lặp lại. |
-
-### F16 — Xem lịch sử gói và giao dịch
-
-Nguồn: [MemberPackageService](../src/main/java/com/swp391/beswp/service/MemberPackageService.java), [MemberPaymentService](../src/main/java/com/swp391/beswp/service/MemberPaymentService.java), [PaymentHistoryService](../src/main/java/com/swp391/beswp/service/PaymentHistoryService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F16-01 | MEM | Member chỉ được xem gói và giao dịch thuộc chính mình. |
-| BR-F16-02 | Hệ thống | Thông tin mua gói phải dùng dữ liệu đã ghi nhận tại lúc mua, thay vì tự thay toàn bộ bằng cấu hình gói mới nhất. |
-| BR-F16-03 | Hệ thống | Lịch sử giao dịch phân biệt khoản thực trả, tiền giảm và tình trạng hoàn tiền; không xóa giao dịch gốc sau khi hoàn tiền. |
-
-## D. Hủy đăng ký và hoàn tiền
-
-### F17 — Hủy đăng ký lớp
-
-Nguồn: [MemberClassBookingService](../src/main/java/com/swp391/beswp/service/MemberClassBookingService.java), [RefundService](../src/main/java/com/swp391/beswp/service/RefundService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F17-01 | MEM / REC | Chỉ được hủy đăng ký thuộc hội viên đang xử lý, khi lớp chưa bắt đầu và chưa kết thúc; phải còn booking tương lai có thể hủy. |
-| BR-F17-02 | Hệ thống | Hủy theo nhóm cùng lần đăng ký; chỉ các booking tương lai chưa bắt đầu được hủy, không xóa lịch sử buổi đã diễn ra. |
-| BR-F17-03 | Hệ thống | Khi có dữ liệu xác nhận preview, số buổi hủy và tiền hoàn phải khớp kết quả tính lại; nếu thay đổi thì yêu cầu mở lại xác nhận. |
-| BR-F17-04 | Hệ thống | Payment Pending của đăng ký bị hủy chuyển Failed. Khoản đã Paid được xét tạo yêu cầu hoàn theo chính sách; dùng gói thì trả quyền sử dụng các lượt chưa dùng, không tự tạo hoàn tiền mặt cho các lượt đó. |
-
-### F18 — Tạo và tính yêu cầu hoàn tiền
-
-Nguồn: [RefundService](../src/main/java/com/swp391/beswp/service/RefundService.java), [RefundRequest](../src/main/java/com/swp391/beswp/entity/RefundRequest.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F18-01 | Hệ thống | Yêu cầu hoàn tiền lớp phải dựa trên khoản đã Paid và có buổi đủ điều kiện hủy; không hoàn trên khoản chưa thu. |
-| BR-F18-02 | Hệ thống | Tiền hoàn dự kiến = tiền thực trả sau giảm giá × số buổi tương lai đã trả tiền bị hủy / tổng số buổi đã mua bằng khoản tiền đó; làm tròn xuống số VND nguyên. |
-| BR-F18-03 | Hệ thống | Mỗi payment chỉ được có tối đa một yêu cầu hoàn tiền; lưu lại số tiền và danh sách buổi làm căn cứ xử lý. |
-| BR-F18-04 | CM | Có thể mở yêu cầu xử lý cho khoản thu lớp cũ cần đối soát và có booking bị hủy; phải kiểm tra lại căn cứ số buổi được dựng từ lịch sử trước khi duyệt. |
-
-### F19 — Duyệt hoặc từ chối hoàn tiền
-
-Nguồn: [RefundService](../src/main/java/com/swp391/beswp/service/RefundService.java), [RefundDtos](../src/main/java/com/swp391/beswp/dto/RefundDtos.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F19-01 | CM | Chỉ được duyệt hoặc từ chối yêu cầu đang PENDING. |
-| BR-F19-02 | CM | Số tiền duyệt phải lớn hơn 0 và không vượt số tiền thực thu của giao dịch. |
-| BR-F19-03 | CM | Nếu tiền duyệt khác tiền dự kiến thì phải nhập lý do điều chỉnh; khi từ chối cũng phải nhập lý do. |
-| BR-F19-04 | Hệ thống | Ghi người duyệt, thời điểm và kết quả xử lý; cập nhật thông báo cho Member. |
-
-### F20 — Nhận và chi hoàn tiền tại quầy
-
-Nguồn: [RefundService](../src/main/java/com/swp391/beswp/service/RefundService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F20-01 | MEM | Chỉ chủ yêu cầu đã APPROVED được đăng ký nhận tiền tại quầy và lấy mã nhận tiền; luồng mới chỉ hỗ trợ CASH. |
-| BR-F20-02 | REC | Chỉ được xác nhận chi yêu cầu APPROVED, đã có phương thức CASH và mã nhận tiền; phải nhập mã Member cung cấp. |
-| BR-F20-03 | Hệ thống | Mã phải khớp đúng yêu cầu; so sánh không phân biệt chữ hoa/thường, khoảng trắng và dấu gạch nối. Mã sai không làm chuyển trạng thái. |
-| BR-F20-04 | Hệ thống | Chi thành công chuyển yêu cầu sang PAID, lưu người chi/thời điểm và tự tạo mã biên nhận; không cho xác nhận chi lại. |
-| BR-F20-05 | Hệ thống | Payment gốc vẫn giữ trạng thái Paid sau hoàn; ứng dụng ghi nhận việc chi tại quầy, không thực hiện chuyển tiền online. |
-
-## E. Coach, điểm danh và kế hoạch tập
-
-### F21 — Xem lớp phụ trách và điểm danh
-
-Nguồn: [CoachClassService](../src/main/java/com/swp391/beswp/service/CoachClassService.java), [CoachAttendanceService](../src/main/java/com/swp391/beswp/service/CoachAttendanceService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F21-01 | COACH | Coach phải Active và chỉ được thao tác điểm danh đối với lớp mình đang phụ trách. |
-| BR-F21-02 | COACH | Không được điểm danh lớp hoặc buổi học đã hủy. |
-| BR-F21-03 | COACH | Danh sách lưu phải gồm chính xác các hội viên đăng ký hợp lệ của buổi; mỗi hội viên xuất hiện một lần. |
-| BR-F21-04 | COACH | Trạng thái mà chức năng hiện nhận chỉ là Present hoặc Absent. |
-| BR-F21-05 | COACH | Nếu học viên có đánh giá chưa thu hồi, phải thu hồi đánh giá trước khi đổi điểm danh thành Absent. |
-
-### F22 — Đánh giá học viên theo buổi
-
-Nguồn: [SessionEvaluationService](../src/main/java/com/swp391/beswp/service/SessionEvaluationService.java), [SessionEvaluationDtos](../src/main/java/com/swp391/beswp/dto/SessionEvaluationDtos.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F22-01 | COACH | Chỉ coach phụ trách được đánh giá học viên có đăng ký hợp lệ trong buổi học đó. |
-| BR-F22-02 | COACH | Chỉ đánh giá sau thời điểm kết thúc buổi; lớp/buổi không bị hủy và ngày buổi học phải thuộc thời hạn lớp. |
-| BR-F22-03 | COACH | Học viên phải được lưu điểm danh Present trước khi được đánh giá. |
-| BR-F22-04 | Hệ thống | Mỗi cặp học viên–buổi chỉ có một bản ghi đánh giá; lưu lại các lần sửa qua thông tin cập nhật và kiểm tra phiên bản. |
-| BR-F22-05 | MEM | Member chỉ được đọc đánh giá của chính mình và đánh giá chưa bị thu hồi. |
-
-### F23 — Tạo, giao và cập nhật kế hoạch tập
-
-Nguồn: [TrainingPlanService](../src/main/java/com/swp391/beswp/service/TrainingPlanService.java), [TrainingPlanDtos](../src/main/java/com/swp391/beswp/dto/TrainingPlanDtos.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F23-01 | COACH | Chỉ coach đang phụ trách lớp được quản lý kế hoạch của lớp đó; người nhận phải đủ điều kiện đăng ký và tài khoản Active. |
-| BR-F23-02 | COACH | Kế hoạch cá nhân gắn một học viên; kế hoạch cả lớp dùng scope CLASS và không chỉ định Member_ID riêng ở plan. |
-| BR-F23-03 | COACH | Khoảng ngày kế hoạch phải nằm trong thời hạn lớp, ngày kết thúc không trước ngày bắt đầu và không ở quá khứ khi lưu nội dung. |
-| BR-F23-04 | Hệ thống | Bản nháp chưa giao không được hiển thị cho Member; kế hoạch đã giao không được chuyển lại về bản nháp. |
-| BR-F23-05 | COACH | Mỗi lớp có tối đa một kế hoạch CLASS đang ASSIGNED; mỗi học viên có tối đa một kế hoạch cá nhân ASSIGNED trong lớp. Hai loại có thể cùng tồn tại. |
-| BR-F23-06 | Hệ thống | Khi giao kế hoạch CLASS lần đầu, chốt danh sách học viên đủ điều kiện lúc giao; không được giao nếu danh sách rỗng. |
-| BR-F23-07 | COACH | Học viên đăng ký sau được bổ sung qua thao tác thêm người nhận; việc sửa nội dung không tự thay toàn bộ danh sách đã chốt. |
-| BR-F23-08 | COACH | Không được đổi lớp, loại kế hoạch hoặc học viên cá nhân của kế hoạch đã tạo; không được xóa bài tập đã có kết quả. |
-
-### F24 — Ghi kết quả tập và xem tiến độ
-
-Nguồn: [TrainingPlanService](../src/main/java/com/swp391/beswp/service/TrainingPlanService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F24-01 | MEM | Chỉ người nhận được giao kế hoạch được ghi kết quả của chính mình; bài tập phải thuộc đúng kế hoạch. |
-| BR-F24-02 | MEM | Chỉ ghi kết quả khi plan ASSIGNED, ngày hiện tại nằm trong khoảng kế hoạch và đăng ký/lớp vẫn đủ điều kiện. |
-| BR-F24-03 | Hệ thống | Kế hoạch COMPLETED/CANCELLED, lớp không còn hoạt động hoặc người nhận không còn đăng ký hợp lệ được giữ để đọc lịch sử nhưng không nhận kết quả mới. |
-| BR-F24-04 | Hệ thống | Kế hoạch CLASS lưu kết quả và trạng thái đọc riêng theo từng người nhận; Member không được xem kết quả hay phản hồi riêng của người khác. |
-| BR-F24-05 | Hệ thống | Khi nội dung được giao/cập nhật, phiên bản công bố tăng; đọc phiên bản cũ không tự đánh dấu đã đọc phiên bản mới. |
-| BR-F24-06 | COACH | Coach có thể nhận xét riêng từng người nhận của kế hoạch CLASS đang ASSIGNED và đủ điều kiện chỉnh sửa. |
-
-## F. Trao đổi và quy tắc bảo toàn dữ liệu
-
-### F25 — Chat Member–Coach
-
-Nguồn: [ChatService](../src/main/java/com/swp391/beswp/service/ChatService.java), [ChatMediaService](../src/main/java/com/swp391/beswp/service/ChatMediaService.java), [ClassBookingRepository](../src/main/java/com/swp391/beswp/repository/ClassBookingRepository.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F25-01 | MEM / COACH | Chức năng chat dành cho tài khoản Active có vai trò Member hoặc Coach; hai bên trao đổi phải thuộc hai vai trò đối ứng. |
-| BR-F25-02 | MEM / COACH | Gửi tin yêu cầu hai bên có booking Booked trong lớp do coach đó phụ trách, lớp Active/Open và chưa hết thời hạn. |
-| BR-F25-03 | Hệ thống | Mỗi cặp Member–Coach có tối đa một hội thoại; mỗi tin nhắn thuộc một hội thoại. |
-| BR-F25-04 | MEM / COACH | Chỉ người tham gia hội thoại được đọc tin và thao tác trạng thái đọc trong hội thoại đó. |
-| BR-F25-05 | MEM / COACH | Tin chữ không được rỗng; tin ảnh phải dùng ảnh đã tải qua chức năng upload của hệ thống. |
-| BR-F25-06 | MEM / COACH | Ảnh chat không vượt quá 5 MB và phải đúng định dạng ảnh hệ thống hỗ trợ. |
-
-### F26 — Bảo toàn lịch sử và xử lý cập nhật đồng thời
-
-Nguồn: [RefundService](../src/main/java/com/swp391/beswp/service/RefundService.java), [TrainingPlanService](../src/main/java/com/swp391/beswp/service/TrainingPlanService.java), [SessionEvaluationService](../src/main/java/com/swp391/beswp/service/SessionEvaluationService.java), [AuditLogController](../src/main/java/com/swp391/beswp/controller/AuditLogController.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F26-01 | Người dùng | Khi cập nhật kế hoạch, đánh giá hoặc hoàn tiền có kiểm tra phiên bản, dữ liệu gửi phải dựa trên phiên bản hiện tại; nếu đã có người khác cập nhật thì phải tải lại trước khi lưu. |
-| BR-F26-02 | Hệ thống | Giữ lịch sử giao dịch, đăng ký đã hủy, kế hoạch và kết quả cũ theo các chức năng tương ứng; không coi thao tác hủy/ngừng là xóa toàn bộ dữ liệu liên quan. |
-| BR-F26-03 | CM | Được xem nhật ký hoạt động theo quyền quản lý; Member không được dùng chức năng nhật ký quản trị để đọc thao tác của người khác. |
-
-### F27 — Lễ tân tra cứu và tạo hội viên
-
-Nguồn: [ReceptionistMemberController](../src/main/java/com/swp391/beswp/controller/ReceptionistMemberController.java), [MemberService](../src/main/java/com/swp391/beswp/service/MemberService.java), [AuthService](../src/main/java/com/swp391/beswp/service/AuthService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F27-01 | REC | Chỉ Receptionist được dùng chức năng tra cứu và tạo hội viên tại quầy. |
-| BR-F27-02 | REC | Khi tạo tài khoản hộ khách, áp dụng cùng quy tắc đăng ký F01; tài khoản được tạo là Member, không cho chọn vai trò nhân viên. |
-| BR-F27-03 | Hệ thống | Tra cứu chi tiết chỉ trả tài khoản có vai trò Member; ID không tồn tại hoặc thuộc vai trò khác đều không trả hồ sơ hội viên. |
-| BR-F27-04 | Hệ thống | Tìm kiếm không có từ khóa trả danh sách rỗng, không tự liệt kê toàn bộ hội viên. |
-
-### F28 — Dashboard quản lý
-
-Nguồn: [CenterManagerDashboardController](../src/main/java/com/swp391/beswp/controller/CenterManagerDashboardController.java), [CenterManagerDashboardService](../src/main/java/com/swp391/beswp/service/CenterManagerDashboardService.java).
-
-| Mã BR | Người thực hiện | Business Rule |
-|---|---|---|
-| BR-F28-01 | CM | Dashboard quản lý cung cấp các chỉ số tổng quan, chuỗi doanh thu, phân bố trạng thái lớp/gói hội viên và hoạt động gần đây theo quyền quản lý. |
-| BR-F28-02 | Hệ thống | Ngày báo cáo và tháng hiện tại được xác định theo múi giờ Asia/Ho_Chi_Minh. |
-| BR-F28-03 | CM | Phạm vi xem doanh thu theo tháng từ 1 đến 24 tháng; số hoạt động gần đây từ 1 đến 100 bản ghi. |
-
-## G. Điểm cần nhóm chốt trước khi nộp bản chính thức
-
-| Vấn đề | Hiện trạng đã thấy | Cách dùng trong doc |
-|---|---|---|
-| Included_Classes | Entity gọi đây là metadata cũ, nhưng MemberClassBookingService vẫn đọc để tính lượt đăng ký bằng gói. | BR-F14-02 mô tả đúng điều kiện đang chạy. Nếu nhóm muốn bỏ cơ chế lượt thì cần đổi code rồi cập nhật BR/ERD. |
-| Điểm danh | DDL cho phép thêm Late/Excused, nhưng service hiện chỉ nhận Present/Absent. | Mô tả chức năng hiện tại theo BR-F21-04; không quảng bá Late/Excused là chức năng đã làm xong. |
-| Hủy lớp sau khi đã bắt đầu | Một số comment/mô tả API cũ gợi ý hủy khi đang diễn ra; service chặn nếu lớp đã bắt đầu. | Dùng BR-F17-01 cho bản mô tả hiện trạng. Nếu nghiệp vụ mong muốn hủy các buổi còn lại sau khi khóa bắt đầu thì cần nhóm chốt và sửa code. |
-| Chuyển khoản hoàn tiền | DB còn cột ngân hàng và giá trị BANK để giữ lịch sử; luồng nhận tiền mới chỉ hỗ trợ CASH. | Mô tả chức năng nhận tại quầy theo F20; không ghi hệ thống tự chuyển tiền ngân hàng. |
-| Vai trò Admin | Một số nhánh security còn ROLE_Admin tương thích cũ; các service/controller có thể kiểm tra vai trò chặt hơn. | Actor chính trong tài liệu dùng bốn vai trò sản phẩm. Không suy ra Admin được làm mọi việc từ SecurityConfig. |
-| Schedule/Voucher và quản lý phòng | Có cấu trúc dữ liệu không đồng nghĩa đã có đầy đủ màn hình/nghiệp vụ. | Không thêm chức năng quản lý riêng chỉ dựa vào ERD. |
-| Dashboard, tìm kiếm, lọc, xuất dữ liệu | Đây là chức năng đọc/hiển thị; công thức chỉ tiêu và quyền xuất cần đối chiếu riêng khi đưa vào phạm vi chi tiết. | Tài liệu này chưa đặc tả công thức thống kê, bộ lọc hoặc định dạng file xuất. |
-| Chạy thật và nghiệm thu | Bản này được đối chiếu tĩnh với repository, chưa chạy lại toàn bộ test hoặc xác nhận schema DB thật. | Nhóm xác nhận phạm vi hoàn thành trước khi gắn nhãn Final/Approved. |
-
-## H. Cách đưa vào tài liệu môn học
-
-1. Dùng tên F01–F28 làm danh mục chức năng; đổi mã theo mẫu nhóm nếu cần, nhưng giữ mapping BR để truy vết. F26 là nhóm quy tắc dùng chung thay vì một màn hình riêng.
-2. Copy các bảng quy tắc vào mục Business Rules. Nếu mẫu chỉ có hai cột Function / Rules, gộp các BR cùng Fxx vào một hàng, giữ mã BR trong nội dung.
-3. Trong flowchart/swimlane, gắn mã BR vào các nhánh kiểm tra; ví dụ nhánh “Còn chỗ?” tham chiếu BR-F13-03.
-4. Trong state chart, dùng BR cho điều kiện chuyển trạng thái; ví dụ Pending → Active của membership theo F09, F10 và F12.
-5. Sau khi nhóm chốt các điểm mục G, cập nhật cả code, BR, ERD và test case liên quan để các tài liệu thống nhất.
+| **Hủy lớp & Hoàn tiền (`F17–F20`)** | Chỉ hủy được khi còn **trên 3 ngày** trước buổi đầu; hủy chuẩn hoàn cố định **50%** (`CLASS_CANCEL_50`) và chỉ chi tiền mặt `CASH` tại quầy. Bảng `Refund_Request` còn cột ngân hàng để giữ lịch sử/legacy `estimate(...)`. | Không vẽ nhánh Member tự hủy sau khi lớp sắp mở `<= 3` ngày hoặc tự chuyển khoản ngân hàng. |
+| **Điểm danh (`F21`)** | DB `CHECK` cho phép `Present`, `Absent`, `Late`, `Excused`; `CoachAttendanceService` chỉ nhận `Present` / `Absent`. | State chart & flowchart chỉ dùng `Present` và `Absent`. |
+| **Voucher CRUD & Bảng `Schedule`** | Có `VoucherApplicationService` áp dụng voucher sẵn trong DB khi thanh toán, **chưa có API/UI quản lý tạo/sửa `Voucher`**; bảng `Schedule` trong DDL/ERD cũ chưa có entity hay service nào dùng. | Không vẽ chức năng CRUD Voucher hay Schedule nếu nhóm không bổ sung màn hình mới. |
+| **Vai trò `Admin` vs `Center Manager`** | `SecurityConfig` còn cho `ROLE_Admin` ở một số nhánh tương thích cũ và khóa riêng `/api/admin/account-identities/**`; toàn bộ nghiệp vụ chính dùng 4 role (`Center Manager`, `Receptionist`, `Coach`, `Member`). | Swimlane chính dùng 4 role sản phẩm; tách rõ `ADMIN` cho phần rà soát `UNKNOWN`. |
+| **Đồng bộ Schema SQL gốc & FE** | [swp391_db.sql](database/swp391_db.sql) đang thiếu 8 bảng từ các migration cũ; các tài liệu BE-only (Email OTP, Unlimited Membership, Freeze, Room) ghi chú FE hoặc ERD chưa đồng bộ hoàn toàn. | Khi cập nhật ERD & DDL ở bước tiếp theo cần hợp nhất đủ 30 bảng đang chạy ở BE. |
+
+---
+
+## H. Cách tham chiếu vào Swimlane / Flowchart & State chart
+
+1. **Với Swimlane / Flowchart (`1/ Features`):** đặt mã `BR-Fxx-yy` vào từng bước xử lý hoặc nhánh rẽ điều kiện (ví dụ nhánh kiểm tra trùng lịch đặt lớp gắn `BR-F14-03`, nhánh điều kiện hủy lớp gắn `BR-F17-01`).
+2. **Với State chart (`1/ Features`):** gắn mã `BR` lên điều kiện chuyển trạng thái (ví dụ `Pending -> Active` / `Active <-> Frozen -> Expired | Cancelled` của `Member_Subscription` tham chiếu `F09`, `F10`, `F31`, `F12`).
+3. **Với bảng nộp môn học (`3/ Business rules`):** có thể copy nguyên các bảng `| Func | Rules |` ở mục `A–F` (hoặc gộp liền các bảng đó thành một bảng duy nhất `| Func | Rules |`).

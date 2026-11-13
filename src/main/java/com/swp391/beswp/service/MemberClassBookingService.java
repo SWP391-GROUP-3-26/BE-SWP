@@ -688,8 +688,7 @@ public class MemberClassBookingService {
     /**
      * Lấy thông tin trạng thái gói hội viên đang hoạt động của học viên.
      */
-    @Transactional(readOnly = true)
-    public MemberSubscriptionInfoResponse getActiveSubscriptionInfo(User user) {
+    private MemberSubscriptionInfoResponse getActiveSubscriptionInfo(User user) {
         Optional<MemberSubscription> subOpt = memberSubscriptionRepository.findCurrentActiveSubscription(user.getId(), LocalDate.now(paymentClock));
         if (subOpt.isEmpty()) {
             return MemberSubscriptionInfoResponse.builder()

@@ -5,6 +5,8 @@ target/
 !**/src/test/**/target/
 .env*
 /uploads/chat/
+/uploads/avatars/
+*.bkp
 
 ### STS ###
 .apt_generated

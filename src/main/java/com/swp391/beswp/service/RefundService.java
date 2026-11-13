@@ -39,7 +39,7 @@ public class RefundService {
                 registration.stream().anyMatch(b -> "PACKAGE".equals(b.getPaymentMethod())), sessionViews(registration, cancelled));
     }
 
-    public Set<Integer> futureBookings(List<ClassBooking> registration) {
+    private Set<Integer> futureBookings(List<ClassBooking> registration) {
         LocalDateTime now = now();
         Set<Integer> ids = new HashSet<>();
         for (ClassBooking b : registration) if (("Booked".equals(b.getStatus()) || "Pending".equals(b.getStatus()))
